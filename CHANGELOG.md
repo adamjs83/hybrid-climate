@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-09-28
+
+### Changed
+- Maintenance release: manifest metadata ordered for Home Assistant validation. No behavior changes.
+
 ## [0.10.0] - 2026-09-28
 
 First public release, installable through HACS.
