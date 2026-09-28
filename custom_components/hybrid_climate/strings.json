@@ -1,0 +1,332 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hybrid Climate Setup",
+        "description": "Set up your whole-home HVAC orchestration system.\n\n**Configuration found:** {zone_count} zones, {device_count} devices",
+        "data": {
+          "master_name": "Master entity name"
+        },
+        "data_description": {
+          "master_name": "Display name for the master climate entity"
+        }
+      }
+    },
+    "error": {
+      "no_yaml_config": "No YAML configuration found. You can configure zones and devices via the options menu after setup."
+    },
+    "abort": {
+      "already_configured": "Hybrid Climate is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "menu": {
+        "title": "Hybrid Climate Configuration",
+        "description": "**{master_name}** is managing {zone_count} zones with {device_count} devices.",
+        "menu_options": {
+          "global_settings": "Global Settings",
+          "zones": "Zones",
+          "heat_sources": "Heat Source Groups",
+          "presets": "Preset Modes",
+          "conflicts": "Device Conflicts",
+          "devices": "Device Behaviors"
+        }
+      },
+      "global_settings": {
+        "title": "Global Settings",
+        "description": "Configure the master entity, sensors, and outdoor temperature limits.",
+        "data": {
+          "master_name": "Master name",
+          "outdoor_sensor": "Outdoor temperature entity",
+          "occupancy_entity": "Occupancy entity",
+          "tou_rate_sensor": "TOU rate period sensor",
+          "never_heat_above": "Never heat above (outdoor temp)",
+          "never_cool_below": "Never cool below (outdoor temp)"
+        },
+        "data_description": {
+          "outdoor_sensor": "sensor.* or weather.* entity for outdoor readings",
+          "occupancy_entity": "binary_sensor.* or input_boolean.* tracking home occupancy",
+          "tou_rate_sensor": "sensor.* entity whose state indicates the current rate period (e.g., 'peak', 'off_peak')",
+          "never_heat_above": "Disable heating when outdoor temperature exceeds this value",
+          "never_cool_below": "Disable cooling when outdoor temperature is below this value"
+        }
+      },
+      "zones": {
+        "title": "Zones ({zone_count})",
+        "description": "Select a zone to edit, or add a new zone.",
+        "data": {
+          "action": "Select action"
+        }
+      },
+      "zone_basics": {
+        "title": "Zone: Basic Settings",
+        "description": "Configure zone identity and temperature sensors.",
+        "data": {
+          "zone_id": "Zone ID",
+          "name": "Display name",
+          "sensors": "Temperature sensors",
+          "aggregation": "Sensor aggregation",
+          "smoothing_samples": "Smoothing samples"
+        },
+        "data_description": {
+          "zone_id": "Unique identifier (lowercase, no spaces)",
+          "sensors": "Leave empty to use device's built-in sensor",
+          "aggregation": "How to combine multiple sensor readings",
+          "smoothing_samples": "Number of samples to average (1 = no smoothing)"
+        }
+      },
+      "zone_occupancy": {
+        "title": "Zone: {zone_name} - Occupancy",
+        "description": "Configure occupancy-based setpoint adjustments.",
+        "data": {
+          "occupancy_enabled": "Enable occupancy override",
+          "occupancy_entity": "Occupancy sensor",
+          "occupied_offset": "Occupied offset",
+          "unoccupied_offset": "Unoccupied offset"
+        },
+        "data_description": {
+          "occupancy_entity": "binary_sensor that indicates room occupancy",
+          "occupied_offset": "Temperature adjustment when occupied",
+          "unoccupied_offset": "Temperature adjustment when unoccupied"
+        }
+      },
+      "zone_heat_stages": {
+        "title": "Zone: {zone_name} - Heat Stages",
+        "description": "Configure heating stages. Stage 1 activates first; Stage 2 adds devices when Stage 1 can't keep up.",
+        "data": {
+          "has_heat_stages": "Enable heating for this zone",
+          "stage1_devices": "Stage 1 devices",
+          "stage1_threshold": "Stage 1 threshold",
+          "stage2_devices": "Stage 2 devices (optional)",
+          "stage2_threshold": "Stage 2 threshold",
+          "stage2_time_escalation": "Stage 2 time escalation",
+          "stage2_outdoor_min": "Stage 2 min outdoor temp"
+        },
+        "data_description": {
+          "stage1_threshold": "Activate when this far below target",
+          "stage2_threshold": "Activate Stage 2 when this far below target",
+          "stage2_time_escalation": "Or activate after Stage 1 runs this long without satisfaction",
+          "stage2_outdoor_min": "Only use Stage 2 when outdoor temp is above this (for heat pump efficiency)"
+        }
+      },
+      "zone_cool_stages": {
+        "title": "Zone: {zone_name} - Cool Stages",
+        "description": "Configure cooling stages.",
+        "data": {
+          "has_cool_stages": "Enable cooling for this zone",
+          "stage1_devices": "Stage 1 devices",
+          "stage1_threshold": "Stage 1 threshold",
+          "stage2_devices": "Stage 2 devices (optional)",
+          "stage2_threshold": "Stage 2 threshold",
+          "stage2_time_escalation": "Stage 2 time escalation"
+        },
+        "data_description": {
+          "stage1_threshold": "Activate when this far above target",
+          "stage2_threshold": "Activate Stage 2 when this far above target",
+          "stage2_time_escalation": "Or activate after Stage 1 runs this long without satisfaction"
+        }
+      },
+      "zone_settings": {
+        "title": "Zone: {zone_name} - Settings",
+        "description": "Configure zone control behavior, opportunistic heating, and outdoor reset overrides.",
+        "data": {
+          "hysteresis": "Hysteresis",
+          "min_runtime": "Minimum runtime",
+          "opportunistic_enabled": "Enable opportunistic heating",
+          "opportunistic_threshold": "Opportunistic threshold",
+          "override_outdoor_reset": "Override global outdoor reset limits",
+          "disable_cool_limit": "Disable cooling temperature limit",
+          "zone_never_cool_below": "Zone-specific never cool below",
+          "disable_heat_limit": "Disable heating temperature limit",
+          "zone_never_heat_above": "Zone-specific never heat above",
+          "regulation_type": "Regulation type",
+          "allow_command_devices": "Devices that sync external changes"
+        },
+        "data_description": {
+          "hysteresis": "Temperature buffer to prevent short-cycling",
+          "min_runtime": "Minimum time devices must run before turning off",
+          "opportunistic_enabled": "Allow this zone to piggyback on boiler cycles from other zones",
+          "opportunistic_threshold": "Activate opportunistic heating when this far below setpoint",
+          "override_outdoor_reset": "Use zone-specific outdoor reset limits instead of global",
+          "disable_cool_limit": "Allow cooling regardless of outdoor temperature (e.g., for basements)",
+          "zone_never_cool_below": "Only cool when outdoor temp is above this (leave empty to use global)",
+          "disable_heat_limit": "Allow heating regardless of outdoor temperature",
+          "zone_never_heat_above": "Only heat when outdoor temp is below this (leave empty to use global)",
+          "regulation_type": "How to control underlying devices",
+          "allow_command_devices": "Select devices whose manual thermostat changes should sync back to the zone setpoint. One toggle per device applies across all stages."
+        }
+      },
+      "zone_pi_settings": {
+        "title": "Zone: {zone_name} - PI Control",
+        "description": "Configure PI controller for regulated devices. The controller adjusts device setpoints based on error to improve comfort.",
+        "data": {
+          "pi_devices": "Devices to regulate",
+          "kp": "Proportional gain (Kp)",
+          "ki": "Integral gain (Ki)",
+          "k_ext": "Outdoor factor (K_ext)",
+          "offset_max": "Maximum offset",
+          "balance_point": "Balance point"
+        },
+        "data_description": {
+          "pi_devices": "Which devices should receive adjusted setpoints",
+          "kp": "How aggressively to respond to current error",
+          "ki": "How aggressively to respond to accumulated error",
+          "k_ext": "Factor to adjust based on outdoor temperature (0 = disabled)",
+          "offset_max": "Maximum setpoint adjustment in either direction",
+          "balance_point": "Outdoor temperature where no adjustment is needed"
+        }
+      },
+      "zone_tou": {
+        "title": "Zone: {zone_name} - TOU Optimization",
+        "description": "Configure Time-of-Use rate optimization. When a peak rate period is detected, the system pre-conditions before the peak and relaxes setpoints during the peak to reduce electric device runtime.",
+        "data": {
+          "tou_heat_enabled": "Enable TOU for heating",
+          "tou_heat_pre_condition_minutes": "Heat pre-condition minutes",
+          "tou_heat_relaxation_amount": "Heat relaxation amount",
+          "tou_cool_enabled": "Enable TOU for cooling",
+          "tou_cool_pre_condition_minutes": "Cool pre-condition minutes",
+          "tou_cool_relaxation_amount": "Cool relaxation amount"
+        },
+        "data_description": {
+          "tou_heat_pre_condition_minutes": "Minutes before peak to pre-heat (raise heat setpoint to warm up early)",
+          "tou_heat_relaxation_amount": "Degrees to lower the heat setpoint during peak (reduce heating demand)",
+          "tou_cool_pre_condition_minutes": "Minutes before peak to pre-cool (lower cool setpoint to cool down early)",
+          "tou_cool_relaxation_amount": "Degrees to raise the cool setpoint during peak (reduce cooling demand)"
+        }
+      },
+      "devices": {
+        "title": "Device Behaviors",
+        "description": "Select a device to configure its idle behavior.",
+        "data": {
+          "action": "Select device"
+        }
+      },
+      "device_idle": {
+        "title": "Device: {device_id}",
+        "description": "Configure what this device does when its zone is satisfied.",
+        "data": {
+          "action": "When idle",
+          "setback": "Setback amount"
+        },
+        "data_description": {
+          "action": "Turn off or maintain a setback temperature",
+          "setback": "Degrees below (heat) or above (cool) target when idle"
+        }
+      },
+      "heat_sources": {
+        "title": "Heat Source Groups ({source_count})",
+        "description": "Group devices that share a heat source (e.g., boiler) for opportunistic heating.",
+        "data": {
+          "action": "Select action"
+        }
+      },
+      "heat_source_edit": {
+        "title": "Heat Source Group",
+        "description": "Configure devices that share this heat source. When one zone heats, others can piggyback.",
+        "data": {
+          "source_id": "Group ID",
+          "name": "Display name",
+          "devices": "Devices in group"
+        },
+        "data_description": {
+          "source_id": "Unique identifier (lowercase, no spaces)",
+          "devices": "Climate devices that share this heat source"
+        }
+      },
+      "presets": {
+        "title": "Preset Modes",
+        "description": "Configure behavior for each master mode.",
+        "data": {
+          "action": "Select mode to configure"
+        }
+      },
+      "preset_edit": {
+        "title": "Preset: {mode_name}",
+        "description": "Configure how zones behave in this mode.",
+        "data": {
+          "use_zone_setpoint": "Use zone setpoint",
+          "setpoint_offset": "Setpoint offset",
+          "skip_time_escalation": "Skip time escalation",
+          "disable_all": "Disable all zones"
+        },
+        "data_description": {
+          "use_zone_setpoint": "Which zone setpoint to use in this mode",
+          "setpoint_offset": "Additional offset to apply to zone setpoints",
+          "skip_time_escalation": "Activate all stages immediately (boost behavior)",
+          "disable_all": "Turn off all zones in this mode"
+        }
+      },
+      "conflicts": {
+        "title": "Device Conflicts ({rule_count})",
+        "description": "Configure device mutex rules. When a device is heating/cooling one zone, it can block other zones.",
+        "data": {
+          "action": "Select action"
+        }
+      },
+      "conflict_edit": {
+        "title": "{edit_mode} Mutex Rule",
+        "description": "When a device is active in a zone, it can prevent other zones from heating or cooling.",
+        "data": {
+          "device": "Device",
+          "mode": "When device is",
+          "for_zone": "In zone",
+          "block_heat": "Block heating in zones",
+          "block_cool": "Block cooling in zones"
+        },
+        "data_description": {
+          "device": "The climate device this rule applies to",
+          "mode": "Heating or cooling mode that triggers the block",
+          "for_zone": "The zone that triggers the block when this device is active",
+          "block_heat": "Zones that cannot heat while this rule is active",
+          "block_cool": "Zones that cannot cool while this rule is active"
+        }
+      }
+    },
+    "error": {
+      "invalid_temp_range": "Never heat above must be less than never cool below (e.g., heat limit 55°F < cool limit 63°F).",
+      "master_name_required": "Please enter a name for the master entity.",
+      "zone_id_required": "Please enter a zone ID.",
+      "zone_name_required": "Please enter a display name for the zone.",
+      "zone_id_exists": "A zone with this ID already exists.",
+      "source_id_required": "Please enter a group ID.",
+      "source_name_required": "Please enter a display name.",
+      "source_devices_required": "Please select at least one device.",
+      "source_id_exists": "A group with this ID already exists.",
+      "device_required": "Please select a device.",
+      "zone_required": "Please select a zone.",
+      "no_blocks_specified": "Please specify at least one zone to block."
+    },
+    "abort": {
+      "cannot_delete_yaml_zone": "Cannot delete zones defined in YAML. Remove from configuration.yaml instead.",
+      "cannot_delete_yaml_source": "Cannot delete heat sources defined in YAML. Remove from configuration.yaml instead.",
+      "cannot_delete_yaml_rule": "Cannot delete mutex rules defined in YAML. Remove from configuration.yaml instead.",
+      "rule_not_found": "Rule not found.",
+      "no_zone_id": "No zone ID specified."
+    }
+  },
+  "entity": {
+    "climate": {
+      "master": {
+        "name": "Master",
+        "state_attributes": {
+          "outdoor_temperature": {
+            "name": "Outdoor Temperature"
+          },
+          "zones_heating": {
+            "name": "Zones Heating"
+          },
+          "zones_cooling": {
+            "name": "Zones Cooling"
+          },
+          "zones_idle": {
+            "name": "Zones Idle"
+          },
+          "active_conflicts": {
+            "name": "Active Conflicts"
+          }
+        }
+      }
+    }
+  }
+}

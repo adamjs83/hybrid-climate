@@ -1,0 +1,220 @@
+# Example Hybrid Climate Configuration
+# Save as hybrid_climate_config.yaml and include in configuration.yaml:
+#   hybrid_climate: !include hybrid_climate_config.yaml
+#
+# IMPORTANT: Do NOT include `hybrid_climate:` key in this file - that's added by the !include
+
+# Outdoor sensor for outdoor reset logic
+# Supports both sensor.* and weather.* entities
+outdoor_sensor: sensor.outdoor_temperature
+
+# Master entity configuration
+master:
+  name: "Home HVAC"
+  occupancy_entity: input_select.home_mode  # Optional: home/away/vacation selector
+  modes:
+    home:
+      use_zone_defaults: true
+    away:
+      use_zone_away_setpoints: true
+    vacation:
+      use_zone_away_setpoints: true
+      setpoint_offset: -5
+    boost:
+      skip_time_escalation: true
+    "off":  # MUST be quoted - 'off' is a YAML reserved word
+      disable_all: true
+
+# Global conflict rules
+conflicts:
+  outdoor_reset:
+    never_heat_above: 75  # Don't heat if outdoor temp > 75°F
+    never_cool_below: 55  # Don't cool if outdoor temp < 55°F
+
+  # Device mutex rules for shared equipment
+  device_mutex:
+    # Example: Basement cooling blocks family room from using shared HP for heat
+    - when:
+        device: basement_family_hp
+        mode: cool
+        for_zone: basement
+      then:
+        block_heat: [family_room]  # Family room can't use this HP for heat
+
+# Device pool - all climate devices in your home
+devices:
+  # Basement devices
+  basement_radiant:
+    entity_id: climate.basement_radiant_floor
+    capabilities: [heat]
+
+  basement_family_hp:
+    entity_id: climate.basement_family_heatpump
+    capabilities: [heat, cool]
+
+  # Main floor devices
+  main_radiant_1:
+    entity_id: climate.main_floor_radiant_zone1
+    capabilities: [heat]
+
+  main_radiant_2:
+    entity_id: climate.main_floor_radiant_zone2
+    capabilities: [heat]
+
+  main_radiant_3:
+    entity_id: climate.main_floor_radiant_zone3
+    capabilities: [heat]
+
+  main_hp:
+    entity_id: climate.main_floor_heatpump
+    capabilities: [heat, cool]
+
+  # Upstairs devices
+  master_radiant:
+    entity_id: climate.master_bedroom_radiant
+    capabilities: [heat]
+
+  guest_radiant:
+    entity_id: climate.guest_room_radiant
+    capabilities: [heat]
+
+  whole_house_ac:
+    entity_id: climate.whole_house_ac
+    capabilities: [cool]
+
+# Zone definitions
+zones:
+  basement:
+    name: "Basement"
+    sensors:
+      indoor:
+        - sensor.basement_temperature
+        - sensor.basement_office_temperature
+      aggregation: average  # average, min, or max
+    setpoints:
+      default: 68
+      away: 62
+      occupancy_entity: binary_sensor.basement_occupancy  # Optional per-zone
+      occupied: 68
+      unoccupied: 64
+    heat_stages:
+      - stage: 1
+        devices: [basement_radiant]
+        threshold: 1.0  # Activate when target - current >= 1.0°F
+      - stage: 2
+        devices: [basement_family_hp]  # Adds to stage 1 (additive)
+        threshold: 2.5
+        time_escalation: 1800  # Or activate after 30 min if stage 1 not reaching setpoint
+        conditions:
+          outdoor_temp_min: 35  # Only use HP if outdoor > 35°F
+    cool_stages:
+      - stage: 1
+        devices: [basement_family_hp]
+        threshold: 1.0
+    settings:
+      hysteresis: 0.5
+      min_runtime: 300  # 5 minutes minimum before stage can decrease
+
+  main_floor:
+    name: "Main Floor"
+    sensors:
+      indoor:
+        - sensor.living_room_temperature
+        - sensor.kitchen_temperature
+        - sensor.dining_room_temperature
+      aggregation: average
+    setpoints:
+      default: 72
+      away: 65
+    heat_stages:
+      - stage: 1
+        devices: [main_radiant_1, main_radiant_2, main_radiant_3]
+        threshold: 1.0
+      - stage: 2
+        devices: [main_hp]
+        threshold: 2.0
+        time_escalation: 1800
+        conditions:
+          outdoor_temp_min: 35
+    cool_stages:
+      - stage: 1
+        devices: [main_hp]
+        threshold: 1.0
+    settings:
+      hysteresis: 0.5
+      min_runtime: 300
+
+  family_room:
+    name: "Family Room"
+    sensors:
+      indoor:
+        - sensor.family_room_temperature
+      aggregation: average
+    setpoints:
+      default: 70
+      away: 64
+    heat_stages:
+      - stage: 1
+        devices: [main_radiant_1]  # Shares radiant with main floor
+        threshold: 1.0
+      - stage: 2
+        devices: [basement_family_hp]  # Shared HP - may be blocked by basement cooling
+        threshold: 2.0
+        time_escalation: 1800
+        conditions:
+          outdoor_temp_min: 35
+    cool_stages:
+      - stage: 1
+        devices: [basement_family_hp]
+        threshold: 1.0
+    settings:
+      hysteresis: 0.5
+      min_runtime: 300
+
+  master_bedroom:
+    name: "Master Bedroom"
+    sensors:
+      indoor:
+        - sensor.master_bedroom_temperature
+      aggregation: average
+    setpoints:
+      default: 70
+      away: 65
+      occupancy_entity: binary_sensor.master_bedroom_occupancy
+      occupied: 70
+      unoccupied: 66
+    heat_stages:
+      - stage: 1
+        devices: [master_radiant]
+        threshold: 1.0
+    cool_stages:
+      - stage: 1
+        devices: [whole_house_ac]
+        threshold: 1.0
+    settings:
+      hysteresis: 0.5
+      min_runtime: 300
+
+  guest_room:
+    name: "Guest Room"
+    sensors:
+      indoor:
+        - sensor.guest_room_temperature
+      aggregation: average
+    setpoints:
+      default: 68
+      away: 60
+      occupancy_entity: binary_sensor.guest_room_occupancy
+      occupied: 70
+      unoccupied: 62
+    heat_stages:
+      - stage: 1
+        devices: [guest_radiant]
+        threshold: 1.0
+    cool_stages:
+      - stage: 1
+        devices: [whole_house_ac]
+        threshold: 1.0
+    settings:
+      hysteresis: 0.5
+      min_runtime: 300

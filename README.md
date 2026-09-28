@@ -1,0 +1,1000 @@
+# Hybrid Climate
+
+A Home Assistant custom integration for whole-home HVAC orchestration. Coordinates multiple climate devices (radiant heat, heat pumps, AC) into a unified control system with intelligent staging, conflict resolution, and zone management.
+
+## Features
+
+- **Multi-Zone Control**: Each zone has its own climate entity with independent setpoints
+- **Intelligent Staging**: Automatically escalates through heating/cooling stages based on temperature differential or time
+- **Additive Staging**: Stage 2 adds devices to Stage 1 (doesn't replace)
+- **Conflict Resolution**: Outdoor reset rules (global and per-zone), device mutex for shared equipment
+- **PI Regulation**: Optional proportional-integral control for precise temperature management
+- **Opportunistic Heating**: Zones can piggyback on active boiler cycles for efficiency
+- **Sensor Aggregation**: Multiple sensors per zone with average/min/max aggregation and smoothing
+- **Fallback Logic**: Uses underlying climate entity sensors if primary sensors unavailable
+- **Master Modes**: Home, Away, Vacation, Boost, Off with configurable behaviors
+- **Auto Home/Away**: Optional occupancy entity for automatic mode switching
+- **Bidirectional Sync**: External thermostat changes propagate back to zone targets (configurable per-zone)
+- **Weather Entity Support**: Can use `weather.*` entities for outdoor temperature
+
+## Installation
+
+### HACS (recommended)
+
+1. In HACS, open the menu (⋮) → **Custom repositories**
+2. Add `https://github.com/adamjs83/hybrid-climate` with category **Integration**
+3. Search for **Hybrid Climate** in HACS and download it
+4. Restart Home Assistant
+5. Add the integration via Settings → Devices & Services → Add Integration → Hybrid Climate
+
+### Manual Installation
+
+1. Copy `custom_components/hybrid_climate/` to your Home Assistant `config/custom_components/` directory
+2. Create your configuration (see Configuration section)
+3. Restart Home Assistant
+4. Add the integration via Settings → Devices & Services → Add Integration → Hybrid Climate
+
+## Configuration
+
+Hybrid Climate supports both YAML and UI configuration. You can use YAML for the base configuration and override/extend via the UI, or configure entirely through the UI.
+
+### UI Configuration (v0.7.0+)
+
+After adding the integration, click **Configure** to access the options menu. The UI provides a complete configuration interface that can work alongside or instead of YAML.
+
+#### Main Menu
+
+The configuration menu shows:
+- Current master entity name
+- Number of zones and devices configured
+
+Available sections:
+
+| Section | Purpose |
+|---------|---------|
+| **Global Settings** | Master entity name, sensors, outdoor reset limits |
+| **Zones** | Create/edit/delete zones with multi-step wizard |
+| **Heat Source Groups** | Group devices sharing a heat source for opportunistic heating |
+| **Preset Modes** | Configure behavior for each master mode |
+| **Device Conflicts** | Set up mutex rules for shared equipment |
+| **Device Behaviors** | Configure per-device idle behavior |
+
+#### Global Settings
+
+Configure integration-wide settings:
+
+| Setting | Description |
+|---------|-------------|
+| Master name | Display name for the master climate entity |
+| Outdoor sensor | `sensor.*` or `weather.*` entity for outdoor temperature |
+| Occupancy entity | `binary_sensor.*` for automatic home/away switching |
+| Never heat above | Disable heating when outdoor temp exceeds this value |
+| Never cool below | Disable cooling when outdoor temp is below this value |
+
+#### Zone Configuration (6-Step Wizard)
+
+Creating or editing a zone walks through these steps:
+
+**Step 1: Basic Settings**
+- Zone ID (unique identifier, lowercase, no spaces)
+- Display name
+- Temperature sensors (or leave empty to use device's built-in sensor)
+- Sensor aggregation method (average/min/max)
+- Smoothing samples (moving average window)
+
+**Step 2: Occupancy**
+- Enable/disable occupancy-based setpoint adjustments
+- Select occupancy sensor (binary_sensor)
+- Set temperature offsets for occupied/unoccupied states
+
+**Step 3: Heat Stages**
+- Enable/disable heating for this zone
+- Stage 1: Primary heating devices and activation threshold
+- Stage 2: Backup heating devices, threshold, time escalation, outdoor temp minimum
+
+**Step 4: Cool Stages**
+- Enable/disable cooling for this zone
+- Stage 1: Primary cooling devices and threshold
+- Stage 2: Backup cooling devices, threshold, time escalation
+
+**Step 5: Zone Settings**
+- Hysteresis (deadband to prevent short-cycling)
+- Minimum runtime (seconds)
+- Opportunistic heating enable/threshold (piggyback on boiler cycles)
+- Zone-specific outdoor reset override (disable/override global limits)
+- Regulation type: Direct or PI Control
+
+**Step 6: PI Control** (if PI selected)
+- Select devices to regulate
+- Kp (proportional gain)
+- Ki (integral gain)
+- K_ext (outdoor temperature factor)
+- Maximum offset
+- Balance point (outdoor temp where no offset needed)
+
+#### Heat Source Groups
+
+Group devices that share a physical heat source (e.g., boiler, heat pump):
+
+- **Group ID**: Unique identifier
+- **Display name**: Human-readable name
+- **Devices**: Climate entities in this group
+
+When one zone in a group is heating, other zones can activate "opportunistically" to piggyback on the shared heat source cycle.
+
+#### Preset Modes
+
+Configure behavior for each master mode (Home, Away, Sleep, Vacation, Boost, Off):
+
+| Setting | Description |
+|---------|-------------|
+| Use zone setpoint | Which named setpoint to use (default/away/sleep/vacation) |
+| Setpoint offset | Additional temperature offset to apply |
+| Skip time escalation | Activate all stages immediately (for Boost) |
+| Disable all | Turn off all zones (for Off mode) |
+
+#### Device Conflicts (Mutex Rules)
+
+Create rules to prevent conflicting HVAC operations:
+
+- **Device**: The climate device this rule applies to
+- **Mode**: Heating or cooling
+- **In zone**: The zone that triggers the block
+- **Block heating in**: Zones that cannot heat while rule is active
+- **Block cooling in**: Zones that cannot cool while rule is active
+
+Example: When the shared heat pump is cooling the basement, block heating in the main floor.
+
+#### Device Behaviors
+
+Configure what each device does when its zone is satisfied (idle):
+
+| Setting | Description |
+|---------|-------------|
+| Turn Off | Device turns off completely when idle |
+| Setback | Device maintains a setback temperature (target ± offset) |
+| Setback amount | Degrees below (heat) or above (cool) target |
+
+### UI/YAML Interaction
+
+- UI settings are stored in the config entry options
+- UI values **override** YAML values where both exist
+- Zones can be defined in YAML, UI, or both (UI takes precedence for conflicts)
+- YAML-defined zones cannot be deleted from the UI (only edited)
+- Device entries are auto-created for any climate entities used in UI zones
+
+### Live-Tunable Number Entities
+
+The integration automatically creates `number.*` entities for each zone, allowing real-time adjustment of setpoints and PI parameters without reloading.
+
+**Automatically created entities:**
+
+For each zone with heating:
+- `number.hybrid_climate_{zone}_default_heat_temp` - Default heating setpoint
+- `number.hybrid_climate_{zone}_away_heat_temp` - Away mode heating
+- `number.hybrid_climate_{zone}_sleep_heat_temp` - Sleep mode heating
+- `number.hybrid_climate_{zone}_vacation_heat_temp` - Vacation mode heating
+
+For each zone with cooling:
+- `number.hybrid_climate_{zone}_default_cool_temp` - Default cooling setpoint
+- `number.hybrid_climate_{zone}_away_cool_temp` - Away mode cooling
+- `number.hybrid_climate_{zone}_sleep_cool_temp` - Sleep mode cooling
+- `number.hybrid_climate_{zone}_vacation_cool_temp` - Vacation mode cooling
+
+For zones with PI regulation:
+- `number.hybrid_climate_{zone}_pi_kp` - Proportional gain (0.1-5.0)
+- `number.hybrid_climate_{zone}_pi_ki` - Integral gain (0.001-0.5)
+- `number.hybrid_climate_{zone}_pi_k_ext` - Outdoor factor (0.0-1.0)
+- `number.hybrid_climate_{zone}_pi_offset_max` - Max offset (1-20°F)
+- `number.hybrid_climate_{zone}_pi_balance_point` - Balance point (30-80°F)
+
+**Usage:**
+- Entities appear automatically in Home Assistant
+- Adjust via UI, automations, or scripts
+- Changes take effect immediately (no restart needed)
+- Values are read each coordinator update cycle
+- Entities are grouped under the zone's device
+
+**Example:** Adjust basement heating setpoint to 70°F:
+```yaml
+service: number.set_value
+target:
+  entity_id: number.hybrid_climate_basement_default_heat_temp
+data:
+  value: 70
+```
+
+### YAML Configuration
+
+For YAML-based configuration, add to your `configuration.yaml`:
+
+```yaml
+hybrid_climate: !include hybrid_climate_config.yaml
+```
+
+Create `hybrid_climate_config.yaml`:
+
+```yaml
+outdoor_sensor: weather.home  # or sensor.outdoor_temperature
+
+master:
+  name: "Home HVAC"
+  occupancy_entity: binary_sensor.home_occupied  # Optional: auto home/away
+  modes:
+    home:
+      use_zone_defaults: true
+    away:
+      use_zone_away_setpoints: true
+      setpoint_offset: -3  # Additional offset in away mode
+    boost:
+      skip_time_escalation: true  # Activate all stages immediately
+    off:
+      disable_all: true
+
+conflicts:
+  outdoor_reset:
+    never_heat_above: 75  # Don't heat when outdoor > 75°F
+    never_cool_below: 55  # Don't cool when outdoor < 55°F
+  device_mutex:
+    - when:
+        device: shared_heat_pump
+        mode: cool
+        for_zone: basement
+      then:
+        block_heat: [main_floor]  # Can't heat main floor while basement cools
+
+devices:
+  # Device definition - no allow_command here (moved to zone stage config)
+  basement_hp:
+    entity_id: climate.basement_heat_pump
+    capabilities: [heat, cool]
+    idle:
+      action: setback  # or "off"
+      setback: 5
+
+  living_room_nest:
+    entity_id: climate.nest_thermostat
+    capabilities: [heat]
+    idle:
+      action: setback
+      setback: 5
+
+zones:
+  basement:
+    name: "Basement"
+    sensors:
+      indoor:
+        - sensor.basement_temperature
+      aggregation: average
+      smoothing_samples: 3
+    setpoints:
+      default: 68
+      away: 62
+      occupancy_entity: binary_sensor.basement_occupied
+      occupied: 70
+      unoccupied: 65
+    heat_stages:
+      - stage: 1
+        devices: [basement_hp]  # Simple format: no allow_command
+        threshold: 1.0
+      - stage: 2
+        devices: [basement_hp, backup_heat]
+        threshold: 3.0
+        time_escalation: 1800  # Escalate after 30 min
+    cool_stages:
+      - stage: 1
+        devices: [basement_hp]
+        threshold: 1.0
+    settings:
+      hysteresis: 0.5
+      min_runtime: 300
+      # Optional: Override global outdoor reset for this zone
+      outdoor_reset:
+        never_cool_below: null  # null = disable restriction (allow cooling in winter)
+        # never_heat_above: 80  # Or set zone-specific limit
+    # Optional: Opportunistic heating (piggyback on boiler cycles)
+    opportunistic:
+      enabled: true
+      threshold: 0.5  # Activate when 0.5°F below setpoint
+
+  living_room:
+    name: "Living Room"
+    sensors:
+      indoor: []  # Empty = fall back to device's current_temperature
+      aggregation: average
+    setpoints:
+      default: 70
+      away: 65
+    heat_stages:
+      - stage: 1
+        devices:
+          # Extended format: allow_command enables bidirectional sync
+          - device: living_room_nest
+            allow_command: true  # External changes sync to zone overlay
+        threshold: 1.0
+    cool_stages:
+      - stage: 1
+        devices: [whole_house_ac]  # Shared device, no allow_command
+        threshold: 1.0
+```
+
+## Overlay/Underlay Architecture
+
+Hybrid Climate uses a two-layer architecture:
+
+- **Overlay**: The hybrid climate zone entity (e.g., `climate.living_room`)
+- **Underlay**: The actual physical device (e.g., `climate.nest_thermostat`)
+
+### Bidirectional Sync with `allow_command`
+
+When `allow_command: true` is set for a device in a zone's stage config:
+
+1. **Overlay controls underlay**: Changing the zone target updates the thermostat
+2. **Underlay syncs to overlay**: Changing the physical thermostat updates the zone target
+
+This is useful for single-zone thermostats where users may adjust the physical device directly.
+
+### State Machine
+
+For `allow_command` devices, a state machine manages synchronization:
+
+| State | Description |
+|-------|-------------|
+| **LISTENING** | Device matches desired state. Any external change syncs to overlay. |
+| **COMMANDING** | We sent a command, waiting for device to respond. Ignores mismatches for 10s. |
+
+**Transitions:**
+- Overlay change → COMMANDING (command sent to device)
+- Device matches command → LISTENING (acknowledged)
+- Device differs by >3°F after 10s → external override detected → sync to overlay
+- Timeout (60s) → sync overlay to device's current value
+
+### Idle Setback
+
+When a zone is idle (room temp at or above target), devices can be configured to:
+
+- `action: off` - Turn off completely
+- `action: setback` - Set to target minus setback degrees (maintains minimum temp)
+
+For example, with `setback: 5` and zone target 70°F:
+- Zone idle → device set to 65°F (prevents pipes from freezing, etc.)
+- Zone needs heat → device set to 70°F (or regulated setpoint)
+
+### Zone-Specific Outdoor Reset Override
+
+By default, global outdoor reset rules (`never_heat_above`, `never_cool_below`) apply to all zones. However, some zones may need to override these:
+
+**Use case:** A basement with boiler equipment that gets hot and needs cooling even in winter when outdoor temp is below the global `never_cool_below` threshold.
+
+**Configuration:**
+```yaml
+zones:
+  basement:
+    settings:
+      outdoor_reset:
+        never_cool_below: null  # Disable cooling restriction for this zone
+        # never_heat_above: 80  # Or set zone-specific limit
+```
+
+**Behavior:**
+| Setting | Meaning |
+|---------|---------|
+| Not set (no `outdoor_reset` key) | Use global outdoor reset limits |
+| `null` | Disable this restriction entirely for this zone |
+| Numeric value | Use this zone-specific limit instead of global |
+
+**UI Configuration:** In the zone wizard (Step 5: Settings), check "Override global outdoor reset limits" and then either:
+- Check "Disable cooling temperature limit" to allow cooling regardless of outdoor temp
+- Enter a zone-specific "Never cool below" value
+- Same options available for heating limits
+
+### Opportunistic Heating
+
+Zones can piggyback on active boiler cycles from other zones in the same heat source group. This improves efficiency by using waste heat.
+
+**Configuration:**
+```yaml
+zones:
+  living_room:
+    opportunistic:
+      enabled: true
+      threshold: 0.5  # Activate when 0.5°F below setpoint
+```
+
+When opportunistic heating activates:
+1. Another zone in the same heat source group must be actively heating
+2. This zone's temperature must be below setpoint by at least `threshold`
+3. Only Stage 1 devices activate (opportunistic doesn't trigger Stage 2)
+
+**UI Configuration:** In the zone wizard (Step 5: Settings), toggle "Enable opportunistic heating" and set the threshold.
+
+## Complete Control Flow
+
+This section explains how all the pieces work together during each update cycle (every 10 seconds).
+
+### Update Cycle Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     UPDATE CYCLE (10s)                       │
+├─────────────────────────────────────────────────────────────┤
+│ 1. Update device states from HA                             │
+│ 2. Check external device changes (allow_command sync)       │
+│ 3. Check master occupancy (auto home/away)                  │
+│ 4. Get outdoor temperature                                  │
+│ 5. For each zone:                                           │
+│    a. Get aggregated indoor temperature                     │
+│    b. Get zone target (from overlay)                        │
+│    c. Check conflicts (outdoor reset, device mutex)         │
+│    d. Determine needed mode (hysteresis check)              │
+│    e. Calculate PI offset (if regulated)                    │
+│    f. Select stage (threshold/time escalation)              │
+│    g. Activate devices with appropriate setpoints           │
+│ 6. Apply opportunistic heating                              │
+│ 7. Update master summaries                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Detailed Example: Heating with PI Regulation
+
+**Scenario:** Main floor zone with radiant floors (PI-regulated) and heat pump backup.
+
+**Configuration:**
+```yaml
+zones:
+  main_floor:
+    sensors:
+      indoor: [sensor.living_room_temp, sensor.kitchen_temp]
+      aggregation: average
+      smoothing_samples: 3
+    setpoints:
+      default: 70
+    heat_stages:
+      - stage: 1
+        devices: [floor_heat_1, floor_heat_2]
+        threshold: 0.5
+      - stage: 2
+        devices: [heat_pump]
+        threshold: 2.0
+        time_escalation: 1800
+    settings:
+      hysteresis: 0.5
+    regulation:
+      type: pi
+      devices: [floor_heat_1, floor_heat_2]
+      kp: 1.0
+      ki: 0.01
+      k_ext: 0.15
+```
+
+**State:** Room at 68.5°F, target 70°F, outdoor 35°F, stage 1 running for 20 minutes.
+
+**Update cycle walkthrough:**
+
+1. **Get temperatures**
+   - Living room: 68.3°F, kitchen: 68.7°F
+   - Smoothed average: 68.5°F
+
+2. **Calculate error**
+   - Error = 70 - 68.5 = +1.5°F (needs heat)
+
+3. **Hysteresis check**
+   - Currently heating, error > 0 → continue heating
+
+4. **Conflict check**
+   - Outdoor 35°F, no outdoor reset triggered
+   - No device mutex conflicts
+
+5. **PI calculation**
+   - P_term = 1.0 × 1.5 = +1.5°F
+   - I_term = 0.01 × 90 (accumulated) = +0.9°F
+   - External = 0.15 × (65 - 35) = +4.5°F
+   - **Offset = +6.9°F, regulated_setpoint = 76.9°F**
+
+6. **Stage selection**
+   - Error 1.5°F ≥ stage 1 threshold (0.5°F) ✓
+   - Error 1.5°F < stage 2 threshold (2.0°F) ✗
+   - Time in stage: 20min < 30min (time_escalation) ✗
+   - **Stage 1 selected**
+
+7. **Device activation**
+   - floor_heat_1: set to 77°F (regulated setpoint)
+   - floor_heat_2: set to 77°F (regulated setpoint)
+
+### How PI and Staging Interact
+
+```
+           Zone Target: 70°F
+                 │
+                 ▼
+    ┌────────────────────────┐
+    │     PI Controller      │
+    │  (for radiant floors)  │
+    └────────────────────────┘
+                 │
+                 ▼
+         Regulated Setpoint: 77°F
+                 │
+                 ├─────────────────────────────┐
+                 ▼                             ▼
+    ┌────────────────────────┐    ┌────────────────────────┐
+    │    floor_heat_1        │    │    floor_heat_2        │
+    │    (PI-regulated)      │    │    (PI-regulated)      │
+    │    setpoint: 77°F      │    │    setpoint: 77°F      │
+    └────────────────────────┘    └────────────────────────┘
+
+                 Zone Target: 70°F (not regulated)
+                 │
+                 ▼
+    ┌────────────────────────┐
+    │      heat_pump         │
+    │    (NOT regulated)     │
+    │    setpoint: 70°F      │
+    └────────────────────────┘
+```
+
+**Key insight:** PI regulation only applies to configured `regulation.devices`. Other devices in the same zone get the raw zone target.
+
+### When Things Go Idle
+
+When the room reaches target (error ≤ 0):
+
+1. **Hysteresis check** → Stop heating (error ≤ 0)
+
+2. **PI-regulated devices** (floor_heat_1, floor_heat_2):
+   - Hold at current regulated_setpoint (e.g., 77°F)
+   - This maintains the equilibrium the PI found
+   - Integral value is preserved (doesn't reset)
+
+3. **Non-regulated devices** (heat_pump):
+   - Apply idle behavior from device config
+   - `action: setback` → set to target - setback (e.g., 65°F)
+   - `action: off` → turn off completely
+
+4. **Next cycle:**
+   - If room drops below target - hysteresis (69.5°F), heating restarts
+   - PI picks up where it left off (integral preserved)
+
+### External Change Flow (allow_command)
+
+When a user adjusts a physical thermostat:
+
+```
+User changes Nest from 70°F to 72°F
+         │
+         ▼
+┌─────────────────────────────────────┐
+│  Device State Machine Check (10s)   │
+├─────────────────────────────────────┤
+│ Device in LISTENING state?          │
+│ Current temp (72) ≠ desired (70)?   │
+│ → External change detected!         │
+└─────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│     Sync Overlay to Underlay        │
+├─────────────────────────────────────┤
+│ zone_target = 72°F                  │
+│ device.desired_temp = 72°F          │
+│ State remains LISTENING             │
+└─────────────────────────────────────┘
+```
+
+When the overlay changes (user adjusts in HA):
+
+```
+User changes zone from 70°F to 68°F in HA
+         │
+         ▼
+┌─────────────────────────────────────┐
+│   set_zone_target_temp(68)          │
+├─────────────────────────────────────┤
+│ Update zone_target_temps[zone] = 68 │
+│ Immediate device update triggered   │
+└─────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│   Device Manager Command            │
+├─────────────────────────────────────┤
+│ device.start_command(68, 'heat')    │
+│ State → COMMANDING                  │
+│ Service call: climate.set_temp(68)  │
+└─────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│   Wait for Acknowledgment           │
+├─────────────────────────────────────┤
+│ Device reports 68°F → LISTENING     │
+│ OR timeout (60s) → sync overlay     │
+│ OR >3°F diff after 10s → override   │
+└─────────────────────────────────────┘
+```
+
+## Architecture
+
+```
+Master Entity (modes: home/away/vacation/boost/off)
+└── Zone Entities (each has independent setpoint, staging logic)
+    └── Device Manager (controls underlying climate.* entities)
+        └── Conflict Resolver (outdoor reset, device mutex)
+```
+
+### State Machine Flow
+
+```
+User changes overlay (zone target)
+    │
+    ▼
+Coordinator.set_zone_target_temp()
+    │
+    ├─► Update zone_target_temps
+    │
+    └─► _immediate_device_update()
+            │
+            ├─► Active device? → set_device_mode(target)
+            │
+            └─► Idle device? → set_device_idle(setback)
+                    │
+                    └─► Device.start_command() → COMMANDING state
+
+Update cycle runs (every 10s)
+    │
+    ▼
+_check_external_device_changes()
+    │
+    ├─► Device in LISTENING?
+    │       │
+    │       └─► Underlay changed? → Sync overlay, stay LISTENING
+    │
+    └─► Device in COMMANDING?
+            │
+            ├─► Underlay matches desired? → LISTENING (ack)
+            │
+            ├─► >3°F diff after 10s? → External override, sync overlay
+            │
+            └─► Timeout (60s)? → Sync overlay to current
+```
+
+### Component Files
+
+| File | Purpose |
+|------|---------|
+| `coordinator.py` | Central orchestration, sensor polling, state management, external change detection |
+| `device_manager.py` | Device pool, state tracking, command dispatch |
+| `conflict_resolver.py` | Outdoor reset, device mutex rules |
+| `zone.py` | ZoneClimateEntity - per-zone climate control |
+| `master.py` | MasterClimateEntity - whole-home modes |
+| `models.py` | Dataclasses for configuration and state, DeviceCommandState enum |
+| `config_loader.py` | YAML parsing and validation |
+
+## Entities Created
+
+- **Master Entity** (`climate.home_hvac` or configured name): Whole-home control with preset modes
+- **Zone Entities** (`climate.<zone_id>`): Per-zone climate control
+
+### Master Entity Attributes
+
+- `version`: Integration version
+- `outdoor_temperature`: Current outdoor temp
+- `zone_count`: Number of configured zones
+- `zones_heating`: List of zones currently heating
+- `zones_cooling`: List of zones currently cooling
+- `zones_idle`: List of idle zones
+- `active_conflicts`: List of active conflict descriptions
+
+### Zone Entity Attributes
+
+- `master_mode`: Current master mode
+- `current_stage`: Active heating/cooling stage (e.g., "heating_stage_1")
+- `active_devices`: Devices currently running
+- `blocked_devices`: Devices blocked by conflicts
+- `time_in_stage`: Seconds in current stage
+- `sensor_values`: Raw sensor readings
+- `sensor_smoothed_values`: Smoothed sensor readings
+- `regulation_offset`: PI controller offset (if enabled)
+- `accumulated_error`: PI integral term
+- `regulated_setpoint`: Actual setpoint sent to regulated devices
+
+## Staging, Thresholds, and Hysteresis
+
+Understanding how hybrid climate decides when to heat/cool and which devices to use.
+
+### Hysteresis (Start/Stop Deadband)
+
+Hysteresis prevents rapid on/off cycling by creating a "deadband" around the target:
+
+```
+        Stop cooling
+              ↓
+    ┌─────────●─────────┐ target + hysteresis (70.5°F)
+    │                   │
+    │    DEADBAND       │ ← No action taken in this zone
+    │                   │
+    ├─────────●─────────┤ target (70°F)
+    │                   │
+    │    DEADBAND       │
+    │                   │
+    └─────────●─────────┘ target - hysteresis (69.5°F)
+              ↑
+        Start heating
+```
+
+**Rules:**
+- **Start heating**: When temp drops below `target - hysteresis`
+- **Stop heating**: When temp reaches `target` (not `target + hysteresis`)
+- **Start cooling**: When temp rises above `target + hysteresis`
+- **Stop cooling**: When temp reaches `target`
+
+**Example** (target=70°F, hysteresis=0.5°F):
+1. Room at 72°F → idle (above target, but not calling for cool)
+2. Room drops to 69.4°F → start heating (below 69.5°F threshold)
+3. Room reaches 70°F → stop heating, go idle
+4. Room rises to 70.6°F → start cooling (above 70.5°F threshold)
+5. Room reaches 70°F → stop cooling, go idle
+
+### Stage Thresholds
+
+Within each mode (heating/cooling), **threshold** determines which stage activates based on how far the room is from target:
+
+```yaml
+heat_stages:
+  - stage: 1
+    devices: [radiant_floor]
+    threshold: 1.0        # Activate when error ≥ 1.0°F
+  - stage: 2
+    devices: [heat_pump]
+    threshold: 3.0        # Add heat pump when error ≥ 3.0°F
+    time_escalation: 1800 # OR after 30 min in stage 1
+```
+
+**Threshold vs Hysteresis:**
+- **Hysteresis**: Decides whether to heat/cool at all (mode selection)
+- **Threshold**: Decides which stage to use (stage selection)
+
+**Example** (target=70°F, hysteresis=0.5°F, stage 1 threshold=1.0°F, stage 2 threshold=3.0°F):
+
+| Room Temp | Error | Hysteresis Check | Stage Selected |
+|-----------|-------|------------------|----------------|
+| 70.5°F | -0.5°F | Within deadband | Idle |
+| 69.4°F | +0.6°F | Below hysteresis | Stage 1 (error ≥ 0.5, < 1.0) |
+| 68.5°F | +1.5°F | Needs heat | Stage 1 (error ≥ 1.0, < 3.0) |
+| 66.0°F | +4.0°F | Needs heat | Stage 2 (error ≥ 3.0) |
+
+### Time Escalation
+
+Even if threshold isn't met, stages can escalate after a time delay:
+
+```yaml
+heat_stages:
+  - stage: 1
+    devices: [radiant_floor]
+    threshold: 1.0
+  - stage: 2
+    devices: [heat_pump]
+    threshold: 3.0
+    time_escalation: 1800  # 30 minutes
+```
+
+If stage 1 runs for 30 minutes without reaching setpoint, stage 2 activates even though the error might only be 2°F.
+
+**Boost mode** skips time escalation entirely - all stages that meet threshold activate immediately.
+
+### Additive Staging
+
+Stages are **additive** - when stage 2 activates, stage 1 devices stay on:
+
+```
+Stage 1: [radiant_floor]
+Stage 2: [radiant_floor, heat_pump]  ← radiant stays on
+```
+
+This differs from systems where stage 2 replaces stage 1.
+
+### Stage Conditions
+
+Stages can have additional conditions:
+
+```yaml
+heat_stages:
+  - stage: 2
+    devices: [heat_pump]
+    threshold: 3.0
+    conditions:
+      outdoor_temp_min: 35  # Don't use HP below 35°F
+```
+
+If conditions aren't met, the stage is skipped even if threshold/time criteria are met.
+
+### Decision Flow Summary
+
+```
+1. Get room temperature and target
+2. Calculate error = target - current
+3. HYSTERESIS CHECK:
+   - Currently heating? Stop if error ≤ 0
+   - Currently cooling? Stop if error ≥ 0
+   - Currently idle?
+     - Start heating if error > hysteresis
+     - Start cooling if error < -hysteresis
+4. STAGE SELECTION (if heating/cooling):
+   - For each stage in order:
+     - Check conditions (outdoor temp, etc.)
+     - Check threshold OR time escalation
+     - Highest qualifying stage wins
+5. DEVICE ACTIVATION:
+   - Activate all devices from stage 1 up to target stage
+   - Skip blocked devices (conflicts)
+```
+
+## PI Regulation
+
+Optional proportional-integral control for radiant floor or other slow-response systems.
+
+### Why PI Control?
+
+Radiant floor heating has significant thermal lag - it can take 30-60 minutes to respond to setpoint changes. Traditional on/off control causes:
+- Overshooting: Floor keeps heating after room reaches target
+- Undershooting: Room cools significantly before floor catches up
+- Oscillations: Temperature swings above and below setpoint
+
+PI control solves this by dynamically adjusting the floor setpoint based on how far the room is from target and how long it's been off target.
+
+### Configuration
+
+```yaml
+zones:
+  main_floor:
+    regulation:
+      type: pi
+      devices: [floor_heat_1, floor_heat_2]
+      kp: 1.0                  # Proportional gain
+      ki: 0.01                 # Integral gain  
+      k_ext: 0.15              # Outdoor temp influence (feedforward)
+      balance_point: 65        # Outdoor temp where no offset needed
+      offset_max: 10           # Max ±10° adjustment
+      stabilization_threshold: 0.5  # Error deadband for integral
+      accumulated_error_threshold: 240  # Anti-windup cap
+      # Integral state management (optional, these are defaults)
+      integral_reset_threshold: 2.5   # °F change triggers partial reset
+      integral_reset_factor: 0.3      # Keep 30% of integral on reset
+      integral_decay_halflife: 120    # 2hr half-life when idle (0 = disabled)
+```
+
+### How It Works
+
+The PI controller calculates an **offset** that's added to the zone target:
+
+```
+regulated_setpoint = zone_target + offset
+offset = P_term + I_term + external_term
+
+Where:
+  P_term = kp × error           (proportional response)
+  I_term = ki × accumulated_error   (integral response)
+  external_term = k_ext × (balance_point - outdoor_temp)
+```
+
+**Example:** Zone target 70°F, room currently at 68°F (error = +2°F)
+- P_term: 1.0 × 2 = +2°F (immediate response to error)
+- I_term: 0.01 × 60 = +0.6°F (accumulated over ~30 error-minutes)
+- External: 0.15 × (65 - 30) = +5.25°F (cold outside, push harder)
+- **Regulated setpoint: 70 + 2 + 0.6 + 5.25 = 77.85°F**
+
+The floor thermostat gets 78°F, which makes it heat harder to overcome the cold conditions.
+
+### PI Terms Explained
+
+| Term | Purpose | Effect |
+|------|---------|--------|
+| **P (Proportional)** | Immediate response | Large error → large correction. Fast but can't eliminate steady-state error. |
+| **I (Integral)** | Eliminate steady-state error | Accumulates over time. If room stays 0.5°F cold, integral slowly builds until corrected. |
+| **External (k_ext)** | Feedforward compensation | Anticipates heating load based on outdoor temp. Cold outside → higher floor temp. |
+
+### Tuning Parameters
+
+| Parameter | Description | Start Value | Adjust If |
+|-----------|-------------|-------------|-----------|
+| `kp` | Proportional gain | 1.0 | Room slow to respond: increase. Oscillating: decrease. |
+| `ki` | Integral gain | 0.01 | Steady-state error persists: increase. Overshoots after long runs: decrease. |
+| `k_ext` | Outdoor influence | 0.15 | House loses heat fast in cold: increase. Well-insulated: decrease. |
+| `balance_point` | Outdoor temp for zero offset | 65 | Adjust to your climate |
+| `offset_max` | Maximum offset (±) | 10 | Floor can handle more: increase. Comfort issues: decrease. |
+| `stabilization_threshold` | Error deadband | 0.5 | Room oscillates ±0.3°F: increase. Never quite reaches target: decrease. |
+| `accumulated_error_threshold` | Anti-windup cap | 240 | Prevents runaway integral during long recovery periods. |
+| `integral_reset_threshold` | Setpoint change trigger | 2.5 | °F change that triggers partial integral reset. |
+| `integral_reset_factor` | Reset retention | 0.3 | Fraction of integral to keep on reset (0.3 = keep 30%). |
+| `integral_decay_halflife` | Idle decay rate | 120 | Minutes for integral to decay to 50% when idle. 0 = no decay. |
+
+### Anti-Windup and Integral Management
+
+The integral term is protected from "windup" (growing unboundedly) and stale state:
+
+**Anti-Windup (prevents runaway accumulation):**
+1. **Output saturation**: Stops accumulating when offset hits `offset_max`
+2. **Deadband**: Stops accumulating when error < `stabilization_threshold`
+3. **Hard cap**: `accumulated_error_threshold` limits maximum integral
+
+**Integral State Management (adapts to changing conditions):**
+4. **Setpoint change reset**: Big setpoint jumps (> `integral_reset_threshold`) scale down the integral by `integral_reset_factor`. This prevents dragging stale PI state into a new operating regime.
+5. **Idle decay**: When at setpoint (idle), the integral decays exponentially with the configured half-life. This gradually "forgets" old assumptions during extended idle periods while preserving responsiveness for short idle periods.
+
+### Idle Behavior for PI Devices
+
+When a PI-regulated zone goes idle (room at target), the floor is held at the **current regulated setpoint** rather than applying a setback. This:
+- Maintains the equilibrium the PI found
+- Prevents the room from cooling and triggering another heat cycle
+- Acts like a learned "maintenance" temperature
+
+### Monitoring PI State
+
+Zone entity attributes show PI controller state:
+
+| Attribute | Description |
+|-----------|-------------|
+| `regulation_offset` | Current PI offset being applied |
+| `accumulated_error` | Integral term accumulation |
+| `regulated_setpoint` | Actual setpoint sent to regulated devices |
+
+## Design Decisions
+
+- **Additive staging**: Stage 2 adds devices to Stage 1 (doesn't replace)
+- **Conflict resolution**: Blocked device → fall back to other available devices
+- **Boost mode**: Uses `skip_time_escalation` config to activate all stages immediately
+- **Zone independence**: Each zone directly controllable, not just via master
+- **Idle behavior**: Per-device config for what to do when idle (off vs setback)
+- **allow_command per-zone**: The same device can have different sync behavior in different zones
+- **State machine for sync**: Prevents race conditions between overlay and underlay changes
+- **10s grace period**: Allows device time to respond before detecting external override
+- **3°F threshold**: Distinguishes between lag and intentional external changes
+
+## Troubleshooting
+
+### Check Logs
+
+Settings → System → Logs, filtered for `hybrid_climate`. For verbose output, add to `configuration.yaml`:
+
+```yaml
+logger:
+  logs:
+    custom_components.hybrid_climate: debug
+```
+
+### Common Issues
+
+1. **Integration not loading**: Check `configuration.yaml` includes the config file correctly
+2. **Zones not responding**: Verify device entity_ids match actual HA entities
+3. **Temperature not reading**: Check sensor entity_ids and ensure sensors are available
+4. **Conflicts not working**: Verify outdoor_sensor is configured and returning valid temps
+5. **External changes not syncing**: Ensure `allow_command: true` is set in the stage devices config
+6. **Overlay snapping back**: Check if device is in COMMANDING state (wait 10s for grace period)
+
+## Changelog
+
+### v0.7.0
+**Full UI Configuration** - Complete options flow for configuring without YAML:
+- **Main menu** with 6 configuration sections
+- **Zone wizard** (6 steps): basics, occupancy, heat stages, cool stages, settings, PI control
+- **Heat source groups** for opportunistic heating configuration
+- **Preset modes** configuration (home/away/sleep/vacation/boost/off)
+- **Device conflicts** (mutex rules) for shared equipment
+- **Device idle behavior** configuration (off vs setback)
+- **Live helpers** support for real-time setpoint/PI tuning (manual creation)
+- UI config merges with YAML - UI values take precedence
+
+### v0.6.0
+- Sleep mode and named setpoints (sleep, vacation)
+- Flexible `use_zone_setpoint` for mode config
+
+### v0.5.x
+- State machine for bidirectional sync with external thermostats
+- Hysteresis fixes, external override detection
+- `allow_command` moved to per-zone stage config
+
+See [CHANGELOG.md](CHANGELOG.md) for complete version history.
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
