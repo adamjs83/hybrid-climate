@@ -18,6 +18,10 @@ from ..const import (
     CONF_DEVICES,
     CONF_HYSTERESIS,
     CONF_MIN_RUNTIME,
+    CONF_OPENINGS,
+    CONF_OPENING_ENTITIES,
+    CONF_OPEN_DELAY,
+    CONF_CLOSE_DELAY,
     CONF_NAME,
     CONF_OCCUPANCY_ENTITY,
     CONF_SENSORS,
@@ -31,6 +35,8 @@ from ..const import (
     DEFAULT_KI,
     DEFAULT_K_EXT,
     DEFAULT_MIN_RUNTIME,
+    DEFAULT_OPEN_DELAY,
+    DEFAULT_CLOSE_DELAY,
     DEFAULT_OFFSET_MAX,
     DEFAULT_SMOOTHING_SAMPLES,
     REGULATION_PI,
@@ -185,6 +191,9 @@ class ZoneHelpersMixin:
             "cool_stages": cool_stages,
             CONF_HYSTERESIS: settings.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS),
             CONF_MIN_RUNTIME: settings.get(CONF_MIN_RUNTIME, DEFAULT_MIN_RUNTIME),
+            CONF_OPENING_ENTITIES: zone_conf.get(CONF_OPENINGS, {}).get(CONF_OPENING_ENTITIES, []),
+            CONF_OPEN_DELAY: zone_conf.get(CONF_OPENINGS, {}).get(CONF_OPEN_DELAY, DEFAULT_OPEN_DELAY),
+            CONF_CLOSE_DELAY: zone_conf.get(CONF_OPENINGS, {}).get(CONF_CLOSE_DELAY, DEFAULT_CLOSE_DELAY),
             "regulation_type": regulation.get("type", "direct") if regulation else "direct",
             "pi_config": regulation if regulation and regulation.get("type") == REGULATION_PI else None,
             "opportunistic": opportunistic,
@@ -311,6 +320,13 @@ class ZoneHelpersMixin:
             "cool_stages": self._build_stages_config(wip.get("cool_stages", [])),
             "settings": settings_config,
         }
+        opening_entities = wip.get(CONF_OPENING_ENTITIES, [])
+        if opening_entities:
+            zone_config[CONF_OPENINGS] = {
+                CONF_OPENING_ENTITIES: opening_entities,
+                CONF_OPEN_DELAY: wip.get(CONF_OPEN_DELAY, DEFAULT_OPEN_DELAY),
+                CONF_CLOSE_DELAY: wip.get(CONF_CLOSE_DELAY, DEFAULT_CLOSE_DELAY),
+            }
 
         # Add opportunistic heating if configured
         opportunistic = wip.get("opportunistic", {})

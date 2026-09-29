@@ -123,6 +123,9 @@ class Device:
     entity_id: str  # Home Assistant entity_id
     capabilities: list[DeviceCapability]
     idle_config: DeviceIdleConfig = field(default_factory=DeviceIdleConfig)
+    compressor_group: str | None = None
+    min_compressor_runtime: int = 0
+    min_compressor_off_time: int = 0
 
     # Runtime state
     current_mode: str | None = None  # heat, cool, off
@@ -283,6 +286,14 @@ class ZoneSettings:
 
 
 @dataclass
+class OpeningConfig:
+    """Door/window contacts that suspend zone equipment after an open delay."""
+    entities: list[str] = field(default_factory=list)
+    open_delay: int = 60
+    close_delay: int = 60
+
+
+@dataclass
 class RegulationConfig:
     """PI regulation config for controlling underlying devices.
 
@@ -364,6 +375,7 @@ class ZoneConfig:
     regulation: RegulationConfig | None = None  # Optional PI regulation
     opportunistic: OpportunisticConfig | None = None  # Optional opportunistic heating
     tou: ZoneTouConfig | None = None  # Optional TOU optimization
+    openings: OpeningConfig | None = None
 
     def get_all_device_ids(self) -> list[str]:
         """Get all device IDs from all stages."""
@@ -404,6 +416,9 @@ class ZoneState:
     sensor_smoothed_values: dict[str, float] = field(default_factory=dict)  # smoothed values
     is_available: bool = True
     sensor_status: str | None = None  # None=normal, "failed"=sensors offline past grace period
+    opening_status: str = "disabled"
+    opening_lockout: bool = False
+    opening_changed_at: datetime | None = None
     last_update: datetime | None = None
     last_active_action: HvacAction | None = None  # Last heating/cooling action (for idle setback direction)
     last_direction_stop_time: datetime | None = None  # Time equipment last fully released

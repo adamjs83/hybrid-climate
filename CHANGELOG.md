@@ -3,6 +3,21 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0a1] - 2026-09-28
+
+Alpha preview for testing new control safeguards.
+
+### Added
+- Optional shared-compressor minimum run and off times. The longest configured interval among group members applies; forced shutdowns bypass the minimum run time.
+- Optional per-zone door/window contacts with open and close delays. Open contacts at startup and unavailable contacts pause immediately.
+- Downloadable Home Assistant diagnostics showing zone and sensor state, opening lockouts, compressor holds, and device commands alongside reported state.
+
+### Changed
+- Forced shutdowns now command equipment off even when its normal idle action is setback.
+- Documentation explains that YAML is imported once and subsequent configuration is managed in the UI.
+
+Compressor timing uses the climate entity HVAC mode as a proxy, so thermostat-controlled compressor cycling cannot be measured precisely.
+
 ## [0.10.1] - 2026-09-28
 
 ### Changed

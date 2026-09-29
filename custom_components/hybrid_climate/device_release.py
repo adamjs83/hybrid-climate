@@ -46,6 +46,7 @@ async def reconcile_devices(
     *,
     hold_equilibrium: bool = False,
     release_regulated: bool = False,
+    forced_off: bool = False,
 ) -> None:
     """Release dropped devices, retaining ownership until idle or shared handoff succeeds."""
     previously_owned = bool(state.active_devices)
@@ -92,10 +93,12 @@ async def reconcile_devices(
         target = state.target_temperature if was_heating else state.target_temperature_cool
         if was_heating and target is None:
             target = config.setpoints.default
-        if target is None or not (device.can_heat() or device.can_cool()):
-            success = await coordinator.device_manager.turn_off_device(device)
+        if forced_off or target is None or not (device.can_heat() or device.can_cool()):
+            success = await coordinator.device_manager.turn_off_device(device, force_off=forced_off)
         else:
-            success = await coordinator.device_manager.set_device_idle(device, target, was_heating)
+            success = await coordinator.device_manager.set_device_idle(
+                device, target, was_heating, force_off=forced_off,
+            )
         if not success:
             retained.append(device_id)
             _LOGGER.warning("Zone %s: retaining device %s after failed idle command", zone_id, device_id)
@@ -161,9 +164,11 @@ async def release_removed_config_devices(
             _LOGGER.warning("Attempting release of removed unavailable device %s", device_id)
         target = state.target_temperature if was_heating else state.target_temperature_cool
         if target is None:
-            released = await coordinator.device_manager.turn_off_device(device)
+            released = await coordinator.device_manager.turn_off_device(device, force_off=True)
         else:
-            released = await coordinator.device_manager.set_device_idle(device, target, was_heating)
+            released = await coordinator.device_manager.set_device_idle(
+                device, target, was_heating, force_off=True,
+            )
         if released:
             released_entities.add(device.entity_id)
             # Do not repeat successful releases if a later device prevents unloading.

@@ -89,7 +89,7 @@ async def queue_mutex_releases(coordinator: HybridClimateCoordinator) -> None:
                     # Include running devices even when their zone supplied no demand.
                     if device and device.current_mode == mode:
                         _LOGGER.warning("Mutex: %s blocks %s in %s", rule.device_id, device_id, mode)
-                        await manager.turn_off_device(device)
+                        await manager.turn_off_device(device, force_off=True)
                     manager.block_pending_mode(device_id, mode)
                 for zone_id in zone_ids:
                     manager.block_pending_mode(rule.device_id, mode, zone_id)
@@ -186,7 +186,10 @@ async def dispatch_requests(
             _LOGGER.warning("Device %s: waiting for mutex equipment to release", device_id)
             results[device_id] = False
             continue
-        results[device_id] = await manager._dispatch_device_mode(manager.devices[device_id], mode, target)
+        results[device_id] = await manager._dispatch_device_mode(
+            manager.devices[device_id], mode, target,
+            force_off=device_id in manager._forced_off_devices,
+        )
     manager._pending_commands.clear()
+    manager._forced_off_devices.clear()
     return results
-

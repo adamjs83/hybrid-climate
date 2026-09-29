@@ -33,6 +33,9 @@ from ..const import (
     CONF_DEVICES,
     CONF_HYSTERESIS,
     CONF_MIN_RUNTIME,
+    CONF_OPENING_ENTITIES,
+    CONF_OPEN_DELAY,
+    CONF_CLOSE_DELAY,
     CONF_NAME,
     CONF_OCCUPANCY_ENTITY,
     CONF_SENSORS,
@@ -49,6 +52,8 @@ from ..const import (
     DEFAULT_KI,
     DEFAULT_K_EXT,
     DEFAULT_MIN_RUNTIME,
+    DEFAULT_OPEN_DELAY,
+    DEFAULT_CLOSE_DELAY,
     DEFAULT_OFFSET_MAX,
     DEFAULT_SMOOTHING_SAMPLES,
     DEFAULT_TIME_ESCALATION,
@@ -500,6 +505,9 @@ class ZoneStepsMixin:
             self._zone_wip = self._zone_wip or {}
             self._zone_wip[CONF_HYSTERESIS] = user_input.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)
             self._zone_wip[CONF_MIN_RUNTIME] = int(user_input.get(CONF_MIN_RUNTIME, DEFAULT_MIN_RUNTIME))
+            self._zone_wip[CONF_OPENING_ENTITIES] = user_input.get(CONF_OPENING_ENTITIES, [])
+            self._zone_wip[CONF_OPEN_DELAY] = int(user_input.get(CONF_OPEN_DELAY, DEFAULT_OPEN_DELAY))
+            self._zone_wip[CONF_CLOSE_DELAY] = int(user_input.get(CONF_CLOSE_DELAY, DEFAULT_CLOSE_DELAY))
             self._zone_wip["regulation_type"] = user_input.get("regulation_type", REGULATION_DIRECT)
 
             # Opportunistic heating settings
@@ -565,6 +573,9 @@ class ZoneStepsMixin:
         wip = self._zone_wip or {}
         hysteresis = wip.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)
         min_runtime = wip.get(CONF_MIN_RUNTIME, DEFAULT_MIN_RUNTIME)
+        opening_entities = wip.get(CONF_OPENING_ENTITIES, [])
+        open_delay = wip.get(CONF_OPEN_DELAY, DEFAULT_OPEN_DELAY)
+        close_delay = wip.get(CONF_CLOSE_DELAY, DEFAULT_CLOSE_DELAY)
         regulation_type = wip.get("regulation_type", REGULATION_DIRECT)
 
         # Opportunistic defaults
@@ -611,6 +622,15 @@ class ZoneStepsMixin:
                     unit_of_measurement="sec",
                     mode=NumberSelectorMode.BOX,
                 )
+            ),
+            vol.Optional(CONF_OPENING_ENTITIES, default=opening_entities): EntitySelector(
+                EntitySelectorConfig(domain="binary_sensor", multiple=True)
+            ),
+            vol.Required(CONF_OPEN_DELAY, default=open_delay): NumberSelector(
+                NumberSelectorConfig(min=0, max=3600, step=1, unit_of_measurement="sec", mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(CONF_CLOSE_DELAY, default=close_delay): NumberSelector(
+                NumberSelectorConfig(min=0, max=3600, step=1, unit_of_measurement="sec", mode=NumberSelectorMode.BOX)
             ),
             # Opportunistic heating settings
             vol.Required("opportunistic_enabled", default=opportunistic_enabled): BooleanSelector(),

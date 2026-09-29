@@ -121,6 +121,9 @@ CONF_IDLE = "idle"
 CONF_IDLE_ACTION = "action"
 CONF_IDLE_SETBACK = "setback"
 CONF_ALLOW_COMMAND = "allow_command"
+CONF_COMPRESSOR_GROUP = "compressor_group"
+CONF_MIN_COMPRESSOR_RUNTIME = "min_compressor_runtime"
+CONF_MIN_COMPRESSOR_OFF_TIME = "min_compressor_off_time"
 DEFAULT_ALLOW_COMMAND = False  # Device changes don't propagate to zone by default
 
 # Zone config
@@ -137,6 +140,12 @@ CONF_UNOCCUPIED = "unoccupied"
 CONF_HEAT_STAGES = "heat_stages"
 CONF_COOL_STAGES = "cool_stages"
 CONF_SETTINGS = "settings"
+CONF_OPENINGS = "openings"
+CONF_OPENING_ENTITIES = "entities"
+CONF_OPEN_DELAY = "open_delay"
+CONF_CLOSE_DELAY = "close_delay"
+DEFAULT_OPEN_DELAY = 60
+DEFAULT_CLOSE_DELAY = 60
 
 # Stage config
 CONF_STAGE = "stage"
@@ -223,6 +232,8 @@ ATTR_ACCUMULATED_ERROR = "accumulated_error"
 ATTR_REGULATED_SETPOINT = "regulated_setpoint"
 ATTR_BLOCKED_DEVICES = "blocked_devices"
 ATTR_SENSOR_STATUS = "sensor_status"
+ATTR_OPENING_LOCKOUT = "opening_lockout"
+ATTR_OPENING_STATUS = "opening_status"
 ATTR_TIME_IN_STAGE = "time_in_stage"
 ATTR_SENSOR_VALUES = "sensor_values"
 ATTR_SENSOR_SMOOTHED_VALUES = "sensor_smoothed_values"

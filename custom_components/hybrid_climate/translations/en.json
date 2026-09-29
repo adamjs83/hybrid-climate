@@ -133,6 +133,9 @@
         "data": {
           "hysteresis": "Hysteresis",
           "min_runtime": "Minimum runtime",
+          "entities": "Door/window contacts",
+          "open_delay": "Open delay",
+          "close_delay": "Close delay",
           "opportunistic_enabled": "Enable opportunistic heating",
           "opportunistic_threshold": "Opportunistic threshold",
           "override_outdoor_reset": "Override global outdoor reset limits",
@@ -146,6 +149,9 @@
         "data_description": {
           "hysteresis": "Temperature buffer to prevent short-cycling",
           "min_runtime": "Minimum time devices must run before turning off",
+          "entities": "Binary sensors with on meaning open. Missing or unavailable contacts pause the zone immediately.",
+          "open_delay": "Seconds a contact must remain open before the zone pauses",
+          "close_delay": "Seconds all contacts must remain closed before the zone resumes",
           "opportunistic_enabled": "Allow this zone to piggyback on boiler cycles from other zones",
           "opportunistic_threshold": "Activate opportunistic heating when this far below setpoint",
           "override_outdoor_reset": "Use zone-specific outdoor reset limits instead of global",
@@ -216,18 +222,24 @@
       },
       "device_edit": {
         "title": "Device: {device_id}",
-        "description": "Configure this device's capabilities and idle behavior.",
+        "description": "Configure capabilities, idle behavior, and shared compressor timing.",
         "data": {
           "can_heat": "Can Heat",
           "can_cool": "Can Cool",
           "action": "When idle",
-          "setback": "Setback amount"
+          "setback": "Setback amount",
+          "compressor_group": "Compressor group",
+          "min_compressor_runtime": "Minimum compressor run time",
+          "min_compressor_off_time": "Minimum compressor off time"
         },
         "data_description": {
           "can_heat": "Device can be used for heating",
           "can_cool": "Device can be used for cooling",
           "action": "Turn off or maintain a setback temperature",
-          "setback": "Degrees below (heat) or above (cool) target when idle"
+          "setback": "Degrees below (heat) or above (cool) target when idle",
+          "compressor_group": "Devices with the same group share compressor timing; leave empty to disable",
+          "min_compressor_runtime": "Seconds the shared compressor must run before a normal stop",
+          "min_compressor_off_time": "Seconds the shared compressor must remain off before restarting"
         }
       },
       "heat_sources": {

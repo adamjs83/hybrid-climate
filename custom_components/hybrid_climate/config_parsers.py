@@ -27,6 +27,13 @@ from .const import (
     CONF_DEVICE_MUTEX,
     CONF_DEVICES,
     CONF_ALLOW_COMMAND,
+    CONF_COMPRESSOR_GROUP,
+    CONF_MIN_COMPRESSOR_RUNTIME,
+    CONF_MIN_COMPRESSOR_OFF_TIME,
+    CONF_OPENINGS,
+    CONF_OPENING_ENTITIES,
+    CONF_OPEN_DELAY,
+    CONF_CLOSE_DELAY,
     CONF_FOR_ZONE,
     CONF_HEAT_STAGES,
     CONF_IDLE,
@@ -86,6 +93,8 @@ from .const import (
     DEFAULT_KI,
     DEFAULT_KP,
     DEFAULT_MIN_RUNTIME,
+    DEFAULT_OPEN_DELAY,
+    DEFAULT_CLOSE_DELAY,
     DEFAULT_OFFSET_MAX,
     DEFAULT_OPPORTUNISTIC_THRESHOLD,
     DEFAULT_SMOOTHING_SAMPLES,
@@ -106,6 +115,7 @@ from .models import (
     MasterMode,
     MasterModeConfig,
     OpportunisticConfig,
+    OpeningConfig,
     OutdoorResetConfig,
     TouGlobalConfig,
     RegulationConfig,
@@ -182,6 +192,9 @@ def parse_device(device_id: str, data: dict[str, Any]) -> Device:
         entity_id=data[CONF_ENTITY_ID],
         capabilities=capabilities,
         idle_config=parse_device_idle(data.get(CONF_IDLE)),
+        compressor_group=data.get(CONF_COMPRESSOR_GROUP),
+        min_compressor_runtime=data.get(CONF_MIN_COMPRESSOR_RUNTIME, 0),
+        min_compressor_off_time=data.get(CONF_MIN_COMPRESSOR_OFF_TIME, 0),
     )
 
 
@@ -341,6 +354,11 @@ def parse_zone(zone_id: str, data: dict[str, Any]) -> ZoneConfig:
         regulation=parse_regulation(data.get(CONF_REGULATION)),
         opportunistic=parse_opportunistic(data.get(CONF_OPPORTUNISTIC)),
         tou=tou,
+        openings=OpeningConfig(
+            entities=data[CONF_OPENINGS][CONF_OPENING_ENTITIES],
+            open_delay=data[CONF_OPENINGS].get(CONF_OPEN_DELAY, DEFAULT_OPEN_DELAY),
+            close_delay=data[CONF_OPENINGS].get(CONF_CLOSE_DELAY, DEFAULT_CLOSE_DELAY),
+        ) if data.get(CONF_OPENINGS) and data[CONF_OPENINGS][CONF_OPENING_ENTITIES] else None,
     )
 
 

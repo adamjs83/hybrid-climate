@@ -14,6 +14,8 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
 )
 
 from ..const import (
@@ -175,7 +177,12 @@ class DeviceFlowMixin(OptionsFlowBase):
             setback = user_input.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK)
 
             # Save device config
-            return self._save_device_config(device_id, capabilities, action, setback)
+            return self._save_device_config(
+                device_id, capabilities, action, setback,
+                compressor_group=user_input.get("compressor_group", "").strip(),
+                min_compressor_runtime=int(user_input.get("min_compressor_runtime", 0)),
+                min_compressor_off_time=int(user_input.get("min_compressor_off_time", 0)),
+            )
 
         # Load current config
         current = self._load_device_config(device_id)
@@ -224,6 +231,24 @@ class DeviceFlowMixin(OptionsFlowBase):
                         mode=NumberSelectorMode.SLIDER,
                     )
                 ),
+                vol.Optional(
+                    "compressor_group",
+                    default=current.get("compressor_group", ""),
+                ): TextSelector(TextSelectorConfig()),
+                vol.Required(
+                    "min_compressor_runtime",
+                    default=current.get("min_compressor_runtime", 0),
+                ): NumberSelector(NumberSelectorConfig(
+                    min=0, max=3600, step=30, unit_of_measurement="s",
+                    mode=NumberSelectorMode.BOX,
+                )),
+                vol.Required(
+                    "min_compressor_off_time",
+                    default=current.get("min_compressor_off_time", 0),
+                ): NumberSelector(NumberSelectorConfig(
+                    min=0, max=3600, step=30, unit_of_measurement="s",
+                    mode=NumberSelectorMode.BOX,
+                )),
             }),
             errors=errors,
             description_placeholders={
@@ -256,6 +281,9 @@ class DeviceFlowMixin(OptionsFlowBase):
             CONF_CAPABILITIES: device_conf.get(CONF_CAPABILITIES, [CAP_HEAT]),
             CONF_IDLE_ACTION: idle_conf.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF),
             CONF_IDLE_SETBACK: idle_conf.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK),
+            "compressor_group": device_conf.get("compressor_group", ""),
+            "min_compressor_runtime": device_conf.get("min_compressor_runtime", 0),
+            "min_compressor_off_time": device_conf.get("min_compressor_off_time", 0),
         }
 
     # Backwards compat alias
@@ -264,7 +292,9 @@ class DeviceFlowMixin(OptionsFlowBase):
         return self._load_device_config(device_id)
 
     def _save_device_config(
-        self, device_id: str, capabilities: list[str], action: str, setback: float
+        self, device_id: str, capabilities: list[str], action: str, setback: float,
+        *, compressor_group: str = "", min_compressor_runtime: int = 0,
+        min_compressor_off_time: int = 0,
     ) -> FlowResult:
         """Save device configuration to options storage."""
         stored_config = dict(self._get_ui_config())
@@ -280,6 +310,9 @@ class DeviceFlowMixin(OptionsFlowBase):
             CONF_CAPABILITIES: capabilities,
             CONF_IDLE_ACTION: action,
             CONF_IDLE_SETBACK: setback,
+            "compressor_group": compressor_group,
+            "min_compressor_runtime": min_compressor_runtime,
+            "min_compressor_off_time": min_compressor_off_time,
         }
         stored_config["devices"] = devices
 

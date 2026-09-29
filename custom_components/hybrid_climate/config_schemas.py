@@ -31,6 +31,13 @@ from .const import (
     CONF_DEVICE_MUTEX,
     CONF_DEVICES,
     CONF_ALLOW_COMMAND,
+    CONF_COMPRESSOR_GROUP,
+    CONF_MIN_COMPRESSOR_RUNTIME,
+    CONF_MIN_COMPRESSOR_OFF_TIME,
+    CONF_OPENINGS,
+    CONF_OPENING_ENTITIES,
+    CONF_OPEN_DELAY,
+    CONF_CLOSE_DELAY,
     CONF_ENTITY_ID,
     CONF_FOR_ZONE,
     CONF_HEAT_SOURCES,
@@ -96,6 +103,8 @@ from .const import (
     DEFAULT_KI,
     DEFAULT_KP,
     DEFAULT_MIN_RUNTIME,
+    DEFAULT_OPEN_DELAY,
+    DEFAULT_CLOSE_DELAY,
     DEFAULT_OFFSET_MAX,
     DEFAULT_OPPORTUNISTIC_THRESHOLD,
     DEFAULT_SMOOTHING_SAMPLES,
@@ -193,6 +202,18 @@ ZONE_SETTINGS_SCHEMA = vol.Schema({
     vol.Optional(CONF_OUTDOOR_RESET): ZONE_OUTDOOR_RESET_SCHEMA,
 })
 
+OPENINGS_SCHEMA = vol.Schema({
+    vol.Required(CONF_OPENING_ENTITIES): vol.All(
+        cv.ensure_list, [vol.All(cv.entity_id, vol.Match(r"^binary_sensor\."))]
+    ),
+    vol.Optional(CONF_OPEN_DELAY, default=DEFAULT_OPEN_DELAY): vol.All(
+        vol.Coerce(int), vol.Range(min=0)
+    ),
+    vol.Optional(CONF_CLOSE_DELAY, default=DEFAULT_CLOSE_DELAY): vol.All(
+        vol.Coerce(int), vol.Range(min=0)
+    ),
+})
+
 REGULATION_SCHEMA = vol.Schema({
     vol.Optional(CONF_REGULATION_TYPE, default=REGULATION_PI): vol.In([REGULATION_DIRECT, REGULATION_PI]),
     vol.Required(CONF_DEVICES): vol.All(cv.ensure_list, [cv.string]),
@@ -243,6 +264,7 @@ ZONE_SCHEMA = vol.Schema({
     vol.Optional(CONF_HEAT_STAGES, default=[]): vol.All(cv.ensure_list, [STAGE_SCHEMA]),
     vol.Optional(CONF_COOL_STAGES, default=[]): vol.All(cv.ensure_list, [STAGE_SCHEMA]),
     vol.Optional(CONF_SETTINGS): ZONE_SETTINGS_SCHEMA,
+    vol.Optional(CONF_OPENINGS): OPENINGS_SCHEMA,
     vol.Optional(CONF_REGULATION): REGULATION_SCHEMA,
     vol.Optional(CONF_OPPORTUNISTIC): OPPORTUNISTIC_SCHEMA,
     vol.Optional(CONF_TOU): TOU_ZONE_SCHEMA,
@@ -260,6 +282,9 @@ DEVICE_SCHEMA = vol.Schema({
         [vol.In([CAPABILITY_HEAT, CAPABILITY_COOL])]
     ),
     vol.Optional(CONF_IDLE): DEVICE_IDLE_SCHEMA,
+    vol.Optional(CONF_COMPRESSOR_GROUP): vol.All(cv.string, vol.Length(min=1)),
+    vol.Optional(CONF_MIN_COMPRESSOR_RUNTIME, default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
+    vol.Optional(CONF_MIN_COMPRESSOR_OFF_TIME, default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
     # Note: allow_command moved to stage device config (per-zone, not per-device)
 })
 

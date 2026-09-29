@@ -56,6 +56,9 @@ def build_config_from_ui(ui_config: dict[str, Any]) -> dict[str, Any]:
             CONF_ENTITY_ID: entity_id,
             "capabilities": dev_conf.get("capabilities", ["heat"]),
         }
+        for key in ("compressor_group", "min_compressor_runtime", "min_compressor_off_time"):
+            if dev_conf.get(key) is not None and dev_conf.get(key) != "":
+                devices[device_id][key] = dev_conf[key]
         # Add idle config if present
         action = dev_conf.get(CONF_IDLE_ACTION)
         setback = dev_conf.get(CONF_IDLE_SETBACK)
@@ -279,6 +282,9 @@ def import_yaml_to_ui_config(yaml_config: dict[str, Any]) -> dict[str, Any]:
             CONF_ENTITY_ID: entity_id,
             "capabilities": dev_conf.get("capabilities", ["heat"]),
         }
+        for key in ("compressor_group", "min_compressor_runtime", "min_compressor_off_time"):
+            if key in dev_conf:
+                ui_devices[entity_id][key] = dev_conf[key]
         # Add idle config
         idle_conf = dev_conf.get(CONF_IDLE, {})
         if idle_conf:
@@ -400,6 +406,8 @@ def convert_yaml_zone_to_ui(
         "setpoints": zone_conf.get("setpoints", {"default": 72}),
         "settings": settings,
     }
+    if zone_conf.get("openings"):
+        ui_zone["openings"] = dict(zone_conf["openings"])
 
     # Convert heat stages
     heat_stages = []
@@ -524,6 +532,8 @@ def convert_ui_zone_to_yaml(
         "setpoints": ui_zone.get("setpoints", {"default": 72}),
         "settings": settings,
     }
+    if ui_zone.get("openings"):
+        zone["openings"] = dict(ui_zone["openings"])
 
     # Convert heat_stages - UI uses entity_ids, YAML uses device IDs
     heat_stages = []

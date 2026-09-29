@@ -24,6 +24,7 @@ from .const import (
 )
 from .models import Device, DeviceMutexRule
 from .device_arbitration import DeviceRequest, dispatch_requests, resolve_requests
+from .compressor_protection import CompressorProtection
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,10 +40,12 @@ class DeviceManager:
         """Initialize the device manager."""
         self.hass = hass
         self.devices = devices
+        self.compressor_protection = CompressorProtection(devices)
         self._pending_commands: dict[str, list[DeviceRequest]] = {}
         self.failed_commands: set[str] = set()
         self.accepted_zone_requests: dict[str, set[str]] = {}
         self._collecting = False
+        self._forced_off_devices: set[str] = set()
         # Secondary index: entity_id → Device for O(1) fallback lookups
         self._entity_id_index: dict[str, Device] = {
             dev.entity_id: dev for dev in devices.values() if dev.entity_id
@@ -124,6 +127,7 @@ class DeviceManager:
             device.is_available = True
             device.current_mode = state.state
             device.current_target_temp = state.attributes.get(ATTR_TEMPERATURE)
+        self.compressor_protection.observe()
 
     async def set_device_mode(
         self,
@@ -132,6 +136,7 @@ class DeviceManager:
         target_temp: float | None = None,
         *,
         zone_id: str | None = None,
+        force_off: bool = False,
     ) -> bool:
         """Set a device's HVAC mode and optionally target temperature.
 
@@ -146,13 +151,16 @@ class DeviceManager:
         """
         if self._collecting:
             self._pending_commands.setdefault(device.device_id, []).append((mode, target_temp, zone_id))
+            if mode == HVAC_MODE_OFF and force_off:
+                self._forced_off_devices.add(device.device_id)
             return True
-        return await self._dispatch_device_mode(device, mode, target_temp)
+        return await self._dispatch_device_mode(device, mode, target_temp, force_off=force_off)
 
     def begin_cycle(self) -> None:
         """Collect zone requests until every zone has been evaluated."""
         self._pending_commands.clear()
         self.accepted_zone_requests.clear()
+        self._forced_off_devices.clear()
         self._collecting = True
 
     def has_pending_mode(self, device_id: str, mode: str) -> bool:
@@ -186,6 +194,7 @@ class DeviceManager:
         """Discard unfinished demand after an interrupted update."""
         self._collecting = False
         self._pending_commands.clear()
+        self._forced_off_devices.clear()
 
     async def dispatch_cycle(self, rules: list[DeviceMutexRule] | None = None) -> dict[str, bool]:
         """Resolve one command per device, releasing mutex conflicts before starts."""
@@ -194,8 +203,13 @@ class DeviceManager:
 
     async def _dispatch_device_mode(
         self, device: Device, mode: str, target_temp: float | None,
+        *, force_off: bool = False,
     ) -> bool:
         """Send only changed fields, recording desired state after success."""
+        if not self.compressor_protection.allow(device, mode, force_off=force_off):
+            _LOGGER.debug("Device %s blocked: %s", device.device_id,
+                          self.compressor_protection.blocked_reasons[device.device_id])
+            return False
         try:
             if target_temp is not None:
                 state = self.hass.states.get(device.entity_id)
@@ -222,6 +236,7 @@ class DeviceManager:
                 device.desired_temp = target_temp
                 device.command_acknowledged()
                 self.failed_commands.discard(device.device_id)
+                self.compressor_protection.command_succeeded(device, mode)
                 return True
             if mode_changed:
                 await self.hass.services.async_call(
@@ -239,21 +254,23 @@ class DeviceManager:
                 device.current_target_temp = target_temp
             device.start_command(mode, target_temp)
             self.failed_commands.discard(device.device_id)
+            self.compressor_protection.command_succeeded(device, mode)
             return True
         except Exception:
             self.failed_commands.add(device.device_id)
             _LOGGER.exception("Failed to command device %s to %s at %s", device.device_id, mode, target_temp)
             return False
 
-    async def turn_off_device(self, device: Device) -> bool:
+    async def turn_off_device(self, device: Device, *, force_off: bool = False) -> bool:
         """Turn off a device."""
-        return await self.set_device_mode(device, HVAC_MODE_OFF)
+        return await self.set_device_mode(device, HVAC_MODE_OFF, force_off=force_off)
 
     async def set_device_idle(
         self,
         device: Device,
         zone_target_temp: float,
         was_heating: bool,
+        *, force_off: bool = False,
     ) -> bool:
         """Set a device to its configured idle state.
 
@@ -272,7 +289,7 @@ class DeviceManager:
                 "Device %s idle action: off",
                 device.device_id,
             )
-            return await self.turn_off_device(device)
+            return await self.turn_off_device(device, force_off=force_off)
 
         elif idle_config.action == IDLE_ACTION_SETBACK:
             # Calculate setback temperature
@@ -297,4 +314,4 @@ class DeviceManager:
             return await self.set_device_mode(device, mode, setback_temp)
 
         # Default to off
-        return await self.turn_off_device(device)
+        return await self.turn_off_device(device, force_off=force_off)

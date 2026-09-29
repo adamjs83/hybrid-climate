@@ -55,7 +55,6 @@ def load_config(raw_config: dict[str, Any]) -> HybridClimateConfig:
         device_id: parse_device(device_id, device_data)
         for device_id, device_data in validated[CONF_DEVICES].items()
     }
-
     # Parse zones
     zones = {
         zone_id: parse_zone(zone_id, zone_data)

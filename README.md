@@ -16,6 +16,9 @@ A Home Assistant custom integration for whole-home HVAC orchestration. Coordinat
 - **Auto Home/Away**: Optional occupancy entity for automatic mode switching
 - **Bidirectional Sync**: External thermostat changes propagate back to zone targets (configurable per-zone)
 - **Weather Entity Support**: Can use `weather.*` entities for outdoor temperature
+- **Compressor Protection**: Optional shared-compressor groups with minimum run and off intervals
+- **Door/Window Lockout**: Optional zone contacts pause equipment with configurable open and close delays
+- **Diagnostics**: Download a live control snapshot from the integration's Home Assistant diagnostics menu
 
 ## Installation
 
@@ -30,17 +33,18 @@ A Home Assistant custom integration for whole-home HVAC orchestration. Coordinat
 ### Manual Installation
 
 1. Copy `custom_components/hybrid_climate/` to your Home Assistant `config/custom_components/` directory
-2. Create your configuration (see Configuration section)
+2. Optionally prepare YAML for a one-time import (see Configuration)
 3. Restart Home Assistant
 4. Add the integration via Settings → Devices & Services → Add Integration → Hybrid Climate
+5. Configure the integration in the UI
 
 ## Configuration
 
-Hybrid Climate supports both YAML and UI configuration. You can use YAML for the base configuration and override/extend via the UI, or configure entirely through the UI.
+Hybrid Climate stores its active configuration in the integration's UI options. You can configure it entirely in the UI, or import an existing YAML configuration once and then manage it in the UI.
 
 ### UI Configuration (v0.7.0+)
 
-After adding the integration, click **Configure** to access the options menu. The UI provides a complete configuration interface that can work alongside or instead of YAML.
+After adding the integration, click **Configure** to access the options menu. The UI is the source of truth after setup, including after a YAML import.
 
 #### Main Menu
 
@@ -100,6 +104,7 @@ Creating or editing a zone walks through these steps:
 **Step 5: Zone Settings**
 - Hysteresis (deadband to prevent short-cycling)
 - Minimum runtime (seconds)
+- Door/window binary sensors and their open/close delays (optional)
 - Opportunistic heating enable/threshold (piggyback on boiler cycles)
 - Zone-specific outdoor reset override (disable/override global limits)
 - Regulation type: Direct or PI Control
@@ -154,14 +159,19 @@ Configure what each device does when its zone is satisfied (idle):
 | Turn Off | Device turns off completely when idle |
 | Setback | Device maintains a setback temperature (target ± offset) |
 | Setback amount | Degrees below (heat) or above (cool) target |
+| Compressor group | Shared outdoor compressor identifier; use the same value on all members |
+| Minimum compressor runtime/off time | Seconds to hold the shared group on or off |
 
-### UI/YAML Interaction
+Compressor protection is optional. For a shared group, the longest configured interval among its members applies. It uses each climate entity's reported HVAC mode as a proxy for compressor activity; a thermostat that cycles its compressor while remaining in `heat` or `cool` cannot be timed precisely. On startup, the previous transition is unknown, so the first observed state begins a full interval. Explicit shutdowns, including door/window lockouts, bypass the minimum runtime.
 
-- UI settings are stored in the config entry options
-- UI values **override** YAML values where both exist
-- Zones can be defined in YAML, UI, or both (UI takes precedence for conflicts)
-- YAML-defined zones cannot be deleted from the UI (only edited)
-- Device entries are auto-created for any climate entities used in UI zones
+An opening contact uses `on` for open and `off` for closed. An already-open contact at startup, or a missing or unavailable contact, locks the zone immediately. After a later open event, the configured open delay applies; all contacts must stay closed for the close delay before control resumes. A lockout sends equipment to `off` even if its normal idle action is setback.
+
+### UI and YAML Configuration
+
+- UI settings are stored in the config entry options and used on subsequent starts.
+- If the entry has no UI configuration, existing YAML is imported into those options once.
+- After import, edit zones and devices in the UI. Editing the YAML file does not update the active configuration; it is not merged on later starts.
+- Device entries are auto-created for climate entities used in UI zones.
 
 ### Live-Tunable Number Entities
 
@@ -206,13 +216,13 @@ data:
 
 ### YAML Configuration
 
-For YAML-based configuration, add to your `configuration.yaml`:
+To import an existing YAML configuration on first setup, add to your `configuration.yaml`:
 
 ```yaml
 hybrid_climate: !include hybrid_climate_config.yaml
 ```
 
-Create `hybrid_climate_config.yaml`:
+Create `hybrid_climate_config.yaml`. After the first import, make further changes through **Settings → Devices & Services → Hybrid Climate → Configure**:
 
 ```yaml
 outdoor_sensor: weather.home  # or sensor.outdoor_temperature
@@ -248,6 +258,9 @@ devices:
   basement_hp:
     entity_id: climate.basement_heat_pump
     capabilities: [heat, cool]
+    compressor_group: basement_outdoor  # shared by indoor units on this compressor
+    min_compressor_runtime: 300          # seconds
+    min_compressor_off_time: 180         # seconds
     idle:
       action: setback  # or "off"
       setback: 5
@@ -292,6 +305,11 @@ zones:
       outdoor_reset:
         never_cool_below: null  # null = disable restriction (allow cooling in winter)
         # never_heat_above: 80  # Or set zone-specific limit
+    # Optional: pause this zone while a door or window is open
+    openings:
+      entities: [binary_sensor.basement_window]
+      open_delay: 60   # seconds
+      close_delay: 60  # seconds
     # Optional: Opportunistic heating (piggyback on boiler cycles)
     opportunistic:
       enabled: true
@@ -964,12 +982,14 @@ logger:
 
 ### Common Issues
 
-1. **Integration not loading**: Check `configuration.yaml` includes the config file correctly
+1. **Integration not loading**: Check the integration's UI configuration. If this is the first YAML import, also check the `configuration.yaml` include and the imported file.
 2. **Zones not responding**: Verify device entity_ids match actual HA entities
 3. **Temperature not reading**: Check sensor entity_ids and ensure sensors are available
 4. **Conflicts not working**: Verify outdoor_sensor is configured and returning valid temps
 5. **External changes not syncing**: Ensure `allow_command: true` is set in the stage devices config
 6. **Overlay snapping back**: Check if device is in COMMANDING state (wait 10s for grace period)
+
+For a detailed snapshot of sensor availability, zone lockouts, compressor holds, and requested versus reported device modes, download **Diagnostics** from the integration's menu in Settings → Devices & Services.
 
 ## Changelog
 
@@ -982,7 +1002,7 @@ logger:
 - **Device conflicts** (mutex rules) for shared equipment
 - **Device idle behavior** configuration (off vs setback)
 - **Live helpers** support for real-time setpoint/PI tuning (manual creation)
-- UI config merges with YAML - UI values take precedence
+- At the time, UI config merged with YAML; current versions import YAML once and then use UI options
 
 ### v0.6.0
 - Sleep mode and named setpoints (sleep, vacation)

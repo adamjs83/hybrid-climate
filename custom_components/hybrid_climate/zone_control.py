@@ -35,6 +35,7 @@ from .models import (
     ZoneState,
 )
 from .sensor_manager import get_zone_temperature
+from .opening_lockout import update_opening_lockout
 from .zone_helpers import (
     get_active_heat_sources,
     get_all_zone_devices,
@@ -103,6 +104,7 @@ async def apply_opportunistic_heating(
             zone_state.hvac_action in (HvacAction.HEATING, HvacAction.COOLING)
             or zone_state.user_mode_override in (HvacMode.OFF, HvacMode.COOL)
             or not zone_state.is_available
+            or zone_state.opening_lockout
         ):
             continue
 
@@ -256,6 +258,15 @@ async def update_zone(
         restore_start_times=coordinator._sensor_restore_start_times,
     )
     zone_state.current_temperature = current_temp
+
+    if update_opening_lockout(
+        coordinator.hass, zone_config.openings, zone_state, dt_util.utcnow()
+    ):
+        await _deactivate_zone(coordinator, zone_id, zone_config, zone_state, forced_off=True)
+        zone_state.hvac_mode = HvacMode.OFF
+        zone_state.hvac_action = HvacAction.OFF
+        zone_state.last_update = dt_util.utcnow()
+        return
 
     if current_temp is None:
         _LOGGER.warning("Zone %s: no temperature available", zone_id)
@@ -898,6 +909,7 @@ async def _deactivate_zone(
             not forced_off and zone_state.last_active_action != HvacAction.COOLING
         ),
         release_regulated=True,
+        forced_off=forced_off,
     )
 
     # Keep hvac_mode as heat/cool based on zone capabilities, just set action to idle
