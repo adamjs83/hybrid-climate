@@ -173,6 +173,29 @@ An opening contact uses `on` for open and `off` for closed. An already-open cont
 - After import, edit zones and devices in the UI. Editing the YAML file does not update the active configuration; it is not merged on later starts.
 - Device entries are auto-created for climate entities used in UI zones.
 
+### Dynamic dashboard card
+
+The `custom:hybrid-climate-card` uses the zones and devices in the active integration configuration. Add or remove zones through **Settings → Devices & Services → Hybrid Climate → Configure**; the card picks up the resulting configuration without editing each dashboard view. The card provides five views: Climate Overview, Zone Details, Setpoints, PI Controller, and All Devices. A paste-ready example is in [`dashboard_dynamic_example.yaml`](dashboard_dynamic_example.yaml).
+
+After installing or updating Hybrid Climate, restart Home Assistant so it registers the card asset route. In **Settings → Dashboards → Resources**, add `/hybrid_climate/hybrid-climate-card.js` as a JavaScript module. Then create a YAML dashboard using the example file, or add a card to an existing dashboard:
+
+```yaml
+type: custom:hybrid-climate-card
+view: overview
+rows:
+  - status
+  - thermostat
+  - targets
+  - lockout_reason
+zone_order:
+  - living_room
+  - upstairs
+```
+
+`zone_order` contains zone IDs from **Configure → Zones**. Listed zones appear first in that order; any newly configured zones append automatically. `rows` is an ordered list of sections to show in each zone: `status`, `thermostat`, `targets`, `lockout_reason`, `sensors`, `openings`, `equipment`, `setpoints`, or `pi`. Optional `zone_rows` overrides that list for a specific zone; `hidden_zones` hides selected IDs. Omit `zone_order` to follow integration order and omit `rows` for the view's defaults. The card's graphical editor can also reorder zones and sections. The example shows a separate card for each of the five views.
+
+Temperature and mode changes on the card are live controls. Its setpoint and PI controls use the integration's `number.*` entities and take effect without a reload. To add or remove zones, devices, stages, sensors, opening contacts, and other structural settings, use the integration's **Configure** flow. The card does not edit those settings.
+
 ### Live-Tunable Number Entities
 
 The integration automatically creates `number.*` entities for each zone, allowing real-time adjustment of setpoints and PI parameters without reloading.

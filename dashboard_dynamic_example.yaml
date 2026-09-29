@@ -1,0 +1,59 @@
+# Add /hybrid_climate/hybrid-climate-card.js as a JavaScript module in
+# Settings > Dashboards > Resources, then paste this into a YAML dashboard.
+# Add zone_order with your configured zone IDs to customize order.
+# Zones absent from zone_order (including newly added zones) append automatically.
+title: Hybrid Climate
+views:
+  - title: Climate Overview
+    path: climate
+    icon: mdi:home-thermometer
+    cards:
+      - type: custom:hybrid-climate-card
+        view: overview
+        show_master: true
+        rows:
+          - status
+          - thermostat
+          - targets
+          - lockout_reason
+
+  - title: Zone Details
+    path: zone-details
+    icon: mdi:home-search
+    cards:
+      - type: custom:hybrid-climate-card
+        view: details
+        rows:
+          - status
+          - targets
+          - lockout_reason
+          - sensors
+          - openings
+          - equipment
+
+  - title: Setpoints
+    path: setpoints
+    icon: mdi:thermometer-lines
+    cards:
+      - type: custom:hybrid-climate-card
+        view: setpoints
+        rows:
+          - setpoints
+
+  - title: PI Controller
+    path: pi-controller
+    icon: mdi:chart-bell-curve
+    cards:
+      - type: custom:hybrid-climate-card
+        view: pi
+        rows:
+          - pi
+
+  - title: All Devices
+    path: devices
+    icon: mdi:hvac
+    cards:
+      - type: custom:hybrid-climate-card
+        view: devices
+        rows:
+          - equipment

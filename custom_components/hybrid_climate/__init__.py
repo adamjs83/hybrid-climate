@@ -23,6 +23,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import HybridClimateCoordinator
+from .dashboard_api import async_setup_dashboard
 from .device_release import release_removed_config_devices
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ CONFIG_SCHEMA = vol.Schema(
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Set up Hybrid Climate from YAML configuration."""
     hass.data.setdefault(DOMAIN, {})
+    await async_setup_dashboard(hass)
 
     if DOMAIN not in config:
         return True
