@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0a3] - 2026-09-28
+
+### Fixed
+- Hybrid Climate no longer logs the full configuration entry at startup; configuration logs now use brief summaries.
+
 ## [0.11.0a2] - 2026-09-28
 
 ### Fixed

@@ -56,20 +56,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Hybrid Climate from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    # Log RAW entry.options before any processing
-    _LOGGER.warning(
-        "RAW entry.options at startup: %s",
-        dict(entry.options),
-    )
-
     ui_config = entry.options.get(CONF_UI_CONFIG, {})
     yaml_config = hass.data[DOMAIN].get("yaml_config")
 
-    _LOGGER.warning(
-        "Config startup: yaml_config=%s, ui_config keys=%s, device_mutex=%s",
-        "present" if yaml_config else "None",
-        list(ui_config.keys()) if ui_config else "empty",
-        ui_config.get("device_mutex", "NOT_FOUND")
+    _LOGGER.debug(
+        "Config startup: yaml_present=%s, ui_present=%s",
+        bool(yaml_config), bool(ui_config),
     )
 
     # Determine config source and build config dict for load_config()
@@ -77,7 +69,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if ui_config.get("_version") or ui_config.get("_yaml_imported") or "zones" in ui_config or "devices" in ui_config:
         # UI config is source of truth - build config from UI
         _LOGGER.debug("Building config from UI config (version=%s, yaml_imported=%s)", ui_config.get("_version"), ui_config.get("_yaml_imported"))
-        _LOGGER.debug("UI config device_mutex at startup: %s", ui_config.get("device_mutex", "NOT_SET"))
 
         # YAML merge is deprecated - UI config is now the sole source of truth
         # If you need to add new settings, use the UI options flow

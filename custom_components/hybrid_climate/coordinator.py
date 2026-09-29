@@ -69,8 +69,6 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
         self.config = config
         self.entry = entry  # For reading persisted number values
         
-        if entry:
-            _LOGGER.debug("Coordinator init: entry.options = %s", dict(entry.options))
         self.pi_controller = PIController()
         self.device_manager = DeviceManager(hass, config.devices)
         self.conflict_resolver = ConflictResolver(

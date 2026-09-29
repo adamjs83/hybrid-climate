@@ -188,11 +188,6 @@ def merge_new_yaml_settings(ui_config: dict[str, Any], yaml_config: dict[str, An
         yaml_settings = yaml_zone.get("settings", {})
         ui_settings = ui_zone.get("settings", {})
 
-        _LOGGER.debug(
-            "Merge check for zone %s: yaml_settings=%s, ui_settings=%s",
-            zone_id, yaml_settings, ui_settings
-        )
-
         # Merge outdoor_reset if in YAML but not in UI
         # Check if key exists (not just value truthy) because value could be {"never_cool_below": null}
         if "outdoor_reset" in yaml_settings and "outdoor_reset" not in ui_settings:
@@ -204,10 +199,7 @@ def merge_new_yaml_settings(ui_config: dict[str, Any], yaml_config: dict[str, An
             outdoor_reset["heat_override_set"] = CONF_NEVER_HEAT_ABOVE in yaml_outdoor_reset
             outdoor_reset["cool_override_set"] = CONF_NEVER_COOL_BELOW in yaml_outdoor_reset
             ui_zone["settings"]["outdoor_reset"] = outdoor_reset
-            _LOGGER.debug(
-                "Merged outdoor_reset from YAML for zone %s: %s",
-                zone_id, outdoor_reset
-            )
+            _LOGGER.debug("Merged outdoor reset from YAML for zone %s", zone_id)
             changed = True
 
         # Ensure *_override_set flags are present if outdoor_reset exists in UI but lacks flags
@@ -227,19 +219,13 @@ def merge_new_yaml_settings(ui_config: dict[str, Any], yaml_config: dict[str, An
                     outdoor_reset["heat_override_set"] = CONF_NEVER_HEAT_ABOVE in ui_outdoor_reset
                     outdoor_reset["cool_override_set"] = CONF_NEVER_COOL_BELOW in ui_outdoor_reset
                 ui_settings["outdoor_reset"] = outdoor_reset
-                _LOGGER.debug(
-                    "Added missing override_set flags to outdoor_reset for zone %s: %s",
-                    zone_id, outdoor_reset
-                )
+                _LOGGER.debug("Added outdoor reset override flags for zone %s", zone_id)
                 changed = True
 
         # Merge opportunistic if in YAML but not in UI
         if yaml_zone.get("opportunistic") and not ui_zone.get("opportunistic"):
             ui_zone["opportunistic"] = yaml_zone["opportunistic"]
-            _LOGGER.debug(
-                "Merged opportunistic from YAML for zone %s: %s",
-                zone_id, yaml_zone["opportunistic"]
-            )
+            _LOGGER.debug("Merged opportunistic settings from YAML for zone %s", zone_id)
             changed = True
 
     if changed:
@@ -388,18 +374,6 @@ def convert_yaml_zone_to_ui(
         outdoor_reset["heat_override_set"] = outdoor_reset.get("heat_override_set", CONF_NEVER_HEAT_ABOVE in outdoor_reset)
         outdoor_reset["cool_override_set"] = outdoor_reset.get("cool_override_set", CONF_NEVER_COOL_BELOW in outdoor_reset)
         settings["outdoor_reset"] = outdoor_reset
-        _LOGGER.debug(
-            "convert_yaml_zone_to_ui: zone=%s outdoor_reset with flags: %s",
-            zone_conf.get("name"),
-            outdoor_reset,
-        )
-
-    _LOGGER.debug(
-        "convert_yaml_zone_to_ui: zone=%s, settings=%s, outdoor_reset=%s",
-        zone_conf.get("name"),
-        settings,
-        settings.get("outdoor_reset") if settings else None,
-    )
     ui_zone = {
         "name": zone_conf.get("name", "Zone"),
         "sensors": zone_conf.get("sensors", {"indoor": [], "aggregation": "average"}),
@@ -520,12 +494,6 @@ def convert_ui_zone_to_yaml(
 ) -> dict[str, Any]:
     """Convert UI zone format to YAML-compatible format."""
     settings = ui_zone.get("settings", {})
-    _LOGGER.debug(
-        "convert_ui_zone_to_yaml: zone=%s, settings=%s, outdoor_reset=%s",
-        ui_zone.get("name"),
-        settings,
-        settings.get("outdoor_reset") if settings else None,
-    )
     zone = {
         "name": ui_zone.get("name", "Zone"),
         "sensors": ui_zone.get("sensors", {"indoor": [], "aggregation": "average"}),

@@ -212,12 +212,11 @@ class OptionsFlowBase(OptionsFlowWithReload):
         if CONF_NEVER_COOL_BELOW in global_settings:
             new_options[CONF_NEVER_COOL_BELOW] = global_settings[CONF_NEVER_COOL_BELOW]
 
-        # Log post-merge state for debugging
-        _LOGGER.info(
-            "_save_ui_config POST-MERGE: zones=%s, devices=%s, device_mutex=%s",
-            list(merged_ui_config.get("zones", {}).keys()),
-            list(merged_ui_config.get("devices", {}).keys()) if merged_ui_config.get("devices") else "none",
-            merged_ui_config.get("device_mutex", "NOT_SET"),
+        _LOGGER.debug(
+            "Saved UI config: %d zones, %d devices, %d mutex rules",
+            len(merged_ui_config.get("zones", {})),
+            len(merged_ui_config.get("devices", {})),
+            len(merged_ui_config.get("device_mutex", [])),
         )
 
         # OptionsFlowWithReload handles reload and persistence automatically

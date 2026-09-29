@@ -104,13 +104,6 @@ class ConflictResolver:
         global_reset = self.config.outdoor_reset
         zone_reset = zone_config.settings.outdoor_reset if zone_config and zone_config.settings else None
 
-        _LOGGER.debug(
-            "Zone %s outdoor_reset config: zone_reset=%s, settings=%s",
-            result.zone_id,
-            zone_reset,
-            zone_config.settings if zone_config else None,
-        )
-
         # Determine effective never_heat_above
         if zone_reset and zone_reset.heat_override_set:
             # Zone explicitly overrides (None = disabled, float = zone limit)
