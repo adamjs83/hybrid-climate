@@ -31,9 +31,29 @@ SOURCE_UI_CONFIG = "ui_config"
 SOURCE_OPTIONS_OVERRIDE = "options_override"
 SOURCE_NUMBER_ENTITY = "number_entity"
 SOURCE_DEFAULT = "default"
+READ_ONLY_FIELDS = frozenset({
+    ("global", "outdoor_sensor"),
+    ("devices", "idle.action"),
+    ("devices", "idle.setback"),
+    ("devices", "allow_command"),
+    ("zones", "regulation"),
+})
+READ_ONLY_MESSAGE = "Read-only field; change it in the integration options UI"
+READ_ONLY_DESCRIPTIONS = {
+    "outdoor_sensor": "Outdoor temperature sensor",
+    "idle.action": "Device action when idle",
+    "idle.setback": "Temperature setback when idle",
+    "allow_command": "Allow external device changes to update zones",
+    "regulation": "Zone regulation method and devices",
+}
+READ_ONLY_TEMPERATURE_UNIT = "°F"
+MALFORMED_STAGE_STORAGE_WARNING = (
+    "Malformed zone stage storage for device %s; using default command-permission source"
+)
 PRESET_SERVICE = "climate.set_preset_mode"
 DRY_RUN_KEY = "dry_run"
 REASON_KEY = "reason"
+REASON_REQUIRED_MESSAGE = "reason is required"
 EXPECTED_HASH_KEY = "expected_hash"
 ERROR_PENDING = "pending"
 ERROR_STALE_REVISION = "stale_revision"
@@ -67,3 +87,11 @@ REASON_DETAILS = {
     "device_command_failed": "A requested device command failed",
 }
 UNKNOWN_REASON_DETAIL = "No definitive cause is recorded in cached runtime state"
+UNCONTROLLED_MODE_DETAIL = (
+    "Device reports {reported_mode}, but no zone owns it and the integration "
+    "has not commanded {reported_mode}"
+)
+SENSOR_OUTLIER_THRESHOLD = 1.5
+OUTLIER_COMPARE_EPSILON = 1e-6
+WITHIN_TARGET_CODE = "within_target"
+WITHIN_TARGET_DETAIL = "Cached temperature is within the zone's heat/cool targets"

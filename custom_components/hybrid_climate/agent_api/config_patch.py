@@ -21,7 +21,7 @@ from .const import (
     COMPAT_KEYS, DRY_RUN_KEY, ERROR_ENTRY_REMOVED, ERROR_PENDING, FAILED_UNLOAD_STATE,
     ERROR_RELOAD_FAILED, ERROR_STALE_REVISION, EXPECTED_HASH_KEY,
     PENDING_MESSAGE, PENDING_SETUP_RECOVERY_MESSAGE, PENDING_UNLOAD_RECOVERY_MESSAGE,
-    REASON_KEY, RELOAD_FAILED_MESSAGE, STALE_MESSAGE,
+    RELOAD_FAILED_MESSAGE, STALE_MESSAGE,
 )
 from .patch_validation import empty_result, issue, validate_patch
 from .revision import ledger, revision_state, stored_revision
@@ -30,15 +30,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_set_config(
-    hass: HomeAssistant, entry: ConfigEntry, call: ServiceCall,
+    hass: HomeAssistant, entry: ConfigEntry, call: ServiceCall, data: dict[str, Any],
 ) -> dict[str, Any]:
-    """Serialize a validated save, reload once, and report actual activation."""
-    if not isinstance(call.data.get(REASON_KEY), str) or not call.data[REASON_KEY].strip():
-        raise ServiceValidationError("reason is required")
-    dry_run = call.data.get(DRY_RUN_KEY, True)
-    expected_hash = call.data.get(EXPECTED_HASH_KEY)
-    if not dry_run and (not isinstance(expected_hash, str) or not expected_hash.strip()):
-        raise ServiceValidationError("expected_hash is required for apply")
+    """Save and report activation; data must have passed SET_SCHEMA."""
+    dry_run = data[DRY_RUN_KEY]
     state = ledger(hass)
     lock = state["locks"].setdefault(entry.entry_id, asyncio.Lock())
     async with lock:
@@ -54,7 +49,7 @@ async def async_set_config(
             result["valid"] = False
             result["errors"].append(issue(None, ERROR_PENDING, PENDING_MESSAGE))
             return result
-        candidate, result = validate_patch(fresh.options, call.data)
+        candidate, result = validate_patch(fresh.options, data)
         result.update(revision_before=before, revision_after=before, pending=before["pending"])
         result["revision_proposed"] = revision_state(candidate, before["active"])
         if not result["valid"] or dry_run:
@@ -65,7 +60,7 @@ async def async_set_config(
         if latest is None:
             raise ServiceValidationError("Entry no longer exists")
         current = stored_revision(latest.options)
-        if current != before["stored"] or current != call.data[EXPECTED_HASH_KEY]:
+        if current != before["stored"] or current != data[EXPECTED_HASH_KEY]:
             result["valid"] = False
             result["errors"].append(issue(None, ERROR_STALE_REVISION, STALE_MESSAGE))
             result["revision_after"] = revision_state(
@@ -123,5 +118,5 @@ async def async_set_config(
                             else PENDING_SETUP_RECOVERY_MESSAGE)
                 result["errors"].append(issue(None, ERROR_RELOAD_FAILED, recovery))
                 result["recovery"] = recovery
-            result["warnings"].extend(audit_saved(hass, latest, call, result))
+            result["warnings"].extend(audit_saved(hass, latest, call, data, result))
         return result

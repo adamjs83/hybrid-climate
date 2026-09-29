@@ -20,6 +20,7 @@ from .accessors import Edit, field_for, read_effective, read_stored, stored_pare
 from .const import (
     OUTDOOR_FIELDS, PRESET_SERVICE, SOURCE_DEFAULT, SOURCE_OPTIONS_OVERRIDE, SOURCE_UI_CONFIG,
 )
+from .config_readonly import compressor_groups, readonly_device, readonly_global, readonly_zone
 from .controls import entity_values, zone_controls
 from .fields import FIELDS
 from .patch_validation import edit_key
@@ -93,7 +94,8 @@ def get_config(
     options = runtime[DATA_PREPARED_OPTIONS]
     result: dict[str, Any] = {
         "revision": revision_state(entry.options, runtime[DATA_ACTIVE_REVISION]),
-        "global": {}, "zones": {}, "devices": {}, "entity_controlled": {},
+        "global": readonly_global(model, options), "zones": {}, "devices": {},
+        "entity_controlled": {}, "compressor_groups": compressor_groups(model, zone_id),
     }
     # Provenance comes from the snapshot that produced this loaded model.
     for edit in iter_fields(model, zone_id):
@@ -102,6 +104,10 @@ def get_config(
             destination = destination.setdefault(edit.id, {})
         destination[edit_key(edit)] = field_view(options, model, edit)
     selected = {zone_id: model.zones[zone_id]} if zone_id else model.zones
+    for ident in selected:
+        result["zones"].setdefault(ident, {}).update(readonly_zone(model, options, ident))
+    for ident in result["devices"]:
+        result["devices"][ident].update(readonly_device(model, options, ident))
     for ident, zone in selected.items():
         controls = zone_controls(hass, entry, ident, zone)
         result["entity_controlled"][ident] = {

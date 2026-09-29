@@ -16,8 +16,10 @@ from homeassistant.util import dt as dt_util
 from ..const import DATA_ACTIVE_REVISION, DOMAIN
 from ..diagnostics import _sensor_snapshot, async_get_config_entry_diagnostics
 from .controls import zone_controls
+from .device_control import device_control
 from .reasons import zone_reasons
 from .revision import ledger, revision_state
+from .sensor_view import sensor_values, temperature_aggregation
 
 
 async def async_get_status(
@@ -46,7 +48,12 @@ async def async_get_status(
             regulated_setpoint=state.regulated_setpoint,
             reasons=zone_reasons(view, state),
             controls=zone_controls(hass, entry, ident, zone),
+            temperature_aggregation=temperature_aggregation(zone, state),
         )
+        view["sensors"] = {
+            entity_id: sensor_values(sensor_view, state, entity_id)
+            for entity_id, sensor_view in view["sensors"].items()
+        }
         zones[ident] = view
 
     # Ownership includes all configured stage references, regardless of activity.
@@ -54,7 +61,12 @@ async def async_get_status(
     for ident, view in snapshot["devices"].items():
         owners = [zid for zid, zone in config.zones.items() if ident in zone.get_all_device_ids()]
         if zone_id is None or zone_id in owners:
-            devices[ident] = {**view, "zones": owners}
+            devices[ident] = {
+                **view, "zones": owners,
+                "control": device_control(
+                    view, config.devices[ident], coordinator.zone_states, tuple(config.zones),
+                ),
+            }
 
     reading = coordinator._last_outdoor_reading
     outdoor = {
@@ -73,4 +85,5 @@ async def async_get_status(
         "revision": revision_state(options, active_revision),
         "master": snapshot["master"], "outdoor": outdoor,
         "zones": zones, "devices": devices,
+        "conflicts": list(coordinator.master_state.active_conflicts),
     }

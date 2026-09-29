@@ -19,8 +19,7 @@ from ..const import DATA_ACTIVE_REVISION, DOMAIN
 from .config_patch import async_set_config
 from .config_view import get_config
 from .const import (
-    DEVICES_KEY, DRY_RUN_KEY, ENTRY_ID_KEY, EXPECTED_HASH_KEY,
-    INCLUDE_STRUCTURE_KEY, REASON_KEY, SERVICE_GET_CONFIG, SERVICE_GET_STATUS,
+    DEVICES_KEY, ENTRY_ID_KEY, INCLUDE_STRUCTURE_KEY, SERVICE_GET_CONFIG, SERVICE_GET_STATUS,
     SERVICE_SET_CONFIG, STAGE_PATCH_KEY, ZONE_ID_KEY, ZONES_KEY,
 )
 from .service_schemas import CONFIG_SCHEMA, SET_SCHEMA, STATUS_SCHEMA
@@ -88,15 +87,10 @@ async def async_handle_service(hass: HomeAssistant, call: ServiceCall) -> dict[s
         data = schema(dict(call.data))
     except vol.Invalid as error:
         raise APIServiceValidationError(str(error)) from error
-    if call.service == SERVICE_SET_CONFIG:
-        if not data[REASON_KEY].strip():
-            raise APIServiceValidationError("reason is required")
-        if not data[DRY_RUN_KEY] and not data.get(EXPECTED_HASH_KEY, "").strip():
-            raise APIServiceValidationError("expected_hash is required for apply")
     entry = resolve_entry(hass, data.get(ENTRY_ID_KEY))
     check_targets(hass.data[DOMAIN][entry.entry_id], data)
     if call.service == SERVICE_GET_STATUS:
         return await async_get_status(hass, entry, data.get(ZONE_ID_KEY))
     if call.service == SERVICE_GET_CONFIG:
         return get_config(hass, entry, data.get(ZONE_ID_KEY), data[INCLUDE_STRUCTURE_KEY])
-    return await async_set_config(hass, entry, call)
+    return await async_set_config(hass, entry, call, data)

@@ -16,7 +16,10 @@ from ..config_prepare import prepare_runtime_config
 from ..const import OUTDOOR_LOCKOUT_HYSTERESIS
 from ..models import HybridClimateConfig
 from .accessors import Edit, read_effective, read_stored, target_id, write_field
-from .const import DRY_RUN_KEY, PATCH_SCOPES, STAGE_ADDRESS_KEYS, STAGE_PATCH_KEY
+from .const import (
+    DRY_RUN_KEY, PATCH_SCOPES, READ_ONLY_FIELDS, READ_ONLY_MESSAGE,
+    STAGE_ADDRESS_KEYS, STAGE_PATCH_KEY,
+)
 from .revision import revision_state
 
 
@@ -104,6 +107,13 @@ def validate_patch(
         before = prepare_runtime_config(options)
     except (ValueError, TypeError, KeyError, vol.Invalid) as error:
         result["errors"].append(issue(None, "preparation", str(error)))
+        result["valid"] = False
+        return candidate, result
+    # Read-only issues take precedence before any candidate field is written.
+    for edit in edits:
+        if (edit.scope, edit.field) in READ_ONLY_FIELDS:
+            result["errors"].append(issue(edit, "read_only", READ_ONLY_MESSAGE))
+    if result["errors"]:
         result["valid"] = False
         return candidate, result
     # Apply only checked leaves; any failure prevents the candidate being saved.

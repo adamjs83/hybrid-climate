@@ -12,7 +12,7 @@ import voluptuous as vol
 
 from .const import (
     DEVICES_KEY, DRY_RUN_KEY, ENTRY_ID_KEY, EXPECTED_HASH_KEY, GLOBAL_KEY,
-    INCLUDE_STRUCTURE_KEY, REASON_KEY, ZONE_ID_KEY, ZONES_KEY,
+    INCLUDE_STRUCTURE_KEY, REASON_KEY, REASON_REQUIRED_MESSAGE, ZONE_ID_KEY, ZONES_KEY,
 )
 
 COMMON = {vol.Optional(ENTRY_ID_KEY): str}
@@ -22,10 +22,19 @@ CONFIG_SCHEMA = vol.Schema(
     {**READ, vol.Optional(INCLUDE_STRUCTURE_KEY, default=False): bool},
     extra=vol.PREVENT_EXTRA,
 )
+
+
+def _require_reason(reason: str) -> str:
+    """Reject a reason containing only whitespace."""
+    if not reason.strip():
+        raise vol.Invalid(REASON_REQUIRED_MESSAGE)
+    return reason
+
+
 _SET_FIELDS = vol.Schema(
     {
         **COMMON,
-        vol.Required(REASON_KEY): vol.All(str, vol.Length(min=1)),
+        vol.Required(REASON_KEY): vol.All(str, vol.Length(min=1), _require_reason),
         vol.Optional(DRY_RUN_KEY, default=True): bool,
         vol.Optional(EXPECTED_HASH_KEY): str,
         vol.Optional(GLOBAL_KEY): {str: object},

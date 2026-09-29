@@ -3,6 +3,17 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2026-09-29
+
+### Added
+- `get_status` now reports active global conflicts, and each device shows which zones own it, whether the integration currently commands it, and whether it reports heat or cool while no zone owns it and the integration has not commanded that mode (and no command is in flight).
+- Each zone's sensor readings now include their cached value, smoothed value, and deviation from the zone's current temperature, and each zone reports a temperature aggregation summary with its inputs, spread, and any outlier readings (a hint, not used for control).
+- An idle zone sitting within its heat/cool targets now reports a clear "within target" status instead of "unknown".
+- `get_config` now shows the active outdoor sensor, each device's idle behavior and command permission, each zone's regulation settings, and compressor groups, for reference; these remain read-only and are changed in the integration options, not through configuration changes.
+
+### Fixed
+- Configuration change requests now consistently reject a blank or whitespace-only reason.
+
 ## [0.12.0] - 2026-09-29
 
 ### Added

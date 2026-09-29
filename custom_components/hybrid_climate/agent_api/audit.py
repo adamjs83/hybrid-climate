@@ -16,7 +16,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 
 from ..const import DOMAIN
 from .const import (
-    AUDIT_LOGBOOK_NAME, AUDIT_NOTIFICATION_TITLE, ERROR_AUDIT_FAILED,
+    AUDIT_LOGBOOK_NAME, AUDIT_NOTIFICATION_TITLE, ERROR_AUDIT_FAILED, REASON_KEY,
 )
 from .patch_validation import issue
 
@@ -24,12 +24,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def audit_saved(
-    hass: HomeAssistant, entry: ConfigEntry, call: ServiceCall, result: dict[str, Any],
+    hass: HomeAssistant, entry: ConfigEntry, call: ServiceCall,
+    data: dict[str, Any], result: dict[str, Any],
 ) -> list[dict[str, Any]]:
     """Attempt every audit destination after a save, reporting delivery failures."""
     record = {
         "entry_id": entry.entry_id, "user_id": call.context.user_id,
-        "reason": call.data["reason"], "diff": result["diff"],
+        "reason": data[REASON_KEY], "diff": result["diff"],
         "revision_before": result["revision_before"],
         "revision_proposed": result["revision_proposed"],
         "revision_after": result["revision_after"],
