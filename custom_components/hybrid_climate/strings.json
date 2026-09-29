@@ -352,5 +352,73 @@
         }
       }
     }
+  },
+  "services": {
+    "get_status": {
+      "name": "Get status",
+      "description": "Return cached status and reasons. Administrator required; request a response.",
+      "fields": {
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Config entry ID; optional only with one loaded entry."
+        },
+        "zone_id": {
+          "name": "Zone ID",
+          "description": "Optional configured zone ID."
+        }
+      }
+    },
+    "get_config": {
+      "name": "Get configuration",
+      "description": "Return effective tuning values and registered entity controls.",
+      "fields": {
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Config entry ID; optional only with one loaded entry."
+        },
+        "zone_id": {
+          "name": "Zone ID",
+          "description": "Optional configured zone ID."
+        },
+        "include_structure": {
+          "name": "Include structure",
+          "description": "Include read-only stages, device ownership, mutex rules, and TOU."
+        }
+      }
+    },
+    "set_config": {
+      "name": "Set configuration",
+      "description": "Validate tuning changes; dry run by default. Apply saves and reloads once.",
+      "fields": {
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Config entry ID; optional only with one loaded entry."
+        },
+        "global": {
+          "name": "Global",
+          "description": "Global tuning fields keyed by field name."
+        },
+        "zones": {
+          "name": "Zones",
+          "description": "Zone IDs mapped to dotted tuning fields and optional addressed stages."
+        },
+        "devices": {
+          "name": "Devices",
+          "description": "Device IDs mapped to compressor timing fields."
+        },
+        "reason": {
+          "name": "Reason",
+          "description": "Required human-readable explanation recorded in the audit trail."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Validate without saving; false requires expected_hash."
+        },
+        "expected_hash": {
+          "name": "Expected hash",
+          "description": "Stored revision from get_config or dry-run revision_before.stored."
+        }
+      }
+    }
   }
 }

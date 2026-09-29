@@ -1,0 +1,64 @@
+# Purpose: Describe administrator-only Hybrid Climate Agent API services.
+get_status:
+  name: Get status
+  description: Return cached status and reasons. Administrator required; request a response.
+  fields:
+    entry_id:
+      description: Config entry ID; optional only with one loaded entry.
+      selector:
+        text:
+    zone_id:
+      description: Optional configured zone ID.
+      selector:
+        text:
+get_config:
+  name: Get configuration
+  description: Return effective tuning values and registered entity controls.
+  fields:
+    entry_id:
+      description: Config entry ID; optional only with one loaded entry.
+      selector:
+        text:
+    zone_id:
+      description: Optional configured zone ID.
+      selector:
+        text:
+    include_structure:
+      description: Include read-only stages, device ownership, mutex rules, and TOU.
+      default: false
+      selector:
+        boolean:
+set_config:
+  name: Set configuration
+  description: Validate tuning changes; dry run by default. Apply saves and reloads once.
+  fields:
+    entry_id:
+      description: Config entry ID; optional only with one loaded entry.
+      selector:
+        text:
+    global:
+      description: Global tuning fields keyed by field name.
+      selector:
+        object:
+    zones:
+      description: Zone IDs mapped to dotted tuning fields and optional addressed stages.
+      selector:
+        object:
+    devices:
+      description: Device IDs mapped to compressor timing fields.
+      selector:
+        object:
+    reason:
+      description: Required human-readable explanation recorded in the audit trail.
+      required: true
+      selector:
+        text:
+    dry_run:
+      description: Validate without saving; false requires expected_hash.
+      default: true
+      selector:
+        boolean:
+    expected_hash:
+      description: Stored revision from get_config or dry-run revision_before.stored.
+      selector:
+        text:

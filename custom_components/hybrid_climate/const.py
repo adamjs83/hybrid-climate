@@ -84,8 +84,13 @@ CONF_ZONES = "zones"
 
 # UI config storage keys
 CONF_UI_CONFIG = "ui_config"
+CONF_NUMBER_VALUES = "number_values"
 CONF_UI_GLOBAL = "global"
 CONF_UI_VERSION = "_version"
+
+# Runtime setup bookkeeping
+DATA_ACTIVE_REVISION = "active_revision"
+DATA_PREPARED_OPTIONS = "prepared_options"
 
 # Master config
 CONF_OCCUPANCY_ENTITY = "occupancy_entity"

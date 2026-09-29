@@ -1,12 +1,13 @@
-"""Hybrid Climate Integration for Home Assistant.
+"""Purpose: Set up and unload the Hybrid Climate integration.
 
-A whole-home HVAC orchestration system that coordinates multiple climate
-devices across zones with intelligent staging and conflict resolution.
+Key dependencies: Home Assistant lifecycle, config preparation, coordinator.
+Used by: Home Assistant integration loader.
 """
 # pyright: reportMissingImports=false
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from typing import Any
 
 import voluptuous as vol
@@ -15,11 +16,16 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
-from .config_applier import apply_options_to_config
-from .config_converter import build_config_from_ui, import_yaml_to_ui_config, merge_new_yaml_settings
+from .agent_api import async_register_services
+from .agent_api.revision import ledger, stored_revision
+from .config_converter import build_config_from_ui, import_yaml_to_ui_config
 from .config_loader import CONFIG_SCHEMA as YAML_CONFIG_SCHEMA, load_config
+from .config_prepare import prepare_runtime_config
 from .const import (
+    CONF_NUMBER_VALUES,
     CONF_UI_CONFIG,
+    DATA_ACTIVE_REVISION,
+    DATA_PREPARED_OPTIONS,
     DOMAIN,
 )
 from .coordinator import HybridClimateCoordinator
@@ -42,6 +48,7 @@ CONFIG_SCHEMA = vol.Schema(
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Set up Hybrid Climate from YAML configuration."""
     hass.data.setdefault(DOMAIN, {})
+    await async_register_services(hass)
     await async_setup_dashboard(hass)
 
     if DOMAIN not in config:
@@ -66,16 +73,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         bool(yaml_config), bool(ui_config),
     )
 
-    # Determine config source and build config dict for load_config()
+    # Select the UI source before taking an isolated preparation snapshot.
     # Check for _version key which indicates valid UI config (even with empty zones/devices)
     if ui_config.get("_version") or ui_config.get("_yaml_imported") or "zones" in ui_config or "devices" in ui_config:
-        # UI config is source of truth - build config from UI
+        # UI config is source of truth.
         _LOGGER.debug("Building config from UI config (version=%s, yaml_imported=%s)", ui_config.get("_version"), ui_config.get("_yaml_imported"))
 
         # YAML merge is deprecated - UI config is now the sole source of truth
         # If you need to add new settings, use the UI options flow
 
-        raw_config = build_config_from_ui(ui_config)
     elif yaml_config:
         # YAML exists but not imported yet - import it now (one-time migration)
         _LOGGER.info(
@@ -86,8 +92,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Merge any existing options into the imported config
         existing_ui = entry.options.get(CONF_UI_CONFIG, {})
-        if existing_ui.get("number_values"):
-            ui_config["number_values"] = existing_ui["number_values"]
+        if existing_ui.get(CONF_NUMBER_VALUES):
+            ui_config[CONF_NUMBER_VALUES] = existing_ui[CONF_NUMBER_VALUES]
 
         # Save the imported config to entry.options
         new_options = dict(entry.options)
@@ -95,28 +101,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(entry, options=new_options)
         _LOGGER.info("YAML import complete - UI config is now the source of truth")
 
-        # Build config from the newly imported UI config
-        raw_config = build_config_from_ui(ui_config)
     else:
         # No config at all - create minimal empty config
         _LOGGER.warning("No configuration found - creating minimal config")
-        raw_config = build_config_from_ui({})
 
+    # Hash the same prepared options used for this setup, before awaited work.
+    prepared_options = deepcopy(dict(entry.options))
+    if not (ui_config.get("_version") or ui_config.get("_yaml_imported")
+            or "zones" in ui_config or "devices" in ui_config):
+        prepared_options[CONF_UI_CONFIG] = {}
     try:
-        config = load_config(raw_config)
-        _LOGGER.info(
-            "Loaded Hybrid Climate config: %d zones, %d devices",
-            len(config.zones),
-            len(config.devices),
-        )
-    except vol.Invalid as e:
-        _LOGGER.error("Invalid Hybrid Climate configuration: %s", e)
+        config = prepare_runtime_config(prepared_options)
+        prepared_hash = stored_revision(prepared_options)
+    except (vol.Invalid, ValueError) as error:
+        _LOGGER.error("Invalid Hybrid Climate configuration: %s", error)
         return False
+    _LOGGER.info(
+        "Loaded Hybrid Climate config: %d zones, %d devices",
+        len(config.zones), len(config.devices),
+    )
 
-    # Apply post-load options overrides (device capabilities, idle behavior)
-    apply_options_to_config(config, entry.options)
-
-    # Create coordinator
+    # Activate the prepared config only after platforms and first refresh succeed.
     coordinator = HybridClimateCoordinator(hass, config, entry)
 
     # Store coordinator
@@ -134,6 +139,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Initial refresh
     await coordinator.async_config_entry_first_refresh()
+
+    hass.data[DOMAIN][entry.entry_id][DATA_ACTIVE_REVISION] = prepared_hash
+    ledger(hass)["active"][entry.entry_id] = prepared_hash
+    source_options = deepcopy(prepared_options)
+    source_options.get(CONF_UI_CONFIG, {}).pop(CONF_NUMBER_VALUES, None)
+    hass.data[DOMAIN][entry.entry_id][DATA_PREPARED_OPTIONS] = source_options
 
     _LOGGER.info("Hybrid Climate integration setup complete")
     return True

@@ -981,6 +981,22 @@ Zone entity attributes show PI controller state:
 | `accumulated_error` | Integral term accumulation |
 | `regulated_setpoint` | Actual setpoint sent to regulated devices |
 
+## Services
+
+Hybrid Climate provides administrator-only services for inspecting status and making validated tuning changes. Find the integration's loaded configuration entry and use `get_config` to discover its actual zone IDs, stage positions, device IDs, and writable fields. Use only entity IDs discovered from `get_config`; never construct them. `entry_id` is optional only when exactly one entry is loaded.
+
+| Service | Purpose | Response |
+|---|---|---|
+| `hybrid_climate.get_status` | Read cached status and recorded restrictions | Required |
+| `hybrid_climate.get_config` | Read active tuning values, bounds, controls, and optional structure | Required |
+| `hybrid_climate.set_config` | Validate or apply an existing tuning field | Optional; recommended |
+
+For REST calls, POST to `/api/services/hybrid_climate/{get_status|get_config|set_config}?return_response` with an administrator token. The JSON reply is `{"changed_states":[],"service_response":{...}}`; read `service_response`, rather than treating the reply as a bare result. `get_config` accepts `include_structure: true` for discoverable IDs. A patch may contain `global` fields, `zones` keyed by discovered zone ID, and `devices` keyed by discovered loaded model ID. Stage edits go in a zone's `stages` list, addressed by `direction` (`heat` or `cool`) and zero-based stored `index`.
+
+Call `set_config` with a `reason` and `dry_run: true` first (the default). Inspect `valid`, `errors`, `warnings`, `diff`, and `revision_before.stored`; confirm the change, then repeat with `dry_run: false` and that stored hash as `expected_hash`. If the hash is stale, read and dry-run again. Only existing blocks and stages can be tuned. Entity-controlled setpoints, presets, PI gains, and balance point use their discovered number or climate entities and corresponding entity services; they are not `set_config` fields.
+
+An apply can save options but fail to reload. In that case `saved=true`, `reloaded=false`, and `pending=true`: inspect the response, persistent notification, and logs, fix the cause, and recover the integration through Home Assistant. A pending loaded entry still supports reads and dry runs but rejects another apply. After setup failure, the entry can be unloaded and service calls for it will raise until it is reloaded. If unload fails and HA marks the entry `FAILED_UNLOAD`, a Home Assistant restart is required to recover it. Saved options are not rolled back automatically.
+
 ## Design Decisions
 
 - **Additive staging**: Stage 2 adds devices to Stage 1 (doesn't replace)

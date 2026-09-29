@@ -3,6 +3,17 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-09-29
+
+### Added
+- Administrator-only services to inspect climate status, explain recorded restrictions, and discover effective configuration and entity controls.
+- Validated tuning changes with dry runs, before/after diffs, revision checks, and a single configuration reload.
+- Persistent notifications and logbook records for saved changes, including changes that could not become active.
+
+### Safety
+- Saved and active revisions remain distinct when a reload fails. Correct the failure and recover the integration through Home Assistant before applying another change.
+- Setpoints, presets, and PI controls remain managed through their existing entities; structural configuration remains in the UI.
+
 ## [0.11.0a5] - 2026-09-28
 
 - Display zones in a responsive grid with clearer status styling when the card has enough width.
