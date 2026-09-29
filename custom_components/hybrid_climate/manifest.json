@@ -17,5 +17,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/adamjs83/hybrid-climate/issues",
   "requirements": [],
-  "version": "0.11.0a1"
+  "version": "0.11.0a2"
 }

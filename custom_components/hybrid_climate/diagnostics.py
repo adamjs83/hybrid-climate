@@ -68,9 +68,22 @@ def _device_snapshot(
     }
 
 
-def _zone_snapshot(hass: HomeAssistant, zone: Any, state: Any, coordinator: Any) -> dict[str, Any]:
+def _zone_snapshot(
+    hass: HomeAssistant, zone_id: str, zone: Any, state: Any, coordinator: Any,
+) -> dict[str, Any]:
     """Describe demand, restrictions, and the sensors used by a zone."""
     reasons: list[str] = []
+    outdoor_permissions = coordinator.conflict_resolver._outdoor_permissions.get(zone_id)
+    if outdoor_permissions is not None:
+        can_heat, can_cool = outdoor_permissions
+        if (not can_heat and state.current_temperature is not None
+                and state.target_temperature is not None
+                and state.current_temperature < state.target_temperature):
+            reasons.append("outdoor_heat_lockout")
+        if (not can_cool and state.current_temperature is not None
+                and state.target_temperature_cool is not None
+                and state.current_temperature > state.target_temperature_cool):
+            reasons.append("outdoor_cool_lockout")
     if state.sensor_status == "failed":
         reasons.append("sensor_failure")
     if _value(coordinator.master_state.mode) == "off":
@@ -97,6 +110,10 @@ def _zone_snapshot(hass: HomeAssistant, zone: Any, state: Any, coordinator: Any)
         "active_devices": list(state.active_devices),
         "blocked_devices": list(state.blocked_devices),
         "blocking_reasons": reasons,
+        "outdoor_permissions": {
+            "heat_allowed": outdoor_permissions[0],
+            "cool_allowed": outdoor_permissions[1],
+        } if outdoor_permissions is not None else None,
         "sensor_status": state.sensor_status or "normal",
         "opening_status": state.opening_status,
         "opening_lockout": state.opening_lockout,
@@ -149,7 +166,7 @@ async def async_get_config_entry_diagnostics(
             "active_conflict_count": len(coordinator.master_state.active_conflicts),
         },
         "zones": {
-            zone_id: _zone_snapshot(hass, zone, coordinator.zone_states[zone_id], coordinator)
+            zone_id: _zone_snapshot(hass, zone_id, zone, coordinator.zone_states[zone_id], coordinator)
             for zone_id, zone in config.zones.items()
             if zone_id in coordinator.zone_states
         },

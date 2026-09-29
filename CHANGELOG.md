@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0a2] - 2026-09-28
+
+### Fixed
+- Diagnostics now show outdoor heat/cool permissions for each zone and identify outdoor lockouts when a room needs a blocked direction.
+
 ## [0.11.0a1] - 2026-09-28
 
 Alpha preview for testing new control safeguards.
