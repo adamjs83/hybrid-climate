@@ -186,10 +186,16 @@ async def dispatch_requests(
             _LOGGER.warning("Device %s: waiting for mutex equipment to release", device_id)
             results[device_id] = False
             continue
+        before_send = manager.idle_basis.sent_serial
         results[device_id] = await manager._dispatch_device_mode(
             manager.devices[device_id], mode, target,
             force_off=device_id in manager._forced_off_devices,
         )
+        manager.idle_basis.attach_dispatched(
+            manager.devices[device_id], mode, target, owners, requests,
+            before_send, results[device_id],
+        )
     manager._pending_commands.clear()
+    manager.idle_basis.clear()
     manager._forced_off_devices.clear()
     return results

@@ -33,18 +33,31 @@ SOURCE_NUMBER_ENTITY = "number_entity"
 SOURCE_DEFAULT = "default"
 READ_ONLY_FIELDS = frozenset({
     ("global", "outdoor_sensor"),
+    ("global", "outdoor_sensors"),
     ("devices", "idle.action"),
     ("devices", "idle.setback"),
     ("devices", "allow_command"),
     ("zones", "regulation"),
 })
 READ_ONLY_MESSAGE = "Read-only field; change it in the integration options UI"
+# sensors.weights is deliberately absent from READ_ONLY_FIELDS: it has no FIELDS row at
+# all, so set_config already rejects it as an unknown field (accessors.field_for), the
+# same path a genuinely nonexistent field takes. It only needs a read-only get_config entry.
+SENSORS_WEIGHTS_FIELD = "sensors.weights"
+# outdoor_thresholds is likewise absent from READ_ONLY_FIELDS: it has no FIELDS
+# row (never_heat_above/never_cool_below remain independently settable), so
+# set_config already rejects it as an unknown field. It only needs a read-only
+# get_config entry, at both global and per-zone (effective) scope.
+OUTDOOR_THRESHOLDS_FIELD = "outdoor_thresholds"
 READ_ONLY_DESCRIPTIONS = {
     "outdoor_sensor": "Outdoor temperature sensor",
+    "outdoor_sensors": "Outdoor temperature sources in priority order",
     "idle.action": "Device action when idle",
     "idle.setback": "Temperature setback when idle",
     "allow_command": "Allow external device changes to update zones",
     "regulation": "Zone regulation method and devices",
+    SENSORS_WEIGHTS_FIELD: "Effective per-sensor weight used for weighted aggregation",
+    OUTDOOR_THRESHOLDS_FIELD: "Effective outdoor lockout limits, release points, and hysteresis",
 }
 READ_ONLY_TEMPERATURE_UNIT = "°F"
 MALFORMED_STAGE_STORAGE_WARNING = (
@@ -93,5 +106,26 @@ UNCONTROLLED_MODE_DETAIL = (
 )
 SENSOR_OUTLIER_THRESHOLD = 1.5
 OUTLIER_COMPARE_EPSILON = 1e-6
+OUTLIER_ACTION_FLAGGED_ONLY = "flagged_only"
 WITHIN_TARGET_CODE = "within_target"
 WITHIN_TARGET_DETAIL = "Cached temperature is within the zone's heat/cool targets"
+HEATING_DEMAND_CODE = "heating_demand"
+HEATING_DEMAND_DETAIL = "Cached hvac_action reports active heating demand"
+COOLING_DEMAND_CODE = "cooling_demand"
+COOLING_DEMAND_DETAIL = "Cached hvac_action reports active cooling demand"
+
+# Public get_status.zones.<id>.tou.mode values. The internal TOU state machine
+# (tou_manager.py / const.py TOU_STATE_*) spells peak relaxation "peak_relaxed";
+# the Agent API publishes the more descriptive "peak_relaxation" instead.
+TOU_MODE_PEAK_RELAXATION = "peak_relaxation"
+TOU_MODE_PRE_CONDITIONING = "pre_conditioning"
+
+# get_status.devices.<id>.control.reason values (spec §7.6). First match wins,
+# in this order: not_referenced -> owned_active -> awaiting_startup_takeover ->
+# taken_over_at_startup -> released_idle -> never_owned_since_start.
+CONTROL_REASON_NOT_REFERENCED = "not_referenced"
+CONTROL_REASON_OWNED_ACTIVE = "owned_active"
+CONTROL_REASON_AWAITING_STARTUP_TAKEOVER = "awaiting_startup_takeover"
+CONTROL_REASON_TAKEN_OVER_AT_STARTUP = "taken_over_at_startup"
+CONTROL_REASON_RELEASED_IDLE = "released_idle"
+CONTROL_REASON_NEVER_OWNED_SINCE_START = "never_owned_since_start"

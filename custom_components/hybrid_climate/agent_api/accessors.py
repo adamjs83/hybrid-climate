@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from ..const import CONF_DEVICES, CONF_UI_CONFIG, CONF_ZONES
+from ..const import CONF_DEVICES, CONF_LOCKOUT_HEAT_FLOOR, CONF_UI_CONFIG, CONF_ZONES
 from ..models import HybridClimateConfig
 from .const import OUTDOOR_FIELDS
 from .fields import FIELDS, Field
@@ -132,6 +132,8 @@ def read_effective(model: HybridClimateConfig, edit: Edit) -> Any:
     field_for(edit)
     try:
         if edit.scope == "global":
+            if edit.field == CONF_LOCKOUT_HEAT_FLOOR:
+                return model.lockout_heat_floor
             return getattr(model.conflicts.outdoor_reset, edit.field)
         node = model.devices[target_id(edit)] if edit.scope == "devices" else model.zones[target_id(edit)]
         if edit.field in OUTDOOR_FIELDS:

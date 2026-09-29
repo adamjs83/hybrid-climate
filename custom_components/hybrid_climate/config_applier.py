@@ -18,8 +18,10 @@ from .const import (
     CONF_MASTER_NAME,
     CONF_NEVER_COOL_BELOW,
     CONF_NEVER_HEAT_ABOVE,
+    CONF_LOCKOUT_HEAT_FLOOR,
     CONF_OCCUPANCY_ENTITY,
     CONF_OUTDOOR_SENSOR,
+    CONF_OUTDOOR_SENSORS,
     CONF_UI_CONFIG,
     CONF_UI_GLOBAL,
     DEFAULT_IDLE_ACTION,
@@ -57,10 +59,14 @@ def apply_options_to_config(config: HybridClimateConfig, options: dict[str, Any]
             config.master.occupancy_entity = occupancy_entity or None
             _LOGGER.debug("Applied UI occupancy entity: %s", occupancy_entity)
 
-        outdoor_sensor = global_options.get(CONF_OUTDOOR_SENSOR)
-        if outdoor_sensor is not None:
-            config.outdoor_sensor = outdoor_sensor or None
-            _LOGGER.debug("Applied UI outdoor sensor: %s", outdoor_sensor)
+        if CONF_OUTDOOR_SENSORS in global_options:
+            config.outdoor_sensors = list(global_options[CONF_OUTDOOR_SENSORS] or [])
+        elif CONF_OUTDOOR_SENSOR in global_options:
+            sensor = global_options[CONF_OUTDOOR_SENSOR]
+            config.outdoor_sensors = [sensor] if sensor else []
+
+    if CONF_LOCKOUT_HEAT_FLOOR in global_options:
+        config.lockout_heat_floor = global_options[CONF_LOCKOUT_HEAT_FLOOR]
 
     # Apply outdoor reset limits (check both global and legacy locations)
     heat_limit = options.get(CONF_NEVER_HEAT_ABOVE)

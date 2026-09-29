@@ -14,6 +14,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
+from .aggregation import aggregate
 from .const import (
     DEFAULT_SENSOR_STALE_TIME,
     OUTDOOR_TEMP_STALE_SECONDS,
@@ -22,6 +23,7 @@ from .const import (
     TEMP_MAX_VALID,
     TEMP_MIN_VALID,
 )
+from .outdoor_sensors import read_outdoor_candidates
 
 if TYPE_CHECKING:
     from .device_manager import DeviceManager
@@ -99,62 +101,10 @@ async def get_outdoor_temperature(
     Supports both sensor entities (state is temperature) and weather entities
     (temperature is in attributes).
     """
-    if not config.outdoor_sensor:
-        return None
-
-    state = hass.states.get(config.outdoor_sensor)
-    if state is None:
-        return None
-    if state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-        return None
-
-    temp_value: float | None = None
-
-    # Check if this is a weather entity (weather.*)
-    if config.outdoor_sensor.startswith("weather."):
-        # Weather entities store temperature in attributes
-        temp_attr = state.attributes.get("temperature")
-        if temp_attr is not None:
-            try:
-                temp_value = float(temp_attr)
-            except (ValueError, TypeError):
-                _LOGGER.warning(
-                    "Could not parse temperature attribute from weather entity %s: %s",
-                    config.outdoor_sensor,
-                    temp_attr,
-                )
-                return None
-        else:
-            _LOGGER.warning(
-                "Weather entity %s has no temperature attribute",
-                config.outdoor_sensor,
-            )
-            return None
-    else:
-        # Regular sensor entity - temperature is in state
-        if state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            return None
-        try:
-            temp_value = float(state.state)
-        except (ValueError, TypeError):
-            _LOGGER.warning(
-                "Could not parse outdoor temperature from %s: %s",
-                config.outdoor_sensor,
-                state.state,
-            )
-            return None
-
-    # Validate temperature range
-    if temp_value is not None and TEMP_MIN_VALID <= temp_value <= TEMP_MAX_VALID:
-        return temp_value
-
-    _LOGGER.warning(
-        "Outdoor temp %s out of valid range [%s, %s]",
-        temp_value,
-        TEMP_MIN_VALID,
-        TEMP_MAX_VALID,
-    )
-    return None
+    entities = getattr(config, "outdoor_sensors", None)
+    if entities is None:
+        entities = [config.outdoor_sensor] if config.outdoor_sensor else []
+    return read_outdoor_candidates(hass, entities).temperature
 
 
 async def get_zone_temperature(
@@ -176,9 +126,7 @@ async def get_zone_temperature(
     3. If no primary sensors available, fall back to underlying climate entity sensors
     4. If all fails, return None
     """
-    from .models import AggregationMethod
-
-    smoothed_values: list[float] = []
+    control_readings: dict[str, float] = {}
     raw_readings: dict[str, float] = {}
     smoothed_readings: dict[str, float] = {}
     stale_sensors: list[str] = []
@@ -201,11 +149,11 @@ async def get_zone_temperature(
                     # Use the smoothed value from buffer if available
                     smoothed = get_smoothed_sensor_value(sensor_id, sensor_samples)
                     if smoothed is not None:
-                        smoothed_values.append(smoothed)
+                        control_readings[sensor_id] = smoothed
                         raw_readings[sensor_id] = last_value
                         smoothed_readings[sensor_id] = smoothed
                     else:
-                        smoothed_values.append(last_value)
+                        control_readings[sensor_id] = last_value
                         raw_readings[sensor_id] = last_value
                         smoothed_readings[sensor_id] = last_value
                 else:
@@ -227,12 +175,12 @@ async def get_zone_temperature(
                 # Get smoothed value (moving average of samples)
                 smoothed = get_smoothed_sensor_value(sensor_id, sensor_samples)
                 if smoothed is not None:
-                    smoothed_values.append(smoothed)
+                    control_readings[sensor_id] = smoothed
                     raw_readings[sensor_id] = temp
                     smoothed_readings[sensor_id] = round(smoothed, 2)
                 else:
                     # No samples yet, use raw value
-                    smoothed_values.append(temp)
+                    control_readings[sensor_id] = temp
                     raw_readings[sensor_id] = temp
                     smoothed_readings[sensor_id] = temp
             else:
@@ -251,7 +199,7 @@ async def get_zone_temperature(
     # Fallback to underlying climate entity sensors if no primary sensors available
     # BUT: Skip fallback for zones with PI-regulated devices (e.g., radiant floors)
     # because their current_temperature is the floor temp, not room temp
-    if not smoothed_values:
+    if not control_readings:
         has_pi_regulation = (
             zone_config.regulation is not None
             and zone_config.regulation.type == REGULATION_PI
@@ -271,7 +219,7 @@ async def get_zone_temperature(
                 zone_config, hass, device_manager,
             )
             if fallback_temp is not None:
-                smoothed_values.append(fallback_temp)
+                control_readings["_fallback_device"] = fallback_temp
                 raw_readings["_fallback_device"] = fallback_temp
                 smoothed_readings["_fallback_device"] = fallback_temp
                 _LOGGER.info(
@@ -283,7 +231,7 @@ async def get_zone_temperature(
     # Final fallback: use restored/last known zone temperature
     # This preserves continuity after restarts when sensors aren't immediately available
     # but only for a grace period (5 min) — after that, return None to trigger fail-safe
-    if not smoothed_values and restore_start_times is not None:
+    if not control_readings and restore_start_times is not None:
         zone_id = zone_config.zone_id
         zone_state = zone_states.get(zone_id)
         if zone_state and zone_state.current_temperature is not None:
@@ -303,7 +251,7 @@ async def get_zone_temperature(
             elapsed = (now - restore_start_times[zone_id]).total_seconds()
             if elapsed <= SENSOR_RESTORE_GRACE_PERIOD_SECONDS:
                 restored_temp = zone_state.current_temperature
-                smoothed_values.append(restored_temp)
+                control_readings["_restored"] = restored_temp
                 raw_readings["_restored"] = restored_temp
                 smoothed_readings["_restored"] = restored_temp
             else:
@@ -312,7 +260,7 @@ async def get_zone_temperature(
                     "Returning None to trigger sensor-failure safe mode.",
                     zone_id, int(elapsed),
                 )
-    elif smoothed_values and restore_start_times is not None:
+    elif control_readings and restore_start_times is not None:
         # Sensors are working — clear any restore tracking for this zone
         zone_id = zone_config.zone_id
         if zone_id in restore_start_times:
@@ -322,7 +270,7 @@ async def get_zone_temperature(
             )
             del restore_start_times[zone_id]
 
-    if not smoothed_values:
+    if not control_readings:
         if stale_sensors:
             _LOGGER.warning(
                 "Zone %s: all sensors stale or unavailable: %s",
@@ -337,16 +285,9 @@ async def get_zone_temperature(
         zone_state.sensor_values = raw_readings
         zone_state.sensor_smoothed_values = smoothed_readings
 
-    # Aggregate smoothed values
-    aggregation = zone_config.sensors.aggregation
-    if aggregation == AggregationMethod.AVERAGE:
-        return sum(smoothed_values) / len(smoothed_values)
-    elif aggregation == AggregationMethod.MIN:
-        return min(smoothed_values)
-    elif aggregation == AggregationMethod.MAX:
-        return max(smoothed_values)
-    else:
-        return sum(smoothed_values) / len(smoothed_values)
+    return aggregate(
+        zone_config.sensors.aggregation, control_readings, zone_config.sensors.weights,
+    )
 
 
 async def get_fallback_temperature_from_devices(

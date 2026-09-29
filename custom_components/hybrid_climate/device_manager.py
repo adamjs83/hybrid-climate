@@ -25,6 +25,7 @@ from .const import (
 from .models import Device, DeviceMutexRule
 from .device_arbitration import DeviceRequest, dispatch_requests, resolve_requests
 from .compressor_protection import CompressorProtection
+from .idle_floor import IdleBasisTracker, apply_idle_setback
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class DeviceManager:
         self.devices = devices
         self.compressor_protection = CompressorProtection(devices)
         self._pending_commands: dict[str, list[DeviceRequest]] = {}
+        self.idle_basis = IdleBasisTracker()
         self.failed_commands: set[str] = set()
         self.accepted_zone_requests: dict[str, set[str]] = {}
         self._collecting = False
@@ -159,6 +161,7 @@ class DeviceManager:
     def begin_cycle(self) -> None:
         """Collect zone requests until every zone has been evaluated."""
         self._pending_commands.clear()
+        self.idle_basis.clear()
         self.accepted_zone_requests.clear()
         self._forced_off_devices.clear()
         self._collecting = True
@@ -194,6 +197,7 @@ class DeviceManager:
         """Discard unfinished demand after an interrupted update."""
         self._collecting = False
         self._pending_commands.clear()
+        self.idle_basis.clear()
         self._forced_off_devices.clear()
 
     async def dispatch_cycle(self, rules: list[DeviceMutexRule] | None = None) -> dict[str, bool]:
@@ -243,12 +247,20 @@ class DeviceManager:
                     SERVICE_CLIMATE, SERVICE_SET_HVAC_MODE,
                     {"entity_id": device.entity_id, "hvac_mode": mode}, blocking=True,
                 )
+                # Observability only: a mode call can succeed and a following
+                # temperature call can still raise, in which case start_command()
+                # below is never reached. Stamp here too so last_command_at
+                # reflects every service call that actually went out.
+                device.last_command_at = dt_util.utcnow()
+                self.idle_basis.sent(device)
             if temp_changed:
                 await self.hass.services.async_call(
                     SERVICE_CLIMATE, SERVICE_SET_TEMPERATURE,
                     {"entity_id": device.entity_id, ATTR_TEMPERATURE: target_temp},
                     blocking=True,
                 )
+                device.last_command_at = dt_util.utcnow()
+                self.idle_basis.sent(device)
             device.current_mode = mode
             if target_temp is not None:
                 device.current_target_temp = target_temp
@@ -270,7 +282,7 @@ class DeviceManager:
         device: Device,
         zone_target_temp: float,
         was_heating: bool,
-        *, force_off: bool = False,
+        *, force_off: bool = False, heat_floor: float | None = None,
     ) -> bool:
         """Set a device to its configured idle state.
 
@@ -292,26 +304,9 @@ class DeviceManager:
             return await self.turn_off_device(device, force_off=force_off)
 
         elif idle_config.action == IDLE_ACTION_SETBACK:
-            # Calculate setback temperature
-            if was_heating:
-                # For heating: set to target - setback (maintain minimum)
-                setback_temp = zone_target_temp - idle_config.setback
-                mode = HVAC_MODE_HEAT
-            else:
-                # For cooling: set to target + setback (or could turn off)
-                setback_temp = zone_target_temp + idle_config.setback
-                mode = HVAC_MODE_COOL
-
-            _LOGGER.debug(
-                "Device %s idle action: setback to %s in %s mode",
-                device.device_id,
-                setback_temp,
-                mode,
+            return await apply_idle_setback(
+                self, device, zone_target_temp, was_heating, heat_floor,
             )
-            # Note: set_device_mode updates last_commanded_setpoint, which prevents
-            # the external change detection from treating this setback as an external
-            # change and propagating it back to the zone target
-            return await self.set_device_mode(device, mode, setback_temp)
 
         # Default to off
         return await self.turn_off_device(device, force_off=force_off)

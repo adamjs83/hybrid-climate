@@ -1,4 +1,8 @@
-"""Data models for Hybrid Climate integration."""
+"""Purpose: Define Hybrid Climate configuration and runtime state models.
+
+Key dependencies: Shared constants and Home Assistant time utilities.
+Used by: Configuration loading, zone control, and sensor aggregation.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -6,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 
 from homeassistant.util import dt as dt_util
-from .const import EXTERNAL_CHANGE_TOLERANCE_F
+from .const import DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F
 
 
 class DeviceCapability(Enum):
@@ -58,6 +62,8 @@ class AggregationMethod(Enum):
     AVERAGE = "average"
     MIN = "min"
     MAX = "max"
+    MEDIAN = "median"
+    WEIGHTED = "weighted"
 
 
 @dataclass
@@ -137,6 +143,10 @@ class Device:
     desired_temp: float | None = None  # What we last commanded
     desired_mode: str | None = None  # heat, cool, off
     command_sent_at: datetime | None = None  # For timeout detection
+    # Stamped only when a service call is actually sent (device_manager._dispatch_device_mode);
+    # never cleared by ack/timeout. Read-only observability; control never reads it.
+    last_command_at: datetime | None = None
+    idle_setpoint_basis: str | None = None
 
     def can_heat(self) -> bool:
         """Check if device supports heating."""
@@ -147,11 +157,13 @@ class Device:
         return DeviceCapability.COOL in self.capabilities
 
     def start_command(self, mode: str, temp: float | None) -> None:
-        """Transition to COMMANDING state."""
+        """Transition to COMMANDING state after a service call was actually sent."""
         self.command_state = DeviceCommandState.COMMANDING
         self.desired_mode = mode
         self.desired_temp = temp  # None for OFF mode (no temp tracking)
-        self.command_sent_at = dt_util.utcnow()
+        now = dt_util.utcnow()
+        self.command_sent_at = now
+        self.last_command_at = now
 
     def command_acknowledged(self) -> None:
         """Transition back to LISTENING state after ack."""
@@ -259,6 +271,11 @@ class ZoneSensors:
     indoor: list[str]  # entity_ids
     aggregation: AggregationMethod = AggregationMethod.AVERAGE
     smoothing_samples: int = 1  # number of samples for moving average (1 = no smoothing)
+    weights: dict[str, float] = field(default_factory=dict)
+
+    def weight_for(self, entity_id: str) -> float:
+        """Return the configured weight or the default sensor weight."""
+        return self.weights.get(entity_id, DEFAULT_SENSOR_WEIGHT)
 
 
 @dataclass
@@ -313,6 +330,7 @@ class RegulationConfig:
     integral_reset_threshold: float = 2.5  # °F setpoint change triggers partial reset
     integral_reset_factor: float = 0.3  # Fraction to keep on reset (0.3 = keep 30%)
     integral_decay_halflife: float = 120.0  # Minutes for idle decay (0 = no decay)
+    ignored_devices: list[str] = field(default_factory=list)  # stored but unsafe device references
 
 
 @dataclass
@@ -420,6 +438,10 @@ class ZoneState:
     opening_lockout: bool = False
     opening_changed_at: datetime | None = None
     last_update: datetime | None = None
+    # Agent API observability only (spec 0.13.0 §7.3): stamped by
+    # hvac_action_tracking.stamp_hvac_action_transitions after each cycle's zone
+    # loop; control never reads this field.
+    hvac_action_since: datetime | None = None
     last_active_action: HvacAction | None = None  # Last heating/cooling action (for idle setback direction)
     last_direction_stop_time: datetime | None = None  # Time equipment last fully released
     
@@ -509,10 +531,16 @@ class MasterState:
 @dataclass
 class HybridClimateConfig:
     """Full configuration for the integration."""
-    outdoor_sensor: str | None
     master: MasterConfig
     conflicts: ConflictConfig
     devices: dict[str, Device]
     zones: dict[str, ZoneConfig]
+    lockout_heat_floor: float = DEFAULT_LOCKOUT_HEAT_FLOOR
+    outdoor_sensors: list[str] = field(default_factory=list)
     heat_sources: dict[str, HeatSourceConfig] = field(default_factory=dict)
     tou_global: TouGlobalConfig = field(default_factory=TouGlobalConfig)
+
+    @property
+    def outdoor_sensor(self) -> str | None:
+        """Return the primary outdoor sensor for legacy readers."""
+        return self.outdoor_sensors[0] if self.outdoor_sensors else None

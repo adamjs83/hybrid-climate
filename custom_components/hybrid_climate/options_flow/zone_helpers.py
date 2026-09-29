@@ -26,6 +26,7 @@ from ..const import (
     CONF_OCCUPANCY_ENTITY,
     CONF_SENSORS,
     CONF_SMOOTHING_SAMPLES,
+    CONF_WEIGHTS,
     CONF_TOU,
     CONF_UI_VERSION,
     CONF_ZONES,
@@ -123,6 +124,7 @@ class ZoneHelpersMixin:
         indoor_sensors = sensors.get("indoor", []) if isinstance(sensors, dict) else []
         aggregation = sensors.get(CONF_AGGREGATION, AGGREGATION_AVERAGE) if isinstance(sensors, dict) else AGGREGATION_AVERAGE
         smoothing = sensors.get(CONF_SMOOTHING_SAMPLES, DEFAULT_SMOOTHING_SAMPLES) if isinstance(sensors, dict) else DEFAULT_SMOOTHING_SAMPLES
+        weights = sensors.get(CONF_WEIGHTS, {}) if isinstance(sensors, dict) else {}
 
         # Parse ALL setpoints (preserve them for save)
         setpoints = zone_conf.get("setpoints", {})
@@ -183,6 +185,7 @@ class ZoneHelpersMixin:
             CONF_SENSORS: indoor_sensors,
             CONF_AGGREGATION: aggregation,
             CONF_SMOOTHING_SAMPLES: smoothing,
+            CONF_WEIGHTS: dict(weights),
             "occupancy_enabled": occupancy_enabled,
             CONF_OCCUPANCY_ENTITY: occupancy_entity,
             "occupied_offset": occupied_offset,
@@ -320,6 +323,14 @@ class ZoneHelpersMixin:
             "cool_stages": self._build_stages_config(wip.get("cool_stages", [])),
             "settings": settings_config,
         }
+        # Keep weights for any method, but only for sensors still selected.
+        selected_sensors = set(wip.get(CONF_SENSORS, []))
+        weights = {
+            entity_id: weight for entity_id, weight in wip.get(CONF_WEIGHTS, {}).items()
+            if entity_id in selected_sensors
+        }
+        if weights:
+            zone_config[CONF_SENSORS][CONF_WEIGHTS] = weights
         opening_entities = wip.get(CONF_OPENING_ENTITIES, [])
         if opening_entities:
             zone_config[CONF_OPENINGS] = {

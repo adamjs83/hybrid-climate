@@ -48,12 +48,14 @@ class ConflictResolver:
         self,
         config: ConflictConfig,
         device_manager: DeviceManager,
+        zone_configs: dict[str, ZoneConfig] | None = None,
     ) -> None:
         """Initialize the conflict resolver."""
         self.config = config
         self.device_manager = device_manager
         self._active_conflicts: list[str] = []
         self._outdoor_permissions: dict[str, tuple[bool, bool]] = {}
+        self._zone_configs: dict[str, ZoneConfig] = dict(zone_configs or {})
         self._warned_gaps: set[str] = set()
 
     def resolve_for_zone(
@@ -77,6 +79,8 @@ class ConflictResolver:
             ConflictResult with blocked devices and reasons
         """
         result = ConflictResult(zone_id=zone_id)
+        if zone_config is not None:
+            self._zone_configs[zone_id] = zone_config
 
         # Check outdoor reset (with zone-specific override support)
         self._check_outdoor_reset(result, outdoor_temp, target_temp, zone_config)
@@ -85,6 +89,18 @@ class ConflictResolver:
         self._check_device_mutex(result, zone_id, zone_states)
 
         return result
+
+    def outdoor_heat_locked(self, zone_id: str) -> bool:
+        """Read the latched outdoor heat permission without evaluating it again."""
+        cached = self._outdoor_permissions.get(zone_id)
+        if cached is not None:
+            return not cached[0]
+        # Match the no-reading default in _check_outdoor_reset.
+        zone = self._zone_configs.get(zone_id)
+        zone_reset = zone.settings.outdoor_reset if zone and zone.settings else None
+        limit = (zone_reset.never_heat_above if zone_reset and zone_reset.heat_override_set
+                 else self.config.outdoor_reset.never_heat_above)
+        return limit is not None
 
     def _check_outdoor_reset(
         self,
@@ -299,6 +315,7 @@ class ConflictResolver:
         """
         results: dict[str, ConflictResult] = {}
         zone_configs = zone_configs or {}
+        self._zone_configs.update(zone_configs)
         # Accumulate reasons then dedupe: global conditions (outdoor reset,
         # shared-condenser mutex) get reported once per affected zone, which
         # balloons the master's active_conflicts list into N copies of the

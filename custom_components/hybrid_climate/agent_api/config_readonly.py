@@ -12,13 +12,15 @@ from typing import Any
 
 from ..const import (
     CONF_ALLOW_COMMAND, CONF_DEVICE, CONF_DEVICES, CONF_ENTITY_ID, CONF_IDLE_ACTION,
-    CONF_IDLE_SETBACK, CONF_OUTDOOR_SENSOR, CONF_REGULATION, CONF_UI_CONFIG, IDLE_ACTIONS,
-    CONF_UI_GLOBAL, CONF_ZONES,
+    CONF_IDLE_SETBACK, CONF_NEVER_COOL_BELOW, CONF_NEVER_HEAT_ABOVE, CONF_OUTDOOR_RESET,
+    CONF_OUTDOOR_SENSOR, CONF_OUTDOOR_SENSORS, CONF_REGULATION, CONF_SENSORS, CONF_SETTINGS,
+    CONF_UI_CONFIG, CONF_WEIGHTS, IDLE_ACTIONS, CONF_UI_GLOBAL, CONF_ZONES,
+    OUTDOOR_LOCKOUT_HYSTERESIS,
 )
-from ..models import HybridClimateConfig
+from ..models import HybridClimateConfig, ZoneConfig
 from .const import (
-    MALFORMED_STAGE_STORAGE_WARNING, READ_ONLY_DESCRIPTIONS, READ_ONLY_TEMPERATURE_UNIT,
-    SOURCE_DEFAULT, SOURCE_UI_CONFIG,
+    MALFORMED_STAGE_STORAGE_WARNING, OUTDOOR_THRESHOLDS_FIELD, READ_ONLY_DESCRIPTIONS,
+    READ_ONLY_TEMPERATURE_UNIT, SENSORS_WEIGHTS_FIELD, SOURCE_DEFAULT, SOURCE_UI_CONFIG,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,11 +31,73 @@ def _entry(value: Any, source: str, kind: str, description: str) -> dict[str, An
             "description": READ_ONLY_DESCRIPTIONS[description], "writable": False}
 
 
+def _outdoor_thresholds(
+    never_heat_above: float | None, never_cool_below: float | None,
+) -> dict[str, Any]:
+    """Describe outdoor lockout limits, mirroring conflict_resolver's release math exactly.
+
+    Release limits use conflict_resolver's own comparison operators (~150-180):
+    heating releases once outdoor temp drops to or below never_heat_above minus the
+    hysteresis (hence `_at_or_below`); cooling releases once it rises to or above
+    never_cool_below plus the hysteresis (hence `_at_or_above`).
+    """
+    heat_resume = (
+        round(never_heat_above - OUTDOOR_LOCKOUT_HYSTERESIS, 2)
+        if never_heat_above is not None else None
+    )
+    cool_resume = (
+        round(never_cool_below + OUTDOOR_LOCKOUT_HYSTERESIS, 2)
+        if never_cool_below is not None else None
+    )
+    band = None
+    if (never_heat_above is not None and never_cool_below is not None
+            and never_heat_above < never_cool_below):
+        band = {"low": never_heat_above, "high": never_cool_below}
+    return {
+        "never_heat_above": never_heat_above,
+        "heat_resume_at_or_below": heat_resume,
+        "never_cool_below": never_cool_below,
+        "cool_resume_at_or_above": cool_resume,
+        "hysteresis_degrees": OUTDOOR_LOCKOUT_HYSTERESIS,
+        "no_operation_band": band,
+    }
+
+
+def _effective_zone_limits(
+    model: HybridClimateConfig, zone: ZoneConfig,
+) -> tuple[float | None, float | None]:
+    """Mirror conflict_resolver's global/zone-override selection (~104-121)."""
+    global_reset = model.conflicts.outdoor_reset
+    zone_reset = zone.settings.outdoor_reset
+    never_heat_above = (
+        zone_reset.never_heat_above if zone_reset and zone_reset.heat_override_set
+        else global_reset.never_heat_above
+    )
+    never_cool_below = (
+        zone_reset.never_cool_below if zone_reset and zone_reset.cool_override_set
+        else global_reset.never_cool_below
+    )
+    return never_heat_above, never_cool_below
+
+
 def readonly_global(model: HybridClimateConfig, options: Mapping[str, Any]) -> dict[str, Any]:
-    """Describe the active outdoor sensor and its prepared storage source."""
+    """Describe the active outdoor sensor(s) and effective lockout thresholds."""
     global_options = options.get(CONF_UI_CONFIG, {}).get(CONF_UI_GLOBAL, {})
-    source = SOURCE_UI_CONFIG if CONF_OUTDOOR_SENSOR in global_options else SOURCE_DEFAULT
-    return {CONF_OUTDOOR_SENSOR: _entry(model.outdoor_sensor, source, "entity_id", CONF_OUTDOOR_SENSOR)}
+    source = SOURCE_UI_CONFIG if CONF_OUTDOOR_SENSOR in global_options or CONF_OUTDOOR_SENSORS in global_options else SOURCE_DEFAULT
+    threshold_source = (
+        SOURCE_UI_CONFIG
+        if CONF_NEVER_HEAT_ABOVE in global_options or CONF_NEVER_COOL_BELOW in global_options
+        else SOURCE_DEFAULT
+    )
+    global_reset = model.conflicts.outdoor_reset
+    return {
+        CONF_OUTDOOR_SENSOR: _entry(model.outdoor_sensor, source, "entity_id", CONF_OUTDOOR_SENSOR),
+        CONF_OUTDOOR_SENSORS: _entry(list(model.outdoor_sensors), source, "entity_ids", CONF_OUTDOOR_SENSORS),
+        OUTDOOR_THRESHOLDS_FIELD: _entry(
+            _outdoor_thresholds(global_reset.never_heat_above, global_reset.never_cool_below),
+            threshold_source, "object", OUTDOOR_THRESHOLDS_FIELD,
+        ),
+    }
 
 
 def readonly_device(
@@ -82,14 +146,33 @@ def readonly_device(
 def readonly_zone(
     model: HybridClimateConfig, options: Mapping[str, Any], zone_id: str,
 ) -> dict[str, Any]:
-    """Describe a zone's active regulation type and device IDs."""
-    regulation = model.zones[zone_id].regulation
+    """Describe a zone's active regulation type, device IDs, and sensor weights."""
+    zone = model.zones[zone_id]
+    regulation = zone.regulation
     value = None if regulation is None else {
         "type": regulation.type, "devices": list(regulation.devices),
+        "ignored_devices": list(regulation.ignored_devices),
     }
     stored = options.get(CONF_UI_CONFIG, {}).get(CONF_ZONES, {}).get(zone_id, {})
     source = SOURCE_UI_CONFIG if CONF_REGULATION in stored else SOURCE_DEFAULT
-    return {CONF_REGULATION: _entry(value, source, "object", CONF_REGULATION)}
+    # Weights are configured only through the options UI wizard (Task 4), never via
+    # set_config; report the effective weight for every configured indoor sensor.
+    weights = {entity_id: zone.sensors.weight_for(entity_id) for entity_id in zone.sensors.indoor}
+    weights_source = (
+        SOURCE_UI_CONFIG if CONF_WEIGHTS in stored.get(CONF_SENSORS, {}) else SOURCE_DEFAULT
+    )
+    threshold_source = (
+        SOURCE_UI_CONFIG if CONF_OUTDOOR_RESET in stored.get(CONF_SETTINGS, {}) else SOURCE_DEFAULT
+    )
+    never_heat_above, never_cool_below = _effective_zone_limits(model, zone)
+    return {
+        CONF_REGULATION: _entry(value, source, "object", CONF_REGULATION),
+        SENSORS_WEIGHTS_FIELD: _entry(weights, weights_source, "object", SENSORS_WEIGHTS_FIELD),
+        OUTDOOR_THRESHOLDS_FIELD: _entry(
+            _outdoor_thresholds(never_heat_above, never_cool_below),
+            threshold_source, "object", OUTDOOR_THRESHOLDS_FIELD,
+        ),
+    }
 
 
 def compressor_groups(model: HybridClimateConfig, zone_id: str | None) -> dict[str, Any]:

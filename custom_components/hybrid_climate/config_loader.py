@@ -16,10 +16,14 @@ from .const import (
     CONF_LEGACY_RATE_SENSOR,
     CONF_MASTER,
     CONF_OUTDOOR_SENSOR,
+    CONF_OUTDOOR_SENSORS,
+    CONF_LOCKOUT_HEAT_FLOOR,
+    DEFAULT_LOCKOUT_HEAT_FLOOR,
     CONF_TOU_RATE_SENSOR,
     CONF_ZONES,
 )
 from .models import HybridClimateConfig, TouGlobalConfig
+from .regulation_filter import filter_regulation_devices
 
 # Re-export schemas for __init__.py
 from .config_schemas import CONFIG_SCHEMA  # noqa: F401
@@ -94,8 +98,10 @@ def load_config(raw_config: dict[str, Any]) -> HybridClimateConfig:
     except ValueError as error:
         raise vol.Invalid(str(error)) from error
 
-    return HybridClimateConfig(
-        outdoor_sensor=validated.get(CONF_OUTDOOR_SENSOR),
+    config = HybridClimateConfig(
+        lockout_heat_floor=validated.get(CONF_LOCKOUT_HEAT_FLOOR, DEFAULT_LOCKOUT_HEAT_FLOOR),
+        outdoor_sensors=validated.get(CONF_OUTDOOR_SENSORS, [validated[CONF_OUTDOOR_SENSOR]]
+                                      if validated.get(CONF_OUTDOOR_SENSOR) else []),
         master=parse_master(validated[CONF_MASTER]),
         conflicts=conflicts,
         devices=devices,
@@ -103,3 +109,5 @@ def load_config(raw_config: dict[str, Any]) -> HybridClimateConfig:
         heat_sources=heat_sources,
         tou_global=tou_global,
     )
+    filter_regulation_devices(config)
+    return config

@@ -13,13 +13,14 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from ..const import DATA_ACTIVE_REVISION, DOMAIN
+from ..const import DATA_ACTIVE_REVISION, DOMAIN, REGULATION_PI
 from ..diagnostics import _sensor_snapshot, async_get_config_entry_diagnostics
 from .controls import zone_controls
 from .device_control import device_control
 from .reasons import zone_reasons
 from .revision import ledger, revision_state
 from .sensor_view import sensor_values, temperature_aggregation
+from .tou_view import zone_tou
 
 
 async def async_get_status(
@@ -49,6 +50,9 @@ async def async_get_status(
             reasons=zone_reasons(view, state),
             controls=zone_controls(hass, entry, ident, zone),
             temperature_aggregation=temperature_aggregation(zone, state),
+            tou=zone_tou(hass, coordinator.tou_manager, config.tou_global.rate_sensor, zone),
+            stage_since=state.stage_start_time.isoformat() if state.stage_start_time else None,
+            hvac_action_since=state.hvac_action_since.isoformat() if state.hvac_action_since else None,
         )
         view["sensors"] = {
             entity_id: sensor_values(sensor_view, state, entity_id)
@@ -57,23 +61,40 @@ async def async_get_status(
         zones[ident] = view
 
     # Ownership includes all configured stage references, regardless of activity.
+    # A device is PI-regulated (and so excluded from startup takeover, spec §7.6)
+    # when it appears in a PI zone's regulation.devices; mirrors StartupTakeover.arm().
+    pi_regulated_device_ids = {
+        device_id
+        for zone in config.zones.values()
+        if zone.regulation and zone.regulation.type == REGULATION_PI
+        for device_id in zone.regulation.devices
+    }
     devices: dict[str, Any] = {}
     for ident, view in snapshot["devices"].items():
         owners = [zid for zid, zone in config.zones.items() if ident in zone.get_all_device_ids()]
         if zone_id is None or zone_id in owners:
+            device = config.devices[ident]
             devices[ident] = {
                 **view, "zones": owners,
+                "last_command_at": device.last_command_at.isoformat() if device.last_command_at else None,
                 "control": device_control(
-                    view, config.devices[ident], coordinator.zone_states, tuple(config.zones),
+                    view, device, coordinator.zone_states, tuple(config.zones),
+                    owners, ident in pi_regulated_device_ids, coordinator.startup_takeover,
                 ),
             }
 
     reading = coordinator._last_outdoor_reading
+    current = getattr(coordinator, "outdoor_reading", None)
+    source = current.source if current else None
     outdoor = {
         "temperature": coordinator.master_state.outdoor_temperature,
         "reading_age_seconds": max(0.0, (now - reading[1]).total_seconds()) if reading else None,
         "sensor_status": _sensor_snapshot(hass, config.outdoor_sensor, coordinator)["status"]
         if config.outdoor_sensor else "not_configured",
+        "source": source,
+        "using_fallback": source is not None and source != config.outdoor_sensor,
+        "retained": current.retained if current else False,
+        "candidates": [dict(item) for item in current.candidates] if current else [],
         "lockout_latches": {
             ident: {"heat_allowed": values[0], "cool_allowed": values[1]}
             for ident, values in coordinator.conflict_resolver._outdoor_permissions.items()

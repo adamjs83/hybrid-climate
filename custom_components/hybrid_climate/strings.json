@@ -38,17 +38,19 @@
         "description": "Configure the master entity, sensors, and outdoor temperature limits.",
         "data": {
           "master_name": "Master name",
-          "outdoor_sensor": "Outdoor temperature entity",
+          "outdoor_sensors": "Outdoor temperature entities (in priority order)",
           "occupancy_entity": "Occupancy entity",
           "tou_rate_sensor": "TOU rate period sensor",
           "never_heat_above": "Never heat above (outdoor temp)",
+          "lockout_heat_floor": "Idle heat floor during outdoor lockout",
           "never_cool_below": "Never cool below (outdoor temp)"
         },
         "data_description": {
-          "outdoor_sensor": "sensor.* or weather.* entity for outdoor readings",
+          "outdoor_sensors": "Select sensor.* or weather.* entities in priority order",
           "occupancy_entity": "binary_sensor.* or input_boolean.* tracking home occupancy",
           "tou_rate_sensor": "sensor.* entity whose state indicates the current rate period (e.g., 'peak', 'off_peak')",
           "never_heat_above": "Disable heating when outdoor temperature exceeds this value",
+          "lockout_heat_floor": "Maximum idle heating setpoint while outdoor heating is locked out",
           "never_cool_below": "Disable cooling when outdoor temperature is below this value"
         }
       },
@@ -75,6 +77,10 @@
           "aggregation": "How to combine multiple sensor readings",
           "smoothing_samples": "Number of samples to average (1 = no smoothing)"
         }
+      },
+      "zone_sensor_weights": {
+        "title": "Zone: {zone_name} - Sensor Weights",
+        "description": "Set a weight for each sensor shown below. Higher weights give a sensor more influence; 1.0 is normal. Each field is labeled by its sensor entity ID."
       },
       "zone_occupancy": {
         "title": "Zone: {zone_name} - Occupancy",

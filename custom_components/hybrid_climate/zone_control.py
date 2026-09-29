@@ -38,7 +38,6 @@ from .sensor_manager import get_zone_temperature
 from .opening_lockout import update_opening_lockout
 from .zone_helpers import (
     get_active_heat_sources,
-    get_all_zone_devices,
     zone_has_device_in_heat_source,
 )
 
@@ -46,34 +45,6 @@ if TYPE_CHECKING:
     from .coordinator import HybridClimateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
-
-
-async def _set_idle_zone_devices(
-    coordinator: HybridClimateCoordinator,
-    zone_id: str,
-    zone_config: ZoneConfig,
-    zone_state: ZoneState,
-) -> None:
-    """Set inactive devices for a zone to idle state."""
-    zone_target = zone_state.target_temperature
-    if zone_target is None:
-        zone_target = zone_config.setpoints.default
-
-    all_devices = get_all_zone_devices(zone_config)
-    active_device_ids = set(zone_state.active_devices)
-
-    for device_id in all_devices:
-        device = coordinator.device_manager.get_device(device_id)
-        if device is None or not device.is_available:
-            continue
-
-        if device_id not in active_device_ids:
-            is_heating_device = device.can_heat()
-            await coordinator.device_manager.set_device_idle(
-                device,
-                zone_target,
-                is_heating_device,
-            )
 
 
 async def apply_opportunistic_heating(

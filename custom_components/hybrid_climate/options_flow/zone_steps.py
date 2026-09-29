@@ -27,8 +27,6 @@ from homeassistant.helpers.selector import (
 
 from ..const import (
     AGGREGATION_AVERAGE,
-    AGGREGATION_MAX,
-    AGGREGATION_MIN,
     CONF_AGGREGATION,
     CONF_DEVICES,
     CONF_HYSTERESIS,
@@ -64,6 +62,8 @@ from ..const import (
     REGULATION_DIRECT,
     REGULATION_PI,
 )
+from .regulation_devices import heat_capable_stage_devices, selected_pi_devices
+from .sensor_weights import aggregation_selector
 
 
 class ZoneStepsMixin:
@@ -112,6 +112,8 @@ class ZoneStepsMixin:
                 self._zone_wip[CONF_SMOOTHING_SAMPLES] = int(user_input.get(
                     CONF_SMOOTHING_SAMPLES, DEFAULT_SMOOTHING_SAMPLES
                 ))
+                if self._needs_weights_step():
+                    return await self.async_step_zone_sensor_weights()
                 return await self.async_step_zone_occupancy()
 
         wip = self._zone_wip or {}
@@ -142,16 +144,7 @@ class ZoneStepsMixin:
             vol.Optional(CONF_SENSORS, default=sensors_default): EntitySelector(
                 EntitySelectorConfig(domain="sensor", multiple=True)
             ),
-            vol.Required(CONF_AGGREGATION, default=aggregation_default): SelectSelector(
-                SelectSelectorConfig(
-                    options=[
-                        {"value": AGGREGATION_AVERAGE, "label": "Average"},
-                        {"value": AGGREGATION_MIN, "label": "Minimum (coldest)"},
-                        {"value": AGGREGATION_MAX, "label": "Maximum (warmest)"},
-                    ],
-                    mode=SelectSelectorMode.DROPDOWN,
-                )
-            ),
+            vol.Required(CONF_AGGREGATION, default=aggregation_default): aggregation_selector(),
             vol.Required(CONF_SMOOTHING_SAMPLES, default=smoothing_default): NumberSelector(
                 NumberSelectorConfig(
                     min=MIN_SMOOTHING_SAMPLES,
@@ -182,6 +175,8 @@ class ZoneStepsMixin:
 
             # Handle navigation
             if action == "back":
+                if self._needs_weights_step():
+                    return await self.async_step_zone_sensor_weights()
                 return await self.async_step_zone_basics()
             elif action == "skip":
                 # Skip occupancy, clear any existing settings
@@ -722,47 +717,10 @@ class ZoneStepsMixin:
         wip = self._zone_wip or {}
         pi_config = wip.get("pi_config") or {}
         yaml_devices = self._get_yaml_config().get(CONF_DEVICES, {})
-
-        # Get devices from heat and cool stages for PI selection
-        all_devices = []
-        for stage in wip.get("heat_stages", []) + wip.get("cool_stages", []):
-            stage_devices = stage.get("devices", [])
-            for d in stage_devices:
-                if isinstance(d, dict):
-                    # Device is stored as dict with entity_id
-                    entity_id = d.get("entity_id", "")
-                    if entity_id:
-                        all_devices.append(entity_id)
-                elif isinstance(d, str) and d:
-                    # Device is stored as string entity_id
-                    all_devices.append(d)
-        all_devices = list(set(all_devices))
-
-        # Normalize PI devices - convert device IDs to entity IDs
-        def normalize_pi_devices(devices: list) -> list[str]:
-            """Convert device IDs to entity IDs for the EntitySelector."""
-            normalized = []
-            for device in devices:
-                if isinstance(device, dict):
-                    entity_id = device.get("entity_id", "")
-                    if entity_id:
-                        normalized.append(entity_id)
-                elif isinstance(device, str):
-                    if device.startswith("climate."):
-                        # Already an entity ID
-                        normalized.append(device)
-                    elif device in yaml_devices:
-                        # Device ID - look up entity_id from YAML
-                        entity_id = yaml_devices[device].get("entity_id", f"climate.{device}")
-                        normalized.append(entity_id)
-                    else:
-                        # Unknown - assume it's an entity_id without prefix
-                        normalized.append(f"climate.{device}")
-            return [d for d in normalized if d]
-
-        # Get PI device defaults - use existing pi_config devices or fall back to all stage devices
-        pi_devices_raw = pi_config.get("devices") if pi_config.get("devices") else all_devices
-        pi_devices_default = normalize_pi_devices(pi_devices_raw) if pi_devices_raw else all_devices
+        choices = heat_capable_stage_devices(
+            wip, self._get_ui_config().get(CONF_DEVICES, {}), yaml_devices,
+        )
+        pi_devices_default = selected_pi_devices(pi_config.get("devices"), choices, yaml_devices)
 
         return self.async_show_form(
             step_id="zone_pi_settings",
@@ -776,8 +734,12 @@ class ZoneStepsMixin:
                         mode=SelectSelectorMode.LIST,
                     )
                 ),
-                vol.Required("pi_devices", default=pi_devices_default): EntitySelector(
-                    EntitySelectorConfig(domain="climate", multiple=True)
+                vol.Required("pi_devices", default=pi_devices_default): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[{"value": entity_id, "label": entity_id} for entity_id in choices],
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
+                    )
                 ),
                 vol.Required("kp", default=pi_config.get("kp", DEFAULT_KP)): NumberSelector(
                     NumberSelectorConfig(min=0.1, max=5.0, step=0.1, mode=NumberSelectorMode.BOX)

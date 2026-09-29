@@ -21,6 +21,7 @@ from ..const import (
     CONF_ZONES,
 )
 from .base import OptionsFlowBase
+from .sensor_weights import SensorWeightsMixin
 from .zone_helpers import ZoneHelpersMixin
 from .zone_steps import ZoneStepsMixin
 
@@ -30,7 +31,7 @@ ZONE_ACTION_ADD = "add"
 ZONE_ACTION_BACK = "back"
 
 
-class ZoneFlowMixin(ZoneStepsMixin, ZoneHelpersMixin, OptionsFlowBase):
+class ZoneFlowMixin(ZoneStepsMixin, SensorWeightsMixin, ZoneHelpersMixin, OptionsFlowBase):
     """Zone configuration flow combining steps and helpers."""
 
     # Work-in-progress storage for multi-step zone wizard

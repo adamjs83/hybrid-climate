@@ -21,8 +21,13 @@ from ..const import (
     CONF_MASTER_NAME,
     CONF_NEVER_COOL_BELOW,
     CONF_NEVER_HEAT_ABOVE,
+    CONF_LOCKOUT_HEAT_FLOOR,
+    MIN_LOCKOUT_HEAT_FLOOR,
+    MAX_LOCKOUT_HEAT_FLOOR,
+    LOCKOUT_HEAT_FLOOR_STEP,
     CONF_OCCUPANCY_ENTITY,
-    CONF_OUTDOOR_SENSOR,
+    CONF_OUTDOOR_SENSORS,
+    OUTDOOR_ENTITY_DOMAINS,
     CONF_TOU_RATE_SENSOR,
     CONF_UI_CONFIG,
     CONF_UI_GLOBAL,
@@ -63,9 +68,7 @@ class GlobalSettingsMixin(OptionsFlowBase):
             if not errors:
                 settings = {
                     CONF_MASTER_NAME: master_name,
-                    CONF_OUTDOOR_SENSOR: self.normalize_optional_str(
-                        user_input.get(CONF_OUTDOOR_SENSOR)
-                    ),
+                    CONF_OUTDOOR_SENSORS: list(user_input.get(CONF_OUTDOOR_SENSORS) or []),
                     CONF_OCCUPANCY_ENTITY: self.normalize_optional_str(
                         user_input.get(CONF_OCCUPANCY_ENTITY)
                     ),
@@ -73,11 +76,14 @@ class GlobalSettingsMixin(OptionsFlowBase):
                         user_input.get(CONF_TOU_RATE_SENSOR)
                     ),
                     CONF_NEVER_HEAT_ABOVE: heat_above,
+                    CONF_LOCKOUT_HEAT_FLOOR: user_input.get(
+                        CONF_LOCKOUT_HEAT_FLOOR, current[CONF_LOCKOUT_HEAT_FLOOR],
+                    ),
                     CONF_NEVER_COOL_BELOW: cool_below,
                 }
                 return self._save_global_settings(settings)
 
-        outdoor_sensor_default = current.get(CONF_OUTDOOR_SENSOR) or ""
+        outdoor_sensors_default = current.get(CONF_OUTDOOR_SENSORS) or []
         occupancy_default = current.get(CONF_OCCUPANCY_ENTITY) or ""
         tou_rate_sensor_default = current.get(CONF_TOU_RATE_SENSOR) or ""
 
@@ -99,9 +105,9 @@ class GlobalSettingsMixin(OptionsFlowBase):
                         default=current[CONF_MASTER_NAME],
                     ): str,
                     vol.Optional(
-                        CONF_OUTDOOR_SENSOR,
-                        default=outdoor_sensor_default,
-                    ): str,
+                        CONF_OUTDOOR_SENSORS,
+                        default=outdoor_sensors_default,
+                    ): EntitySelector(EntitySelectorConfig(domain=list(OUTDOOR_ENTITY_DOMAINS), multiple=True)),
                     vol.Optional(
                         CONF_OCCUPANCY_ENTITY,
                         default=occupancy_default,
@@ -122,6 +128,14 @@ class GlobalSettingsMixin(OptionsFlowBase):
                             mode=NumberSelectorMode.SLIDER,
                         )
                     ),
+                    vol.Required(
+                        CONF_LOCKOUT_HEAT_FLOOR,
+                        default=current[CONF_LOCKOUT_HEAT_FLOOR],
+                    ): NumberSelector(NumberSelectorConfig(
+                        min=MIN_LOCKOUT_HEAT_FLOOR, max=MAX_LOCKOUT_HEAT_FLOOR,
+                        step=LOCKOUT_HEAT_FLOOR_STEP, unit_of_measurement="°F",
+                        mode=NumberSelectorMode.SLIDER,
+                    )),
                     vol.Required(
                         CONF_NEVER_COOL_BELOW,
                         default=current[CONF_NEVER_COOL_BELOW],

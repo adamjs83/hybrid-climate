@@ -32,11 +32,15 @@ HVAC_ACTION_OFF = "off"
 # Device capabilities
 CAPABILITY_HEAT = "heat"
 CAPABILITY_COOL = "cool"
+CLIMATE_ENTITY_PREFIX = "climate."
+REGULATION_IGNORED_DEVICE_WARNING = "Zone %s: ignoring PI regulation device %s (not heat-capable)"
 
 # Device idle behavior (what to do when not actively heating/cooling)
 IDLE_ACTION_OFF = "off"  # Turn device off
 IDLE_ACTION_SETBACK = "setback"  # Set to target +/- setback degrees
 IDLE_ACTIONS = [IDLE_ACTION_OFF, IDLE_ACTION_SETBACK]
+IDLE_SETPOINT_BASIS_LOCKOUT_FLOOR = "lockout_floor"
+IDLE_SETPOINT_BASIS_SETBACK = "setback"
 DEFAULT_IDLE_ACTION = IDLE_ACTION_OFF
 DEFAULT_IDLE_SETBACK = 5.0  # degrees
 
@@ -44,6 +48,12 @@ DEFAULT_IDLE_SETBACK = 5.0  # degrees
 AGGREGATION_AVERAGE = "average"
 AGGREGATION_MIN = "min"
 AGGREGATION_MAX = "max"
+AGGREGATION_MEDIAN = "median"
+AGGREGATION_WEIGHTED = "weighted"
+DEFAULT_SENSOR_WEIGHT = 1.0
+MIN_SENSOR_WEIGHT = 0.1  # UI selector only; schema accepts any positive weight.
+MAX_SENSOR_WEIGHT = 10.0
+SENSOR_WEIGHT_STEP = 0.1
 
 # Defaults
 DEFAULT_HYSTERESIS = 0.5
@@ -62,6 +72,11 @@ DEFAULT_TIME_ESCALATION = 1800  # 30 minutes
 DEFAULT_SENSOR_STALE_TIME = 600  # 10 minutes - use last known value
 OUTDOOR_TEMP_STALE_SECONDS = 600  # Last outdoor reading remains valid for 10 minutes
 OUTDOOR_LOCKOUT_HYSTERESIS = 1.0  # Degrees between lockout entry and release
+CONF_LOCKOUT_HEAT_FLOOR = "lockout_heat_floor"
+DEFAULT_LOCKOUT_HEAT_FLOOR = 55.0
+MIN_LOCKOUT_HEAT_FLOOR = 40
+MAX_LOCKOUT_HEAT_FLOOR = 60
+LOCKOUT_HEAT_FLOOR_STEP = 0.5
 HEAT_COOL_REVERSAL_SECONDS = 300  # Minimum time off before restarting or reversing
 MIN_HEAT_COOL_GAP = 1.0  # Room-temperature travel required before reversing crossed targets
 SENSOR_RESTORE_GRACE_PERIOD_SECONDS = 300  # 5 min grace for restored temps after restart
@@ -76,6 +91,12 @@ TEMP_MAX_VALID = 150
 
 # Config keys
 CONF_OUTDOOR_SENSOR = "outdoor_sensor"
+CONF_OUTDOOR_SENSORS = "outdoor_sensors"
+OUTDOOR_ENTITY_DOMAINS = ("sensor", "weather")
+OUTDOOR_STATUS_OK = "ok"
+OUTDOOR_STATUS_MISSING = "missing"
+OUTDOOR_STATUS_UNAVAILABLE = "unavailable"
+OUTDOOR_STATUS_INVALID = "invalid"
 CONF_MASTER = "master"
 CONF_MASTER_NAME = "master_name"
 CONF_CONFLICTS = "conflicts"
@@ -136,6 +157,7 @@ CONF_NAME = "name"
 CONF_SENSORS = "sensors"
 CONF_INDOOR = "indoor"
 CONF_AGGREGATION = "aggregation"
+CONF_WEIGHTS = "weights"
 CONF_SMOOTHING_SAMPLES = "smoothing_samples"
 CONF_SETPOINTS = "setpoints"
 CONF_DEFAULT = "default"

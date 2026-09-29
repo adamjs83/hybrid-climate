@@ -4,9 +4,17 @@
 #
 # IMPORTANT: Do NOT include `hybrid_climate:` key in this file - that's added by the !include
 
-# Outdoor sensor for outdoor reset logic
-# Supports both sensor.* and weather.* entities
-outdoor_sensor: sensor.outdoor_temperature
+# Outdoor sensor(s) for outdoor reset logic, in priority order.
+# Supports sensor.* and weather.* entities. Each cycle uses the first entity with
+# a valid reading; later entries are backups. (outdoor_sensors and the legacy
+# single outdoor_sensor key are mutually exclusive - use one or the other.)
+outdoor_sensors:
+  - sensor.outdoor_temperature
+  - weather.home  # backup, used only while sensor.outdoor_temperature is invalid/missing
+
+# Maximum idle heat setpoint while the "never_heat_above" outdoor lockout is
+# active (40-60, default 55). Idle heating setback never goes above this.
+lockout_heat_floor: 55
 
 # Master entity configuration
 master:
@@ -90,7 +98,10 @@ zones:
       indoor:
         - sensor.basement_temperature
         - sensor.basement_office_temperature
-      aggregation: average  # average, min, or max
+      aggregation: average  # average, min, max, median, or weighted
+      # weights:  # Optional; only used by "weighted". Missing entries default to 1.0.
+      #   sensor.basement_temperature: 1.0
+      #   sensor.basement_office_temperature: 0.5  # e.g. reads consistently high
     setpoints:
       default: 68
       away: 62

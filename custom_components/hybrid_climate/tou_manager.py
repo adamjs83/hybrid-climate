@@ -5,6 +5,10 @@ electric consumption during peak pricing. Two behaviors:
 - Pre-conditioning: shift setpoints aggressively before peak to build thermal buffer
 - Peak relaxation: relax setpoints during peak to reduce device runtime
 
+Also caches, per zone, the last adjustment actually applied by
+get_adjusted_setpoints (spec 0.13.0 §7.1). That cache is read only by the
+Agent API status projection (agent_api/tou_view.py); control never reads it.
+
 Key dependencies: models.py (TouGlobalConfig, ZoneTouConfig, ZoneConfig)
 Used by: zone_control.py (called during each zone update cycle)
 """
@@ -12,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.util import dt as dt_util
 
@@ -37,6 +41,33 @@ class TouManager:
     def __init__(self, coordinator: HybridClimateCoordinator) -> None:
         """Initialize TOU manager."""
         self._coordinator = coordinator
+        # Per-zone cache of the last adjustment actually applied by
+        # get_adjusted_setpoints; absent entries mean it has never run for that
+        # zone (no TOU configured, or not yet called this session).
+        self._last_adjustment: dict[str, dict[str, Any]] = {}
+
+    def last_adjustment(self, zone_id: str) -> dict[str, Any]:
+        """Return the last TOU adjustment applied for a zone, or the no-op default."""
+        return self._last_adjustment.get(zone_id, self._neutral_adjustment())
+
+    @staticmethod
+    def _neutral_adjustment() -> dict[str, Any]:
+        """Return the no-adjustment shape: normal state, zero deltas."""
+        return {
+            "tou_state": TOU_STATE_NORMAL,
+            "relaxation_applied_heat": 0.0,
+            "relaxation_applied_cool": 0.0,
+        }
+
+    def _record_neutral(self, zone_id: str) -> None:
+        """Cache the no-adjustment state for a cycle that applied none.
+
+        Called on every early-return path of get_adjusted_setpoints (no TOU
+        configured, TOU disabled/removed, rate sensor missing/unavailable) so a
+        stale prior adjustment (e.g. a past peak relaxation) never survives past
+        the cycle that stopped applying it.
+        """
+        self._last_adjustment[zone_id] = self._neutral_adjustment()
 
     def _get_rate_period(self) -> str | None:
         """Read current rate period from the external sensor."""
@@ -113,10 +144,12 @@ class TouManager:
         """
         tou_config = zone_config.tou
         if tou_config is None:
+            self._record_neutral(zone_id)
             return base_heat_setpoint, base_cool_setpoint, TOU_STATE_NORMAL
 
         rate_period = self._get_rate_period()
         if rate_period is None:
+            self._record_neutral(zone_id)
             return base_heat_setpoint, base_cool_setpoint, TOU_STATE_NORMAL
 
         now = dt_util.now()
@@ -193,5 +226,18 @@ class TouManager:
                 base_cool_setpoint,
                 cool_sp,
             )
+
+        # Record the adjustment actually applied (post-clamp) for Agent API
+        # observability. relaxation_applied_heat = base - adjusted: positive
+        # when peak relaxation moved the setpoint away from demand, negative
+        # when pre-conditioning boosted it toward demand.
+        self._last_adjustment[zone_id] = {
+            "tou_state": tou_state,
+            "relaxation_applied_heat": round(base_heat_setpoint - heat_sp, 2),
+            "relaxation_applied_cool": (
+                round(cool_sp - base_cool_setpoint, 2)
+                if cool_sp is not None and base_cool_setpoint is not None else 0.0
+            ),
+        }
 
         return heat_sp, cool_sp, tou_state

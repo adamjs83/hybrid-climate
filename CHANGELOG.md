@@ -3,6 +3,18 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-09-29
+
+### Changed
+- **Startup behavior**: once after Home Assistant starts (and again after every integration reload, including saving a configuration change), each device that no zone is actively using but that is still reporting heat or cool now receives its configured idle action exactly one time. It is never turned on. Any manual change you make to that device afterward is left alone.
+- Proportional-integral (PI) regulation now only ever applies to devices that can heat. A cool-only device (for example a shared whole-home AC) listed under a zone's PI regulation is ignored, with a warning logged, instead of being silently turned off in the background every idle cycle — this fixes PI regulation overriding a manually-started AC.
+
+### Added
+- New global setting **Lockout heat floor** (default 55°F, adjustable 40–60°F). While the outdoor heat lockout is active, an idle heating setback is never allowed above this floor. The lockout starting or ending never sends a command by itself; the floor only takes effect on the next idle release.
+- Zones can now aggregate their indoor temperature sensors by **median** (ignores a single outlier) or **weighted average** (assign each sensor its own weight in the zone wizard), alongside the existing average/min/max.
+- The outdoor temperature sensor is now an **ordered list of sensors**. Configure a primary plus one or more backups (`sensor.*` or `weather.*`) in Global Settings; each cycle uses the first one with a valid reading. Existing single-sensor setups keep working unchanged.
+- `get_status`/`get_config` gained several read-only fields for troubleshooting: time-of-use status per zone, effective outdoor lockout thresholds, zone and device timestamps, per-device last-command time and a plain-language control reason, sensor aggregation weights and control value, and the ordered outdoor sensor candidates.
+
 ## [0.12.1] - 2026-09-29
 
 ### Added

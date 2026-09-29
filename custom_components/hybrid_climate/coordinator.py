@@ -14,7 +14,6 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.util import dt as dt_util
 from .conflict_resolver import ConflictResolver
 from .const import (
     DEFAULT_UPDATE_INTERVAL,
@@ -26,13 +25,12 @@ from . import setpoint_manager
 from .device_manager import DeviceManager
 from .external_sync import check_external_device_changes
 from .device_arbitration import queue_mutex_releases, queue_retained_demand, reconcile_dispatch
+from .hvac_action_tracking import stamp_hvac_action_transitions
 from .pi_controller import PIController
+from .startup_takeover import StartupTakeover
 from .tou_manager import TouManager
-from .sensor_manager import (
-    get_outdoor_temperature,
-    init_sensor_sample_buffers,
-    retain_outdoor_temperature,
-)
+from .sensor_manager import init_sensor_sample_buffers
+from .outdoor_sensors import OutdoorReading, update_outdoor_reading
 from .zone_control import (
     apply_opportunistic_heating,
     update_zone,
@@ -71,9 +69,11 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
         
         self.pi_controller = PIController()
         self.device_manager = DeviceManager(hass, config.devices)
+        self.startup_takeover = StartupTakeover()
         self.conflict_resolver = ConflictResolver(
             config.conflicts,
             self.device_manager,
+            config.zones,
         )
         self.tou_manager = TouManager(self)
 
@@ -101,7 +101,9 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
 
         # Last known good sensor values (for stale sensor handling)
         self._last_sensor_values: dict[str, tuple[float, datetime]] = {}
-        self._last_outdoor_reading: tuple[float, datetime] | None = None
+        self._last_outdoor_reading: tuple[float, datetime, str | None] | None = None
+        self.outdoor_reading = OutdoorReading(None, None, [])
+        self._outdoor_using_fallback = False
 
         # Sensor sample buffers for smoothing (moving average)
         # Key: sensor entity_id, Value: deque of float values
@@ -129,10 +131,7 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
             self._check_zone_occupancy()
 
             # 5. Get outdoor temperature
-            outdoor_temp = await get_outdoor_temperature(self.hass, self.config)
-            outdoor_temp, self._last_outdoor_reading = retain_outdoor_temperature(
-                outdoor_temp, self._last_outdoor_reading, dt_util.utcnow()
-            )
+            outdoor_temp = update_outdoor_reading(self)
             self.master_state.outdoor_temperature = outdoor_temp
 
             # 6. Update each zone
@@ -153,11 +152,23 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
 
             # Mutex releases share the batch, avoiding an OFF/ON pair in one cycle.
             await queue_retained_demand(self)
+            if self.startup_takeover.armed:
+                await self.startup_takeover.queue(self)
             await queue_mutex_releases(self)
             command_results = await self.device_manager.dispatch_cycle(
                 self.config.conflicts.device_mutex
             )
             reconcile_dispatch(self, previous_states, command_results)
+
+            # Agent API observability only (spec 0.13.0 §7.3); never read by control.
+            # Stamped last, after reconcile_dispatch, so a reversed/failed command's
+            # rollback of hvac_action is reflected before comparing against the
+            # pre-cycle snapshot, and an opportunistic-heating transition is included.
+            stamp_hvac_action_transitions(self.zone_states, previous_states)
+
+            self.startup_takeover.record(command_results)
+            if not self.startup_takeover.armed:
+                self.startup_takeover.arm(self)
 
             # 9. Update master state summaries
             update_master_summaries(self.master_state, self.zone_states, self.conflict_resolver, self.master_state.outdoor_temperature, self.config)

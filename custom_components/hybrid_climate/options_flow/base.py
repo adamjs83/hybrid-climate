@@ -20,9 +20,12 @@ from ..const import (
     CONF_NAME,
     CONF_NEVER_COOL_BELOW,
     CONF_NEVER_HEAT_ABOVE,
+    CONF_LOCKOUT_HEAT_FLOOR,
+    DEFAULT_LOCKOUT_HEAT_FLOOR,
     CONF_OCCUPANCY_ENTITY,
     CONF_OUTDOOR_RESET,
     CONF_OUTDOOR_SENSOR,
+    CONF_OUTDOOR_SENSORS,
     CONF_TOU_RATE_SENSOR,
     CONF_UI_CONFIG,
     CONF_UI_GLOBAL,
@@ -119,13 +122,24 @@ class OptionsFlowBase(OptionsFlowWithReload):
             or "Hybrid Climate"
         )
 
+        if CONF_OUTDOOR_SENSORS in ui_global:
+            outdoor_sources = ui_global[CONF_OUTDOOR_SENSORS] or []
+        elif CONF_OUTDOOR_SENSOR in ui_global:
+            outdoor_sources = [ui_global[CONF_OUTDOOR_SENSOR]] if ui_global[CONF_OUTDOOR_SENSOR] else []
+        elif CONF_OUTDOOR_SENSORS in yaml_config:
+            outdoor_sources = yaml_config[CONF_OUTDOOR_SENSORS] or []
+        else:
+            outdoor_sources = [yaml_config[CONF_OUTDOOR_SENSOR]] if yaml_config.get(CONF_OUTDOOR_SENSOR) else []
+
         return {
             CONF_MASTER_NAME: master_name,
-            CONF_OUTDOOR_SENSOR: ui_global.get(
-                CONF_OUTDOOR_SENSOR, yaml_config.get(CONF_OUTDOOR_SENSOR)
-            ),
+            CONF_OUTDOOR_SENSORS: list(outdoor_sources),
             CONF_OCCUPANCY_ENTITY: ui_global.get(
                 CONF_OCCUPANCY_ENTITY, master_conf.get(CONF_OCCUPANCY_ENTITY)
+            ),
+            CONF_LOCKOUT_HEAT_FLOOR: ui_global.get(
+                CONF_LOCKOUT_HEAT_FLOOR,
+                yaml_config.get(CONF_LOCKOUT_HEAT_FLOOR, DEFAULT_LOCKOUT_HEAT_FLOOR),
             ),
             CONF_NEVER_HEAT_ABOVE: ui_global.get(
                 CONF_NEVER_HEAT_ABOVE,

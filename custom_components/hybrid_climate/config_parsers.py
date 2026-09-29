@@ -10,6 +10,10 @@ from typing import Any
 
 from .const import (
     AGGREGATION_AVERAGE,
+    AGGREGATION_MIN,
+    AGGREGATION_MAX,
+    AGGREGATION_MEDIAN,
+    AGGREGATION_WEIGHTED,
     CAPABILITY_COOL,
     CAPABILITY_HEAT,
     CONF_ACCUMULATED_ERROR_THRESHOLD,
@@ -71,6 +75,7 @@ from .const import (
     CONF_SETPOINTS,
     CONF_SETTINGS,
     CONF_SMOOTHING_SAMPLES,
+    CONF_WEIGHTS,
     CONF_STABILIZATION_THRESHOLD,
     CONF_STAGE,
     CONF_THEN,
@@ -202,8 +207,10 @@ def parse_zone_sensors(data: dict[str, Any]) -> ZoneSensors:
     """Parse zone sensors from config."""
     aggregation_map = {
         AGGREGATION_AVERAGE: AggregationMethod.AVERAGE,
-        "min": AggregationMethod.MIN,
-        "max": AggregationMethod.MAX,
+        AGGREGATION_MIN: AggregationMethod.MIN,
+        AGGREGATION_MAX: AggregationMethod.MAX,
+        AGGREGATION_MEDIAN: AggregationMethod.MEDIAN,
+        AGGREGATION_WEIGHTED: AggregationMethod.WEIGHTED,
     }
 
     return ZoneSensors(
@@ -213,6 +220,7 @@ def parse_zone_sensors(data: dict[str, Any]) -> ZoneSensors:
             AggregationMethod.AVERAGE,
         ),
         smoothing_samples=data.get(CONF_SMOOTHING_SAMPLES, DEFAULT_SMOOTHING_SAMPLES),
+        weights={entity_id: float(weight) for entity_id, weight in data.get(CONF_WEIGHTS, {}).items()},
     )
 
 

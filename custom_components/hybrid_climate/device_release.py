@@ -12,6 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import HEAT_COOL_REVERSAL_SECONDS, HVAC_MODE_COOL, HVAC_MODE_HEAT, REGULATION_PI
 from .models import HvacAction, HvacMode, HybridClimateConfig, MasterMode, ZoneConfig, ZoneState
+from .idle_floor import idle_heat_floor
 
 if TYPE_CHECKING:
     from .coordinator import HybridClimateCoordinator
@@ -52,7 +53,11 @@ async def reconcile_devices(
     previously_owned = bool(state.active_devices)
     regulated = set()
     if config.regulation and config.regulation.type == REGULATION_PI:
-        regulated = set(config.regulation.devices)
+        regulated = {
+            device_id for device_id in config.regulation.devices
+            if (device := coordinator.device_manager.get_device(device_id)) is not None
+            and device.can_heat()
+        }
     retained = list(dict.fromkeys(active_devices))
     candidates = set(state.active_devices) - set(retained)
     if hold_equilibrium or release_regulated:
@@ -98,6 +103,9 @@ async def reconcile_devices(
         else:
             success = await coordinator.device_manager.set_device_idle(
                 device, target, was_heating, force_off=forced_off,
+                heat_floor=idle_heat_floor(
+                    coordinator.config, coordinator.conflict_resolver, (zone_id,),
+                ) if was_heating else None,
             )
         if not success:
             retained.append(device_id)
@@ -134,14 +142,14 @@ async def release_removed_config_devices(
                     retained_entities.add((device.entity_id, HvacAction.HEATING))
 
     owned = {
-        device_id: state
-        for state in coordinator.zone_states.values()
+        device_id: (zone_id, state)
+        for zone_id, state in coordinator.zone_states.items()
         for device_id in state.active_devices
     }
     coordinator.device_manager.cancel_cycle()
     all_released = True
     released_entities: set[str] = set()
-    for device_id, state in owned.items():
+    for device_id, (zone_id, state) in owned.items():
         device = coordinator.device_manager.get_device(device_id)
         if device is None:
             _LOGGER.error("Cannot release unknown owned device %s", device_id)
@@ -168,6 +176,10 @@ async def release_removed_config_devices(
         else:
             released = await coordinator.device_manager.set_device_idle(
                 device, target, was_heating, force_off=True,
+                heat_floor=idle_heat_floor(
+                    getattr(coordinator, "config", new_config),
+                    getattr(coordinator, "conflict_resolver", None), (zone_id,),
+                ) if was_heating else None,
             )
         if released:
             released_entities.add(device.entity_id)

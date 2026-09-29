@@ -11,6 +11,10 @@ from typing import Any
 
 from ..models import ZoneState
 from .const import (
+    COOLING_DEMAND_CODE,
+    COOLING_DEMAND_DETAIL,
+    HEATING_DEMAND_CODE,
+    HEATING_DEMAND_DETAIL,
     REASON_DETAILS,
     UNKNOWN_REASON_DETAIL,
     WITHIN_TARGET_CODE,
@@ -54,6 +58,26 @@ def _within_target(snapshot: Mapping[str, Any]) -> dict[str, Any] | None:
     return {"code": WITHIN_TARGET_CODE, "detail": WITHIN_TARGET_DETAIL, "margins": margins}
 
 
+def _demand(snapshot: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Explain an actively heating/cooling zone from the cached hvac_action alone.
+
+    The cached action alone proves demand, so the reason is emitted even when
+    current/target are missing or non-numeric — only `error` becomes None then.
+    """
+    action = snapshot.get("hvac_action")
+    if action not in ("heating", "cooling"):
+        return None
+    current = snapshot.get("current_temperature")
+    stage = snapshot.get("stage")
+    if action == "heating":
+        code, detail, target = HEATING_DEMAND_CODE, HEATING_DEMAND_DETAIL, snapshot.get("heat_target")
+        error = round(target - current, 2) if _is_usable_number(current) and _is_usable_number(target) else None
+    else:
+        code, detail, target = COOLING_DEMAND_CODE, COOLING_DEMAND_DETAIL, snapshot.get("cool_target")
+        error = round(current - target, 2) if _is_usable_number(current) and _is_usable_number(target) else None
+    return {"code": code, "detail": detail, "stage": stage, "error": error}
+
+
 def zone_reasons(snapshot: Mapping[str, Any], state: ZoneState) -> list[dict[str, Any]]:
     """Explain only recorded restrictions; unknown is preferable to a guessed cause."""
     raw_reasons = snapshot.get("blocking_reasons") or []
@@ -67,9 +91,13 @@ def zone_reasons(snapshot: Mapping[str, Any], state: ZoneState) -> list[dict[str
     if result:
         return result
     # An unrecognized-only recorded list is still a recorded restriction, even though it
-    # yields no known-code entries; within_target must not override it, so only an empty
-    # raw list is eligible for the within_target check.
+    # yields no known-code entries; demand/within_target must not override it, so only
+    # an empty raw list is eligible for either check. Precedence: recorded known
+    # reasons -> demand -> within_target -> unknown.
     if not raw_reasons:
+        demand = _demand(snapshot)
+        if demand is not None:
+            return [demand]
         within_target = _within_target(snapshot)
         if within_target is not None:
             return [within_target]

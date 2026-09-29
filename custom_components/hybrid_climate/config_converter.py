@@ -21,8 +21,10 @@ from .const import (
     CONF_MASTER_NAME,
     CONF_NEVER_COOL_BELOW,
     CONF_NEVER_HEAT_ABOVE,
+    CONF_LOCKOUT_HEAT_FLOOR,
     CONF_OCCUPANCY_ENTITY,
     CONF_OUTDOOR_SENSOR,
+    CONF_OUTDOOR_SENSORS,
     CONF_LEGACY_RATE_SENSOR,
     CONF_TOU_RATE_SENSOR,
     CONF_ZONES,
@@ -133,8 +135,12 @@ def build_config_from_ui(ui_config: dict[str, Any]) -> dict[str, Any]:
         CONF_DEVICES: devices,
         CONF_ZONES: zones,
     }
+    if CONF_LOCKOUT_HEAT_FLOOR in global_conf:
+        result[CONF_LOCKOUT_HEAT_FLOOR] = global_conf[CONF_LOCKOUT_HEAT_FLOOR]
 
-    if global_conf.get(CONF_OUTDOOR_SENSOR):
+    if CONF_OUTDOOR_SENSORS in global_conf:
+        result[CONF_OUTDOOR_SENSORS] = global_conf[CONF_OUTDOOR_SENSORS]
+    elif global_conf.get(CONF_OUTDOOR_SENSOR):
         result[CONF_OUTDOOR_SENSOR] = global_conf[CONF_OUTDOOR_SENSOR]
 
     rate_sensor = global_conf.get(CONF_TOU_RATE_SENSOR, global_conf.get(CONF_LEGACY_RATE_SENSOR))
@@ -295,11 +301,16 @@ def import_yaml_to_ui_config(yaml_config: dict[str, Any]) -> dict[str, Any]:
         global_conf[CONF_MASTER_NAME] = yaml_master["name"]
     if yaml_master.get(CONF_OCCUPANCY_ENTITY):
         global_conf[CONF_OCCUPANCY_ENTITY] = yaml_master[CONF_OCCUPANCY_ENTITY]
-    if yaml_config.get(CONF_OUTDOOR_SENSOR):
+    if CONF_OUTDOOR_SENSORS in yaml_config:
+        global_conf[CONF_OUTDOOR_SENSORS] = list(yaml_config[CONF_OUTDOOR_SENSORS])
+    elif yaml_config.get(CONF_OUTDOOR_SENSOR):
         global_conf[CONF_OUTDOOR_SENSOR] = yaml_config[CONF_OUTDOOR_SENSOR]
     rate_sensor = yaml_config.get(CONF_TOU_RATE_SENSOR, yaml_config.get(CONF_LEGACY_RATE_SENSOR))
     if rate_sensor:
         global_conf[CONF_TOU_RATE_SENSOR] = rate_sensor
+
+    if CONF_LOCKOUT_HEAT_FLOOR in yaml_config:
+        global_conf[CONF_LOCKOUT_HEAT_FLOOR] = yaml_config[CONF_LOCKOUT_HEAT_FLOOR]
 
     # Outdoor reset
     outdoor_reset = yaml_conflicts.get("outdoor_reset", {})

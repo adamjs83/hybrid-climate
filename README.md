@@ -70,9 +70,10 @@ Configure integration-wide settings:
 | Setting | Description |
 |---------|-------------|
 | Master name | Display name for the master climate entity |
-| Outdoor sensor | `sensor.*` or `weather.*` entity for outdoor temperature |
+| Outdoor sensors | Ordered list of `sensor.*` and/or `weather.*` entities for outdoor temperature. Each cycle uses the first entity in the list with a valid reading; later entries are backups, read in priority order |
 | Occupancy entity | `binary_sensor.*` for automatic home/away switching |
 | Never heat above | Disable heating when outdoor temp exceeds this value |
+| Lockout heat floor | Maximum idle heat setpoint (default 55°F, 40–60°F) while the "never heat above" lockout is active; a device's setback is never raised above this floor while heating is locked out |
 | Never cool below | Disable cooling when outdoor temp is below this value |
 
 #### Zone Configuration (6-Step Wizard)
@@ -83,7 +84,7 @@ Creating or editing a zone walks through these steps:
 - Zone ID (unique identifier, lowercase, no spaces)
 - Display name
 - Temperature sensors (or leave empty to use device's built-in sensor)
-- Sensor aggregation method (average/min/max)
+- Sensor aggregation method (average/min/max/median/weighted). Choosing weighted adds a follow-up step to set each selected sensor's weight (0.1–10.0)
 - Smoothing samples (moving average window)
 
 **Step 2: Occupancy**
@@ -110,7 +111,7 @@ Creating or editing a zone walks through these steps:
 - Regulation type: Direct or PI Control
 
 **Step 6: PI Control** (if PI selected)
-- Select devices to regulate
+- Select devices to regulate (only heat-capable devices from this zone's stages are offered — PI regulation only ever applies to heating, so a cool-only device such as a shared AC is excluded)
 - Kp (proportional gain)
 - Ki (integral gain)
 - K_ext (outdoor temperature factor)
@@ -250,7 +251,11 @@ hybrid_climate: !include hybrid_climate_config.yaml
 Create `hybrid_climate_config.yaml`. After the first import, make further changes through **Settings → Devices & Services → Hybrid Climate → Configure**:
 
 ```yaml
-outdoor_sensor: weather.home  # or sensor.outdoor_temperature
+outdoor_sensors:  # sensor.* and/or weather.* entities, in priority order
+  - sensor.outdoor_temperature
+  - weather.home  # backup, used only while the primary is missing/unavailable/invalid
+
+lockout_heat_floor: 55  # Optional: max idle heat setpoint during outdoor heat lockout (40-60, default 55)
 
 master:
   name: "Home HVAC"
@@ -303,7 +308,9 @@ zones:
     sensors:
       indoor:
         - sensor.basement_temperature
-      aggregation: average
+      aggregation: average  # average | min | max | median | weighted
+      # weights:  # Optional; only used by "weighted"; missing entries default to 1.0
+      #   sensor.basement_temperature: 1.0
       smoothing_samples: 3
     setpoints:
       default: 68
@@ -402,6 +409,43 @@ When a zone is idle (room temp at or above target), devices can be configured to
 For example, with `setback: 5` and zone target 70°F:
 - Zone idle → device set to 65°F (prevents pipes from freezing, etc.)
 - Zone needs heat → device set to 70°F (or regulated setpoint)
+
+### Startup Takeover
+
+Ownership of a device is not persisted across a Home Assistant restart or an integration reload (including saving a configuration change). Historically, a device left in `heat` or `cool` by no zone at the moment of restart stayed in that mode indefinitely — the integration never took it back until a zone happened to need it.
+
+Once, after each startup or reload, every such device (any device referenced by a zone's heat or cool stages) is handed its configured idle action exactly one time:
+- A device already owned by a zone, or already addressed by normal control this cycle, is left alone.
+- A device that is off, or in a mode other than heat/cool, is left alone — the takeover **never turns equipment on**.
+- If every zone that references the device is currently disabled (master off, zone off, "disable all" preset, or an opening lockout), the device is forced off.
+- Otherwise the device receives its normal idle action (off or setback) using the most conservative target among the zones that reference it — the lowest heat target or highest cool target, so a shared device never gets a warmer-than-intended setback.
+- Devices under PI regulation are excluded; they're already refreshed every idle cycle by the existing PI/equilibrium logic.
+
+After that one command succeeds, the takeover never touches the device again until the next restart or reload — any manual change you make afterward sticks. A device that can't be commanded yet (unavailable, blocked by compressor protection, waiting on a device mutex, or a zone whose sensors haven't reported) is retried on the following cycles.
+
+### Sensor Aggregation
+
+Each zone combines its configured indoor sensors with one of five methods:
+
+| Method | Behavior |
+|---|---|
+| `average` (default) | Arithmetic mean of all present readings |
+| `min` | Coldest reading (conservative for heating) |
+| `max` | Warmest reading (conservative for cooling) |
+| `median` | Middle value; ignores a single outlier without needing per-sensor weights |
+| `weighted` | Weighted average using each sensor's configured weight (default 1.0) |
+
+`weighted` is useful when one sensor reads consistently high or low relative to the others (for example, a sensor placed near a heat source) — give it a lower weight instead of excluding it. Configure weights per sensor in the zone wizard (Step 1); weights outside 0.1–10.0 are rejected. A weighted zone with no stored weights behaves exactly like `average`. A stale/unavailable sensor simply drops out of whichever method is configured.
+
+### Outdoor Sensor Fallback
+
+The outdoor temperature source is an ordered list (Global Settings → Outdoor sensors). Each cycle, every configured entity is read in order and the **first valid reading wins**; later entities are still checked so status reporting can show them, but only the winning value drives outdoor reset logic. If every entity is invalid or unavailable, the last verified reading is retained for up to 10 minutes. After that retention window expires with still no valid reading, each zone simply keeps whatever heat/cool permission it last latched — an outage does **not** reset an already-running zone to blocked. The one case that defaults to blocked is at startup, before any zone has ever received a single valid outdoor reading with a limit configured; this is exactly the case the ordered fallback list exists to cover, by giving a backup source a chance to supply a valid reading at boot if the primary is down. A single-entity configuration behaves exactly as before. Switching to a fallback logs a warning; recovering to the primary logs an info message — neither logs every cycle.
+
+### Idle Heat Floor During Outdoor Lockout
+
+The **Lockout heat floor** (Global Settings, default 55°F, 40–60°F) caps how high (how close to target) an idle heating setpoint is allowed to sit while the outdoor heat lockout ("never heat above") is currently blocking heat for a zone — heating is locked out, so the idle setpoint should not sit warm enough that the device's own thermostat could call for heat on its own. Normally an idle device sets back to `target − setback`; while the lockout is active for every zone that would otherwise set the target, the device is instead sent to `min(lockout_heat_floor, target − setback)`. This can only pull the setpoint *down* to a deeper setback than configured — it never raises the setpoint above the normal setback. This applies to both the regular idle release path and the startup takeover above.
+
+The lockout starting or ending never sends a command by itself; the floor is only evaluated the next time a device is actually idled. A device idled with the floor applied stays there until its next release, even after the lockout clears. This does not change PI-regulated devices, which continue to hold their existing equilibrium setpoint while idle.
 
 ### Zone-Specific Outdoor Reset Override
 
@@ -885,6 +929,8 @@ Radiant floor heating has significant thermal lag - it can take 30-60 minutes to
 
 PI control solves this by dynamically adjusting the floor setpoint based on how far the room is from target and how long it's been off target.
 
+PI regulation only ever applies to heating, so only heat-capable devices can be regulated. The wizard's device list already excludes cool-only devices (for example a shared AC); if a zone's stored configuration still lists one — from an older version, or a hand-edited YAML file — it is dropped at load with a warning logged, and reported under `get_config`'s `regulation.ignored_devices` so it stays visible. This fixes a repeating background "turn the AC off" command that could override a manually-started cool-only device sharing a PI zone's stages.
+
 ### Configuration
 
 ```yaml
@@ -995,6 +1041,38 @@ For REST calls, POST to `/api/services/hybrid_climate/{get_status|get_config|set
 
 `get_status` also reports active global conflicts, per-device control ownership (including devices that report heat or cool with no owner and no matching command, most often after a restart), per-sensor readings, and each zone's temperature aggregation with spread and outlier hints. `get_config` also exposes read-only reference fields — the active outdoor sensor, each device's idle behavior and command permission, each zone's regulation settings, and compressor groups; these can only be changed in the integration's options, and a `set_config` patch naming one of them is rejected.
 
+### Observability fields
+
+These `get_status`/`get_config` fields are read-only projections of cached state for troubleshooting; none of them re-evaluate control or change any command.
+
+**`get_status.zones.<id>`**
+- `tou`: `{"active": bool, "period": str|null, "mode": "peak_relaxation"|"pre_conditioning"|null, "relaxation_applied_heat": float, "relaxation_applied_cool": float}`. `active` is whether the zone has time-of-use configured; `period` is the rate sensor's current cached state (`null` if unconfigured/unavailable); `mode` and the two deltas describe the last adjustment actually applied, and are `0.0`/`null` before the first one.
+- `stage_since` / `hvac_action_since`: ISO timestamps of when the zone's current stage / current `hvac_action` last changed, or `null` (always `null` for `hvac_action_since` until the first real transition after a restart).
+- `temperature_aggregation.control_value`: the cached temperature control actually used this cycle (`value` is kept as an alias). `temperature_aggregation.weights`: the effective weight (default 1.0) for every configured indoor sensor, present regardless of aggregation method. `temperature_aggregation.method` can now be `median`/`weighted`. `outlier_action` is always the constant `"flagged_only"` — outliers are a hint, never used for control.
+- `reasons` gains `heating_demand`/`cooling_demand` entries (`{"code", "detail", "stage", "error"}`) for a zone that is simply heating or cooling on demand, reported from the cached `hvac_action` alone. `error` is the signed distance from target, rounded to 2 decimals, and is `null` only when the current temperature or target isn't a usable number — the reason itself is still reported.
+
+**`get_status.devices.<id>`**
+- `last_command_at`: ISO timestamp of the last time this device actually received a service call, or `null` if none since start. Unlike `command_sent_at` (documented next), this is never cleared.
+- `command_state` / `command_sent_at`: `command_state` is `"listening"` (device matches our last command) or `"commanding"` (a command was just sent, in flight). `command_sent_at` is the time of the *most recent* send and is only cleared on a command timeout — it is **not** cleared when a command is acknowledged, so a non-`null` `command_sent_at` on a `"listening"` device means "last sent at this time," not "currently in flight." Use `last_command_at` to answer "when was this device last commanded."
+- `control.idle_setpoint_basis`: `"lockout_floor"` or `"setback"` after a matching successful idle heat command, `null` otherwise — tells you whether the last idle heat setpoint was capped by the outdoor lockout floor.
+- `control.reason`: one code explaining the device's current control state, first match wins: `not_referenced` (no zone stage references it) → `owned_active` (a zone currently owns it) → `awaiting_startup_takeover` (the one-time startup takeover hasn't reached it yet) → `taken_over_at_startup` (its last command was the startup takeover's) → `released_idle` (commanded since start, but not owned) → `never_owned_since_start`.
+
+**`get_status.outdoor`**
+- `source`: the entity ID whose reading produced `temperature` (or produced the retained value), or `null`.
+- `using_fallback`: `true` when `source` isn't the primary (first-configured) outdoor entity.
+- `retained`: `true` when `temperature` comes from the up-to-10-minute retention window rather than a fresh reading.
+- `candidates`: every configured outdoor entity from the last cycle, in priority order: `{"entity_id", "status", "value"}`, `status` one of `ok`/`missing`/`unavailable`/`invalid`.
+
+**`get_config.global`**
+- `outdoor_sensors` (read-only): the configured outdoor entities in priority order. `outdoor_sensor` (read-only) remains the primary (first) entity, for compatibility.
+- `outdoor_thresholds` (read-only): `{"never_heat_above", "heat_resume_at_or_below", "never_cool_below", "cool_resume_at_or_above", "hysteresis_degrees", "no_operation_band"}` — the effective release points (including the built-in hysteresis) computed the same way the conflict resolver evaluates them, and the "neither heat nor cool" outdoor band when both limits are set. Any limit not configured is `null`.
+- `lockout_heat_floor` (writable): current value, bounds (40–60°F), and source (`ui_config` or `default`).
+
+**`get_config.zones.<id>`**
+- `sensors.weights` (read-only): effective weight (default 1.0) for every configured indoor sensor. Weights themselves are only set through the zone wizard, not `set_config`.
+- `outdoor_thresholds` (read-only): same shape as the global one, using this zone's effective (override-or-global) limits.
+- `regulation.devices` / `regulation.ignored_devices` (read-only): `devices` is the effective PI regulation list actually used by control (heat-capable only); `ignored_devices` lists any stored device IDs that were dropped because they can't heat, without rewriting your saved options.
+
 Call `set_config` with a `reason` and `dry_run: true` first (the default). Inspect `valid`, `errors`, `warnings`, `diff`, and `revision_before.stored`; confirm the change, then repeat with `dry_run: false` and that stored hash as `expected_hash`. If the hash is stale, read and dry-run again. Only existing blocks and stages can be tuned. Entity-controlled setpoints, presets, PI gains, and balance point use their discovered number or climate entities and corresponding entity services; they are not `set_config` fields.
 
 An apply can save options but fail to reload. In that case `saved=true`, `reloaded=false`, and `pending=true`: inspect the response, persistent notification, and logs, fix the cause, and recover the integration through Home Assistant. A pending loaded entry still supports reads and dry runs but rejects another apply. After setup failure, the entry can be unloaded and service calls for it will raise until it is reloaded. If unload fails and HA marks the entry `FAILED_UNLOAD`, a Home Assistant restart is required to recover it. Saved options are not rolled back automatically.
@@ -1028,7 +1106,7 @@ logger:
 1. **Integration not loading**: Check the integration's UI configuration. If this is the first YAML import, also check the `configuration.yaml` include and the imported file.
 2. **Zones not responding**: Verify device entity_ids match actual HA entities
 3. **Temperature not reading**: Check sensor entity_ids and ensure sensors are available
-4. **Conflicts not working**: Verify outdoor_sensor is configured and returning valid temps
+4. **Conflicts not working**: Verify at least one outdoor sensor is configured and returning valid temps (check `get_status.outdoor.candidates` if using more than one)
 5. **External changes not syncing**: Ensure `allow_command: true` is set in the stage devices config
 6. **Overlay snapping back**: Check if device is in COMMANDING state (wait 10s for grace period)
 

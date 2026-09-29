@@ -5,6 +5,7 @@ Used by: config_loader.py (load_config validates against CONFIG_SCHEMA)
 """
 from __future__ import annotations
 
+from math import isfinite
 from typing import Any
 
 import voluptuous as vol
@@ -14,6 +15,10 @@ import homeassistant.helpers.config_validation as cv
 
 from .const import (
     AGGREGATION_AVERAGE,
+    AGGREGATION_MIN,
+    AGGREGATION_MAX,
+    AGGREGATION_MEDIAN,
+    AGGREGATION_WEIGHTED,
     CAPABILITY_COOL,
     CAPABILITY_HEAT,
     CONF_AGGREGATION,
@@ -60,12 +65,17 @@ from .const import (
     CONF_MODES,
     CONF_NEVER_COOL_BELOW,
     CONF_NEVER_HEAT_ABOVE,
+    CONF_LOCKOUT_HEAT_FLOOR,
+    MIN_LOCKOUT_HEAT_FLOOR,
+    MAX_LOCKOUT_HEAT_FLOOR,
     CONF_OCCUPANCY_ENTITY,
     CONF_OCCUPIED,
     CONF_OFFSET_MAX,
     CONF_OPPORTUNISTIC,
     CONF_OUTDOOR_RESET,
     CONF_OUTDOOR_SENSOR,
+    CONF_OUTDOOR_SENSORS,
+    OUTDOOR_ENTITY_DOMAINS,
     CONF_TOU,
     CONF_TOU_COOL,
     CONF_TOU_HEAT,
@@ -80,6 +90,7 @@ from .const import (
     CONF_SETPOINTS,
     CONF_SETTINGS,
     CONF_SMOOTHING_SAMPLES,
+    CONF_WEIGHTS,
     CONF_STABILIZATION_THRESHOLD,
     CONF_STAGE,
     CONF_THEN,
@@ -108,6 +119,7 @@ from .const import (
     DEFAULT_OFFSET_MAX,
     DEFAULT_OPPORTUNISTIC_THRESHOLD,
     DEFAULT_SMOOTHING_SAMPLES,
+    MAX_SENSOR_WEIGHT,
     DEFAULT_TOU_PRE_CONDITION_MINUTES,
     DEFAULT_TOU_RELAXATION_AMOUNT,
     DEFAULT_STABILIZATION_THRESHOLD,
@@ -158,16 +170,29 @@ STAGE_SCHEMA = vol.Schema({
     vol.Optional(CONF_CONDITIONS): STAGE_CONDITION_SCHEMA,
 })
 
-ZONE_SENSORS_SCHEMA = vol.Schema({
+
+def _weights_subset_of_indoor(data: dict[str, Any]) -> dict[str, Any]:
+    """Reject weights for entities outside the configured indoor sensor list."""
+    unknown = data.get(CONF_WEIGHTS, {}).keys() - set(data[CONF_INDOOR])
+    if unknown:
+        raise vol.Invalid(f"Sensor weights require indoor sensors: {sorted(unknown)}")
+    return data
+
+
+ZONE_SENSORS_SCHEMA = vol.All(vol.Schema({
     vol.Required(CONF_INDOOR): vol.All(cv.ensure_list, [cv.entity_id]),
     vol.Optional(CONF_AGGREGATION, default=AGGREGATION_AVERAGE): vol.In([
-        AGGREGATION_AVERAGE, "min", "max"
+        AGGREGATION_AVERAGE, AGGREGATION_MIN, AGGREGATION_MAX,
+        AGGREGATION_MEDIAN, AGGREGATION_WEIGHTED,
     ]),
+    vol.Optional(CONF_WEIGHTS): {cv.entity_id: vol.All(
+        vol.Coerce(float), vol.Range(min=0, min_included=False, max=MAX_SENSOR_WEIGHT),
+    )},
     vol.Optional(CONF_SMOOTHING_SAMPLES, default=DEFAULT_SMOOTHING_SAMPLES): vol.All(
         vol.Coerce(int),
         vol.Range(min=MIN_SMOOTHING_SAMPLES, max=MAX_SMOOTHING_SAMPLES),
     ),
-})
+}), _weights_subset_of_indoor)
 
 ZONE_SETPOINTS_SCHEMA = vol.Schema({
     vol.Required(CONF_DEFAULT): vol.Coerce(float),
@@ -342,8 +367,34 @@ MASTER_SCHEMA = vol.Schema({
     }),
 })
 
+def _outdoor_entity(entity: str) -> str:
+    """Require an outdoor source from a supported Home Assistant domain."""
+    if entity.split(".", 1)[0] not in OUTDOOR_ENTITY_DOMAINS:
+        raise vol.Invalid("outdoor entity must be sensor.* or weather.*")
+    return entity
+
+
+def _outdoor_entities(entities: list[str]) -> list[str]:
+    """Require unique outdoor sensor or weather entities in priority order."""
+    if len(entities) != len(set(entities)):
+        raise vol.Invalid("outdoor_sensors must be unique sensor.* or weather.* entities")
+    return entities
+
+
+def _finite_lockout_heat_floor(value: float) -> float:
+    """Reject nonfinite floor values after numeric coercion."""
+    if not isfinite(value):
+        raise vol.Invalid("lockout_heat_floor must be finite")
+    return value
+
+
 CONFIG_SCHEMA = vol.Schema({
-    vol.Optional(CONF_OUTDOOR_SENSOR): cv.entity_id,
+    vol.Optional(CONF_LOCKOUT_HEAT_FLOOR): vol.All(
+        vol.Coerce(float), vol.Range(min=MIN_LOCKOUT_HEAT_FLOOR, max=MAX_LOCKOUT_HEAT_FLOOR),
+        _finite_lockout_heat_floor,
+    ),
+    vol.Exclusive(CONF_OUTDOOR_SENSOR, "outdoor_source"): vol.All(cv.entity_id, _outdoor_entity),
+    vol.Exclusive(CONF_OUTDOOR_SENSORS, "outdoor_source"): vol.All([vol.All(cv.entity_id, _outdoor_entity)], _outdoor_entities),
     vol.Optional(CONF_TOU_RATE_SENSOR): cv.entity_id,
     vol.Optional(CONF_LEGACY_RATE_SENSOR): cv.entity_id,  # Legacy YAML spelling.
     vol.Required(CONF_MASTER): MASTER_SCHEMA,
