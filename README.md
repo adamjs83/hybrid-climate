@@ -179,6 +179,8 @@ The `custom:hybrid-climate-card` uses the zones and devices in the active integr
 
 After installing or updating Hybrid Climate, restart Home Assistant so it registers the card asset route. In **Settings → Dashboards → Resources**, add `/hybrid_climate/hybrid-climate-card.js` as a JavaScript module. Then create a YAML dashboard using the example file, or add a card to an existing dashboard:
 
+For the zone cards to appear side by side, put the custom card in a **Panel** view. A Panel view contains one card and gives it the full dashboard width; the card then arranges zones in a responsive grid. In a Masonry view, Home Assistant restricts each card to one dashboard column, so the zones will stack. The paste-ready example sets `type: panel` on all five views. In a Sections view, the card requests full section width.
+
 ```yaml
 type: custom:hybrid-climate-card
 view: overview

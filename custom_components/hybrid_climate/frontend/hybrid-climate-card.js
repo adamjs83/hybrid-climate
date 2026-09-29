@@ -86,6 +86,7 @@ class HybridClimateCard extends HTMLElement {
   }
   disconnectedCallback() { clearInterval(this._poll); }
   getCardSize() { return Math.max(3, (this._zoneCount || 1) * 3); }
+  getGridOptions() { return { columns: "full" }; }
 
   async _load() {
     if (!this._hass || this._loading) return;
@@ -127,29 +128,40 @@ class HybridClimateCard extends HTMLElement {
     const style = hcEl("style");
     style.textContent = `
       :host { display:block; color:var(--primary-text-color); }
-      .root { display:grid; gap:16px; }
-      .zone { padding:16px; border-radius:var(--ha-card-border-radius,12px); background:var(--card-background-color); box-shadow:var(--ha-card-box-shadow); border:1px solid var(--divider-color); }
-      .zone h2 { margin:0 0 12px; font-size:1.2rem; }
-      .row { padding:9px 0; border-top:1px solid var(--divider-color); }
+      .root { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); gap:16px; align-items:start; }
+      .zone { --hc-accent:var(--secondary-text-color); min-width:0; padding:18px; border-radius:var(--ha-card-border-radius,14px); background:var(--card-background-color); box-shadow:var(--ha-card-box-shadow); border:1px solid var(--divider-color); border-left:4px solid var(--hc-accent); }
+      .zone[data-action="heating"] { --hc-accent:var(--warning-color,#e89927); }
+      .zone[data-action="cooling"] { --hc-accent:var(--info-color,#36a5d8); }
+      .zone[data-action="off"] { --hc-accent:var(--disabled-text-color,#8a8a8a); }
+      .zone-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+      .zone h2 { margin:0; font-size:1.1rem; line-height:1.3; }
+      .action-badge { flex:none; padding:5px 9px; border-radius:999px; background:var(--secondary-background-color); color:var(--hc-accent); font-size:.76rem; font-weight:650; }
+      .row { padding:12px 0; border-top:1px solid var(--divider-color); }
       .row:first-of-type { border-top:0; }
-      .row-title { font-size:.8rem; font-weight:600; color:var(--secondary-text-color); margin-bottom:4px; }
-      .metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; }
+      .row-title { font-size:.75rem; font-weight:650; letter-spacing:.04em; text-transform:uppercase; color:var(--secondary-text-color); margin-bottom:8px; }
+      .metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(105px,1fr)); gap:12px; }
       .metric { display:flex; flex-direction:column; gap:2px; }
-      .metric small { color:var(--secondary-text-color); }
+      .metric small { color:var(--secondary-text-color); font-size:.76rem; }
+      .metric > span { font-size:1rem; font-weight:550; }
+      .status-metrics .metric:first-child > span { font-size:2rem; line-height:1.15; font-weight:350; letter-spacing:-.035em; }
+      .targets-metrics .metric { padding:9px 10px; border-radius:9px; background:var(--secondary-background-color); }
       .reason { color:var(--warning-color,var(--primary-text-color)); }
       .muted { color:var(--secondary-text-color); }
       .item { padding:6px 0; display:flex; justify-content:space-between; gap:8px; align-items:center; }
       .item + .item { border-top:1px solid var(--divider-color); }
       button { border:0; border-radius:6px; padding:5px 8px; background:var(--secondary-background-color); color:var(--primary-text-color); cursor:pointer; }
-      .message { padding:16px; border-radius:var(--ha-card-border-radius,12px); background:var(--card-background-color); }
-      .master { padding:16px; border-radius:var(--ha-card-border-radius,12px); background:var(--card-background-color); border:1px solid var(--divider-color); }
-      .master h2 { margin:0 0 8px; }
+      .message { grid-column:1/-1; padding:16px; border-radius:var(--ha-card-border-radius,12px); background:var(--card-background-color); }
+      .master { grid-column:1/-1; padding:18px; border-radius:var(--ha-card-border-radius,14px); background:var(--card-background-color); border:1px solid var(--divider-color); }
+      .master h2 { margin:0 0 12px; font-size:1.2rem; }
       .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
       select { padding:6px; border:1px solid var(--divider-color); border-radius:6px; background:var(--card-background-color); color:var(--primary-text-color); }
       .fallback { margin-top:6px; }
+      .thermostat-row { --ha-card-box-shadow:none; --ha-card-background:transparent; }
+      @media (max-width:600px) { .root { grid-template-columns:1fr; gap:12px; } .zone,.master { padding:14px; } }
     `;
     this.shadowRoot.append(style);
     const root = hcEl("div", "root");
+    root.dataset.view = this._config.view;
     this.shadowRoot.append(root);
     if (!this._data) {
       root.append(hcEl("div", "message", this._error || "Loading Hybrid Climate zones…"));
@@ -170,7 +182,16 @@ class HybridClimateCard extends HTMLElement {
         if (this._config.view === "pi" && !Object.keys(zone.controls?.pi || {}).length) continue;
         this._zoneCount++;
         const section = hcEl("section", "zone");
-        section.append(hcEl("h2", "", zone.name || zone.id));
+        const head = hcEl("div", "zone-head");
+        head.append(hcEl("h2", "", zone.name || zone.id));
+        const badge = hcEl("span", "action-badge");
+        head.append(badge);
+        section.append(head);
+        this._refs.push(() => {
+          const action = this._zoneState(zone)?.attributes?.hvac_action || zone.status?.action || "idle";
+          section.dataset.action = action;
+          badge.textContent = hcLabel(action);
+        });
         for (const row of hcRows(this._config, zone.id)) this._row(section, zone, row);
         root.append(section);
       }
@@ -243,7 +264,7 @@ class HybridClimateCard extends HTMLElement {
   _zoneState(zone) { return this._hass?.states[zone.entity_id]; }
   _unit() { return this._hass?.config?.unit_system?.temperature === "°C" ? "C" : "F"; }
   _status(parent, zone) {
-    const grid = hcEl("div", "metrics"); parent.append(grid);
+    const grid = hcEl("div", "metrics status-metrics"); parent.append(grid);
     this._metric(grid, "Current", () => hcTemp(this._zoneState(zone)?.attributes?.current_temperature, this._unit()));
     this._metric(grid, "Mode", () => hcLabel(this._zoneState(zone)?.state));
     this._metric(grid, "Action", () => hcLabel(this._zoneState(zone)?.attributes?.hvac_action || zone.status?.action));
@@ -251,7 +272,7 @@ class HybridClimateCard extends HTMLElement {
     this._metric(grid, "Active devices", () => (zone.status?.active_devices || []).join(", ") || "None");
   }
   _targets(parent, zone) {
-    const grid = hcEl("div", "metrics"); parent.append(grid);
+    const grid = hcEl("div", "metrics targets-metrics"); parent.append(grid);
     const setpoints = zone.controls?.setpoints || {};
     const hasHeat = Object.values(setpoints).some((mode) => mode?.heat);
     const hasCool = Object.values(setpoints).some((mode) => mode?.cool);
@@ -286,6 +307,7 @@ class HybridClimateCard extends HTMLElement {
   }
   _thermostat(parent, zone) {
     if (!zone.entity_id) { parent.append(hcEl("div", "muted", "Zone thermostat unavailable")); return; }
+    parent.classList.add("thermostat-row");
     this._haCard(parent, { type: "thermostat", entity: zone.entity_id });
   }
   _haCard(parent, config) {

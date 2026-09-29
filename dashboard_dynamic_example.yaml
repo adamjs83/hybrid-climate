@@ -7,6 +7,7 @@ views:
   - title: Climate Overview
     path: climate
     icon: mdi:home-thermometer
+    type: panel
     cards:
       - type: custom:hybrid-climate-card
         view: overview
@@ -20,6 +21,7 @@ views:
   - title: Zone Details
     path: zone-details
     icon: mdi:home-search
+    type: panel
     cards:
       - type: custom:hybrid-climate-card
         view: details
@@ -34,6 +36,7 @@ views:
   - title: Setpoints
     path: setpoints
     icon: mdi:thermometer-lines
+    type: panel
     cards:
       - type: custom:hybrid-climate-card
         view: setpoints
@@ -43,6 +46,7 @@ views:
   - title: PI Controller
     path: pi-controller
     icon: mdi:chart-bell-curve
+    type: panel
     cards:
       - type: custom:hybrid-climate-card
         view: pi
@@ -52,6 +56,7 @@ views:
   - title: All Devices
     path: devices
     icon: mdi:hvac
+    type: panel
     cards:
       - type: custom:hybrid-climate-card
         view: devices

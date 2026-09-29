@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0a5] - 2026-09-28
+
+- Display zones in a responsive grid with clearer status styling when the card has enough width.
+- Use full-width Panel views in the dashboard example, and request full width in Sections views.
+
 ## [0.11.0a4] - 2026-09-28
 
 - Added a dynamic dashboard card with overview, zone details, setpoint, PI, and device views. Zones appear automatically and can be ordered along with their rows in dashboard YAML or the card editor.
