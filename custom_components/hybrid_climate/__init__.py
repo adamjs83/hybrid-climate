@@ -18,6 +18,7 @@ from homeassistant.core import HomeAssistant
 
 from .agent_api import async_register_services
 from .agent_api.revision import ledger, stored_revision
+from .capability_check import warn_load_mismatches
 from .config_converter import build_config_from_ui, import_yaml_to_ui_config
 from .config_loader import CONFIG_SCHEMA as YAML_CONFIG_SCHEMA, load_config
 from .config_prepare import prepare_runtime_config
@@ -34,7 +35,7 @@ from .device_release import release_removed_config_devices
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.CLIMATE, Platform.NUMBER, Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.CLIMATE, Platform.NUMBER, Platform.SENSOR, Platform.BINARY_SENSOR]
 
 # YAML configuration schema
 CONFIG_SCHEMA = vol.Schema(
@@ -120,6 +121,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "Loaded Hybrid Climate config: %d zones, %d devices",
         len(config.zones), len(config.devices),
     )
+    warn_load_mismatches(config, entry.entry_id)
 
     # Activate the prepared config only after platforms and first refresh succeed.
     coordinator = HybridClimateCoordinator(hass, config, entry)

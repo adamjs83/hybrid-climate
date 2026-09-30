@@ -3,6 +3,18 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] - 2026-09-30
+
+### Added
+- New diagnostic entities (grouped under each zone/master device's "Diagnostic" section, hidden from the main dashboard view by default) so troubleshooting information now has history and can be charted or alerted on, instead of only being visible through a service call: per-zone **Reason** (why a zone is or isn't running, e.g. `within_target`, `heating_demand`, `unknown`), **Temperature spread** (the spread across a zone's smoothed sensor inputs), and **Stage** (the active heating/cooling stage, including opportunistic heating); an **Uncontrolled** problem sensor per device (a device reporting heat/cool that no zone currently owns); and two whole-home entities, **Outdoor fallback active** (a backup outdoor sensor is in use) and **Outdoor source** (which sensor is currently supplying the outdoor reading). The zone's existing **Temperature** sensor is the zone's control temperature — no separate entity was added for it, avoiding a duplicate history stream.
+- `get_status` now reports why a device stage can't run: when a stage's devices are all unusable (missing the needed heat/cool capability, unavailable, blocked, or not found), the zone gets a new reason `stage_without_usable_devices`. Each device's control block gains `missing_capabilities`, listing any stage that references it without the needed capability, and `control.reason` becomes `referenced_without_capability` when nothing else (already owned and active, a startup takeover, or just released from idle) explains the device.
+- `get_config` now shows each device's loaded heat/cool capabilities and where they came from, for reference.
+- The device editor's "Can Heat"/"Can Cool" checkboxes now default from the underlying entity's supported modes when a device has no saved capability choice yet, and saving a zone's stages automatically adds a capability a staged device supports but wasn't marked for (never removes one). A one-time log warning names any remaining zone/stage/device mismatch and how to fix it in Options.
+- Two new status reasons for an idle zone sitting between its target and where heating/cooling would actually start (`above_cool_target_below_start`, `below_heat_target_below_start`), replacing an unhelpful `unknown` in that narrow band.
+
+### Changed
+- Reduced background history-database growth: a few per-cycle attributes (individual sensor readings and time-in-stage) are excluded from recorder storage on the zone and Temperature sensor entities. They remain visible in the entity's current state; only long-term history storage is affected.
+
 ## [0.13.0] - 2026-09-29
 
 ### Changed

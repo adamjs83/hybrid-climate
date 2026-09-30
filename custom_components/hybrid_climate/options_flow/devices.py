@@ -1,4 +1,8 @@
-"""Device configuration flow for Hybrid Climate options."""
+"""Purpose: Edit device capabilities and idle behavior in integration options.
+
+Key dependencies: Home Assistant selectors and cached entity HVAC modes.
+Used by: Hybrid Climate options flow handler.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -32,6 +36,7 @@ from ..const import (
     IDLE_ACTION_SETBACK,
 )
 from .base import OptionsFlowBase
+from .capability_defaults import device_form_capabilities, submitted_capabilities
 
 
 # Device action constants
@@ -163,15 +168,7 @@ class DeviceFlowMixin(OptionsFlowBase):
                 self._device_edit_id = None
                 return await self.async_step_devices()
             
-            # Extract capabilities
-            can_heat = user_input.get("can_heat", True)
-            can_cool = user_input.get("can_cool", False)
-            capabilities = []
-            if can_heat:
-                capabilities.append(CAP_HEAT)
-            if can_cool:
-                capabilities.append(CAP_COOL)
-            
+            capabilities = submitted_capabilities(user_input)
             # Extract idle config
             action = user_input.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF)
             setback = user_input.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK)
@@ -184,8 +181,11 @@ class DeviceFlowMixin(OptionsFlowBase):
                 min_compressor_off_time=int(user_input.get("min_compressor_off_time", 0)),
             )
 
-        # Load current config
         current = self._load_device_config(device_id)
+        defaults = device_form_capabilities(
+            self.hass, device_id, self._get_ui_config().get(CONF_DEVICES, {}).get(device_id),
+            current.get(CONF_CAPABILITIES, [CAP_HEAT]),
+        )
 
         return self.async_show_form(
             step_id="device_edit",
@@ -201,11 +201,11 @@ class DeviceFlowMixin(OptionsFlowBase):
                 ),
                 vol.Required(
                     "can_heat",
-                    default=CAP_HEAT in current.get(CONF_CAPABILITIES, [CAP_HEAT]),
+                    default=CAP_HEAT in defaults,
                 ): BooleanSelector(),
                 vol.Required(
                     "can_cool",
-                    default=CAP_COOL in current.get(CONF_CAPABILITIES, []),
+                    default=CAP_COOL in defaults,
                 ): BooleanSelector(),
                 vol.Required(
                     CONF_IDLE_ACTION,

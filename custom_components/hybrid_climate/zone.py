@@ -50,6 +50,7 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
     """Climate entity for a single zone in Hybrid Climate."""
 
     _attr_has_entity_name = True
+    _unrecorded_attributes = frozenset({ATTR_TIME_IN_STAGE, ATTR_SENSOR_VALUES, ATTR_SENSOR_SMOOTHED_VALUES})
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.COOL, HVACMode.OFF, HVACMode.AUTO]
 
     def __init__(

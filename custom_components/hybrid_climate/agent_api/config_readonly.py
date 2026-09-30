@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ..const import (
-    CONF_ALLOW_COMMAND, CONF_DEVICE, CONF_DEVICES, CONF_ENTITY_ID, CONF_IDLE_ACTION,
+    CONF_ALLOW_COMMAND, CONF_CAPABILITIES, CONF_DEVICE, CONF_DEVICES, CONF_ENTITY_ID, CONF_IDLE_ACTION,
     CONF_IDLE_SETBACK, CONF_NEVER_COOL_BELOW, CONF_NEVER_HEAT_ABOVE, CONF_OUTDOOR_RESET,
     CONF_OUTDOOR_SENSOR, CONF_OUTDOOR_SENSORS, CONF_REGULATION, CONF_SENSORS, CONF_SETTINGS,
     CONF_UI_CONFIG, CONF_WEIGHTS, IDLE_ACTIONS, CONF_UI_GLOBAL, CONF_ZONES,
@@ -20,7 +20,8 @@ from ..const import (
 from ..models import HybridClimateConfig, ZoneConfig
 from .const import (
     MALFORMED_STAGE_STORAGE_WARNING, OUTDOOR_THRESHOLDS_FIELD, READ_ONLY_DESCRIPTIONS,
-    READ_ONLY_TEMPERATURE_UNIT, SENSORS_WEIGHTS_FIELD, SOURCE_DEFAULT, SOURCE_UI_CONFIG,
+    READ_ONLY_TEMPERATURE_UNIT, SENSORS_WEIGHTS_FIELD, SOURCE_AUTO_CREATED, SOURCE_DEFAULT,
+    SOURCE_UI, SOURCE_UI_CONFIG, SOURCE_YAML,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -140,7 +141,16 @@ def readonly_device(
     permission = _entry(bool(zones), SOURCE_UI_CONFIG if stored else SOURCE_DEFAULT,
                         "bool", CONF_ALLOW_COMMAND)
     permission["zones"] = zones
-    return {"idle": idle, CONF_ALLOW_COMMAND: permission}
+    # UI entries are explicit; a referenced device without one was synthesized by
+    # ensure_devices_exist. A remaining loaded device originated outside UI stages.
+    source = (SOURCE_UI if device.entity_id in options.get(CONF_UI_CONFIG, {}).get(CONF_DEVICES, {})
+              else SOURCE_AUTO_CREATED if any(device_id in zone.get_all_device_ids() for zone in model.zones.values())
+              else SOURCE_YAML)
+    return {
+        "idle": idle, CONF_ALLOW_COMMAND: permission,
+        CONF_CAPABILITIES: _entry([item.value for item in device.capabilities], source, "list", CONF_CAPABILITIES),
+        "capabilities_source": _entry(source, source, "enum", "capabilities_source"),
+    }
 
 
 def readonly_zone(

@@ -762,6 +762,21 @@ _check_external_device_changes()
 - **Master Entity** (`climate.home_hvac` or configured name): Whole-home control with preset modes
 - **Zone Entities** (`climate.<zone_id>`): Per-zone climate control
 
+### Diagnostic Entities (v0.13.1)
+
+Hidden under each device's "Diagnostic" section by default, so history/graphing is available without cluttering the main dashboard. All are coordinator-pushed (no polling) and read-only.
+
+| Entity | Attached to | Reports |
+|---|---|---|
+| Reason | each zone | The primary Agent API status reason code (e.g. `within_target`, `heating_demand`, `unknown`); attribute `codes` lists every currently recorded code |
+| Temperature spread | each zone | The spread across the zone's smoothed sensor inputs (unit matches your HA temperature unit); attribute `method` is the configured aggregation method |
+| Stage | each zone | The active heating/cooling stage (e.g. `heating_stage_2`), `heating_stage_1_opportunistic` for a piggyback opportunistic run, or `none` when idle |
+| Uncontrolled | whole home (one per configured device) | Problem sensor — on when the device reports heat/cool but no zone currently owns it; attribute `reported_mode` |
+| Outdoor fallback active | whole home | Problem sensor — on when a backup outdoor sensor (not the configured primary) is supplying the reading |
+| Outdoor source | whole home | The entity ID currently supplying the outdoor reading; attribute `primary` is the configured primary sensor |
+
+The existing **Temperature** sensor on each zone is the zone's control temperature — there's no separate "control temperature" entity, avoiding a duplicate history stream.
+
 ### Master Entity Attributes
 
 - `version`: Integration version
@@ -1050,12 +1065,15 @@ These `get_status`/`get_config` fields are read-only projections of cached state
 - `stage_since` / `hvac_action_since`: ISO timestamps of when the zone's current stage / current `hvac_action` last changed, or `null` (always `null` for `hvac_action_since` until the first real transition after a restart).
 - `temperature_aggregation.control_value`: the cached temperature control actually used this cycle (`value` is kept as an alias). `temperature_aggregation.weights`: the effective weight (default 1.0) for every configured indoor sensor, present regardless of aggregation method. `temperature_aggregation.method` can now be `median`/`weighted`. `outlier_action` is always the constant `"flagged_only"` — outliers are a hint, never used for control.
 - `reasons` gains `heating_demand`/`cooling_demand` entries (`{"code", "detail", "stage", "error"}`) for a zone that is simply heating or cooling on demand, reported from the cached `hvac_action` alone. `error` is the signed distance from target, rounded to 2 decimals, and is `null` only when the current temperature or target isn't a usable number — the reason itself is still reported.
+- `reasons` gains two below-start entries for an idle zone that's past its heat/cool target but hasn't yet crossed that direction's start threshold: `above_cool_target_below_start` and `below_heat_target_below_start`, `{"code", "detail", "margin_to_target", "margin_to_start", "start_threshold", "hysteresis", "stage_threshold"}` (v0.13.1). `start_threshold` is the larger of the zone's hysteresis and that direction's stage-1 threshold; below it, hysteresis alone would never have started equipment, so a definitive cause replaces `unknown` in that band.
+- `reasons` gains `stage_without_usable_devices` (v0.13.1) when every device in the zone's active stage is unusable (missing the needed capability, unavailable, blocked, or not found); ranked after recorded restrictions, before demand. `stage_devices_unusable`: `[{"device", "why"}]` (`why` one of `missing_capability`/`unavailable`/`blocked`/`not_found`) is populated whenever any stage device is unusable, even if the reason code isn't emitted because at least one device still works.
 
 **`get_status.devices.<id>`**
 - `last_command_at`: ISO timestamp of the last time this device actually received a service call, or `null` if none since start. Unlike `command_sent_at` (documented next), this is never cleared.
 - `command_state` / `command_sent_at`: `command_state` is `"listening"` (device matches our last command) or `"commanding"` (a command was just sent, in flight). `command_sent_at` is the time of the *most recent* send and is only cleared on a command timeout — it is **not** cleared when a command is acknowledged, so a non-`null` `command_sent_at` on a `"listening"` device means "last sent at this time," not "currently in flight." Use `last_command_at` to answer "when was this device last commanded."
 - `control.idle_setpoint_basis`: `"lockout_floor"` or `"setback"` after a matching successful idle heat command, `null` otherwise — tells you whether the last idle heat setpoint was capped by the outdoor lockout floor.
-- `control.reason`: one code explaining the device's current control state, first match wins: `not_referenced` (no zone stage references it) → `owned_active` (a zone currently owns it) → `awaiting_startup_takeover` (the one-time startup takeover hasn't reached it yet) → `taken_over_at_startup` (its last command was the startup takeover's) → `released_idle` (commanded since start, but not owned) → `never_owned_since_start`.
+- `control.reason`: one code explaining the device's current control state, first match wins: `not_referenced` (no zone stage references it) → `owned_active` (a zone currently owns it) → `awaiting_startup_takeover` (the one-time startup takeover hasn't reached it yet) → `taken_over_at_startup` (its last command was the startup takeover's) → `released_idle` (commanded since start, but not owned) → `referenced_without_capability` (v0.13.1 — the device is staged in a direction it doesn't support, and owns no stage direction it does support) → `never_owned_since_start`.
+- `control.missing_capabilities` (v0.13.1): `[{"zone", "stage", "capability"}]` for every stage that references this device in a direction it lacks; empty otherwise.
 
 **`get_status.outdoor`**
 - `source`: the entity ID whose reading produced `temperature` (or produced the retained value), or `null`.
@@ -1072,6 +1090,12 @@ These `get_status`/`get_config` fields are read-only projections of cached state
 - `sensors.weights` (read-only): effective weight (default 1.0) for every configured indoor sensor. Weights themselves are only set through the zone wizard, not `set_config`.
 - `outdoor_thresholds` (read-only): same shape as the global one, using this zone's effective (override-or-global) limits.
 - `regulation.devices` / `regulation.ignored_devices` (read-only): `devices` is the effective PI regulation list actually used by control (heat-capable only); `ignored_devices` lists any stored device IDs that were dropped because they can't heat, without rewriting your saved options.
+
+**`get_config.devices.<id>`** (v0.13.1)
+- `capabilities` (read-only): the device's loaded heat/cool capabilities.
+- `capabilities_source` (read-only): `ui` (explicit device entry in Options), `auto_created` (only referenced by a zone stage, capabilities inferred), or `yaml`.
+
+Also in v0.13.1: the device editor's Can Heat/Can Cool checkboxes default from the entity's actual supported HVAC modes when no saved capability choice exists yet (a saved choice is always shown as saved). Saving a zone's stages automatically adds a capability a staged device supports but wasn't marked for — it never removes one. If a stage still references a device that lacks the needed capability, Home Assistant logs one warning at startup/reload naming the zone, stage, device, and the Options page to fix it.
 
 Call `set_config` with a `reason` and `dry_run: true` first (the default). Inspect `valid`, `errors`, `warnings`, `diff`, and `revision_before.stored`; confirm the change, then repeat with `dry_run: false` and that stored hash as `expected_hash`. If the hash is stale, read and dry-run again. Only existing blocks and stages can be tuned. Entity-controlled setpoints, presets, PI gains, and balance point use their discovered number or climate entities and corresponding entity services; they are not `set_config` fields.
 

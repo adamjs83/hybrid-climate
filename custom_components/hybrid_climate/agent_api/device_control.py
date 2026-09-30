@@ -10,10 +10,12 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from ..const import HVAC_MODE_COOL, HVAC_MODE_HEAT
+from ..capability_check import CapabilityMismatch
 from ..models import Device, ZoneState
 from .const import (
     CONTROL_REASON_AWAITING_STARTUP_TAKEOVER,
     CONTROL_REASON_NEVER_OWNED_SINCE_START,
+    CONTROL_REASON_MISSING_STAGE_CAPABILITY,
     CONTROL_REASON_NOT_REFERENCED,
     CONTROL_REASON_OWNED_ACTIVE,
     CONTROL_REASON_RELEASED_IDLE,
@@ -31,6 +33,7 @@ def _control_reason(
     referenced_zones: Sequence[str],
     pi_regulated: bool,
     takeover: StartupTakeover,
+    missing_capabilities: Sequence[CapabilityMismatch] = (),
 ) -> str:
     """Pick the first matching cached-state explanation per spec §7.6 precedence."""
     if not referenced_zones:
@@ -50,6 +53,8 @@ def _control_reason(
         return CONTROL_REASON_TAKEN_OVER_AT_STARTUP
     if device.desired_mode is not None:
         return CONTROL_REASON_RELEASED_IDLE
+    if missing_capabilities:
+        return CONTROL_REASON_MISSING_STAGE_CAPABILITY
     return CONTROL_REASON_NEVER_OWNED_SINCE_START
 
 
@@ -61,6 +66,7 @@ def device_control(
     referenced_zones: Sequence[str],
     pi_regulated: bool,
     takeover: StartupTakeover,
+    missing_capabilities: Sequence[CapabilityMismatch] = (),
 ) -> dict[str, Any]:
     """Describe cached owners, desired control, an unexplained active mode, and reason."""
     owners = [zone_id for zone_id in zone_order
@@ -80,5 +86,10 @@ def device_control(
         "uncontrolled_active_mode": uncontrolled,
         "detail": UNCONTROLLED_MODE_DETAIL.format(reported_mode=reported_mode)
         if uncontrolled else None,
-        "reason": _control_reason(device, owners, referenced_zones, pi_regulated, takeover),
+        "reason": _control_reason(device, owners, referenced_zones, pi_regulated, takeover,
+                                  missing_capabilities),
+        "missing_capabilities": [
+            {"zone": item.zone, "stage": item.stage, "capability": item.capability}
+            for item in missing_capabilities
+        ],
     }

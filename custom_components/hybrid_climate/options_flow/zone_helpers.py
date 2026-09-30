@@ -1,10 +1,10 @@
-"""Zone configuration data helpers.
+"""Purpose: Load, save, and transform zone wizard configuration.
 
 Handles loading, saving, and transforming zone configuration data
 between the options flow UI and the stored config format.
 
-Key dependencies: options_flow/base.py (BaseFlowMixin)
-Used by: options_flow/zone_steps.py (called from step methods)
+Key dependencies: Options flow storage and capability defaults.
+Used by: Zone wizard steps.
 """
 from __future__ import annotations
 
@@ -42,6 +42,7 @@ from ..const import (
     DEFAULT_SMOOTHING_SAMPLES,
     REGULATION_PI,
 )
+from .capability_defaults import add_stage_capabilities
 
 
 class ZoneHelpersMixin:
@@ -373,6 +374,7 @@ class ZoneHelpersMixin:
             zones = {}
         zones[zone_id] = zone_config
         stored_config[CONF_ZONES] = zones
+        add_stage_capabilities(self.hass, stored_config, zone_config)
 
         # Clear WIP state
         self._zone_wip = None

@@ -361,6 +361,60 @@
           }
         }
       }
+    },
+    "sensor": {
+      "zone_reason": {
+        "name": "Reason",
+        "state": {
+          "outdoor_heat_lockout": "Outdoor heat lockout",
+          "outdoor_cool_lockout": "Outdoor cool lockout",
+          "master_off": "Master off",
+          "zone_off": "Zone off",
+          "sensor_failure": "Sensor failure",
+          "opening_lockout": "Opening lockout",
+          "compressor_hold": "Compressor hold",
+          "device_conflict": "Device conflict",
+          "device_command_failed": "Device command failed",
+          "heating_demand": "Heating demand",
+          "cooling_demand": "Cooling demand",
+          "within_target": "Within target",
+          "above_cool_target_below_start": "Above cool target below start",
+          "below_heat_target_below_start": "Below heat target below start",
+          "stage_without_usable_devices": "Stage without usable devices",
+          "unknown": "Unknown"
+        }
+      },
+      "zone_temperature_spread": {
+        "name": "Temperature spread"
+      },
+      "zone_stage": {
+        "name": "Stage",
+        "state": {
+          "none": "None",
+          "heating_stage_1": "Heating stage 1",
+          "heating_stage_2": "Heating stage 2",
+          "heating_stage_3": "Heating stage 3",
+          "heating_stage_4": "Heating stage 4",
+          "heating_stage_5": "Heating stage 5",
+          "cooling_stage_1": "Cooling stage 1",
+          "cooling_stage_2": "Cooling stage 2",
+          "cooling_stage_3": "Cooling stage 3",
+          "cooling_stage_4": "Cooling stage 4",
+          "cooling_stage_5": "Cooling stage 5",
+          "heating_stage_1_opportunistic": "Opportunistic heating stage 1"
+        }
+      },
+      "outdoor_source": {
+        "name": "Outdoor source"
+      }
+    },
+    "binary_sensor": {
+      "device_uncontrolled": {
+        "name": "{device} uncontrolled"
+      },
+      "outdoor_fallback_active": {
+        "name": "Outdoor fallback active"
+      }
     }
   },
   "services": {

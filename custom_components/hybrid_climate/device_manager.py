@@ -23,6 +23,7 @@ from .const import (
     SERVICE_SET_TEMPERATURE,
 )
 from .models import Device, DeviceMutexRule
+from .capability_check import warn_runtime_capability_skip
 from .device_arbitration import DeviceRequest, dispatch_requests, resolve_requests
 from .compressor_protection import CompressorProtection
 from .idle_floor import IdleBasisTracker, apply_idle_setback
@@ -96,12 +97,11 @@ class DeviceManager:
                 _LOGGER.debug("Device %s unavailable", device_id)
                 continue
 
-            # Check capability
             if mode == HVAC_MODE_HEAT and not device.can_heat():
-                _LOGGER.debug("Device %s cannot heat", device_id)
+                warn_runtime_capability_skip(device, mode)
                 continue
             if mode == HVAC_MODE_COOL and not device.can_cool():
-                _LOGGER.debug("Device %s cannot cool", device_id)
+                warn_runtime_capability_skip(device, mode)
                 continue
 
             available.append(device)

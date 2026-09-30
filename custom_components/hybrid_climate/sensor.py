@@ -1,4 +1,8 @@
-"""Sensor platform for Hybrid Climate integration."""
+"""Purpose: Expose zone temperature, PI, TOU, and diagnostic sensors.
+
+Key dependencies: Coordinator state and diagnostic sensor projections.
+Used by: Home Assistant sensor platform.
+"""
 from __future__ import annotations
 
 import logging
@@ -15,7 +19,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import ATTR_SENSOR_SMOOTHED_VALUES, ATTR_SENSOR_VALUES, DOMAIN
+from .diagnostic_sensors import diagnostic_sensors
 from .coordinator import HybridClimateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,6 +70,7 @@ async def async_setup_entry(
                 )
             )
 
+    entities.extend(diagnostic_sensors(hass, coordinator))
     async_add_entities(entities)
     _LOGGER.info("Created %d sensor entities for Hybrid Climate", len(entities))
 
@@ -73,6 +79,7 @@ class ZoneTemperatureSensor(SensorEntity):
     """Sensor showing the calculated zone temperature."""
 
     _attr_has_entity_name = True
+    _unrecorded_attributes = frozenset({ATTR_SENSOR_VALUES, ATTR_SENSOR_SMOOTHED_VALUES})
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
@@ -122,11 +129,11 @@ class ZoneTemperatureSensor(SensorEntity):
         if zone_state:
             # Individual sensor values
             if zone_state.sensor_values:
-                attrs["sensor_values"] = zone_state.sensor_values
+                attrs[ATTR_SENSOR_VALUES] = zone_state.sensor_values
             
             # Smoothed sensor values
             if zone_state.sensor_smoothed_values:
-                attrs["sensor_smoothed_values"] = zone_state.sensor_smoothed_values
+                attrs[ATTR_SENSOR_SMOOTHED_VALUES] = zone_state.sensor_smoothed_values
         
         # Aggregation method from config
         zone_config = self.coordinator.config.zones.get(self.zone_id)

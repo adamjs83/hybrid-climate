@@ -22,6 +22,8 @@ HVAC_MODE_HEAT = "heat"
 HVAC_MODE_COOL = "cool"
 HVAC_MODE_OFF = "off"
 HVAC_MODE_AUTO = "auto"
+HVAC_MODE_HEAT_COOL = "heat_cool"
+ATTR_HVAC_MODES = "hvac_modes"
 
 # HVAC actions
 HVAC_ACTION_HEATING = "heating"
@@ -32,6 +34,11 @@ HVAC_ACTION_OFF = "off"
 # Device capabilities
 CAPABILITY_HEAT = "heat"
 CAPABILITY_COOL = "cool"
+FIRST_STAGE_NUMBER = 1
+STAGE_UNUSABLE_MISSING_CAPABILITY = "missing_capability"
+STAGE_UNUSABLE_UNAVAILABLE = "unavailable"
+STAGE_UNUSABLE_BLOCKED = "blocked"
+STAGE_UNUSABLE_NOT_FOUND = "not_found"
 CLIMATE_ENTITY_PREFIX = "climate."
 REGULATION_IGNORED_DEVICE_WARNING = "Zone %s: ignoring PI regulation device %s (not heat-capable)"
 
@@ -289,3 +296,34 @@ COMMAND_GRACE_PERIOD_SECONDS = 10
 COMMAND_TIMEOUT_SECONDS = 60
 EXTERNAL_CHANGE_TOLERANCE_F = 0.1
 EXTERNAL_OVERRIDE_THRESHOLD_F = 3.0
+
+# History-friendly diagnostic entity identity and attributes
+DIAG_DEVICE_NAME_PREFIX = "Hybrid Climate - "
+DIAG_MANUFACTURER = "Hybrid Climate"
+DIAG_MASTER_MODEL = "Master Controller"
+DIAG_ZONE_MODEL = "Zone"
+DIAG_REASON_SUFFIX = "reason"
+DIAG_SPREAD_SUFFIX = "temperature_spread"
+DIAG_STAGE_SUFFIX = "stage"
+DIAG_OUTDOOR_SOURCE_SUFFIX = "outdoor_source"
+DIAG_UNCONTROLLED_SUFFIX = "uncontrolled"
+DIAG_OUTDOOR_FALLBACK_SUFFIX = "outdoor_fallback_active"
+DIAG_DEVICE_ID_PREFIX = "device"
+STAGE_NONE = "none"
+STAGE_HEAT_PREFIX = "heating_stage_"
+STAGE_COOL_PREFIX = "cooling_stage_"
+STAGE_OPPORTUNISTIC = "heating_stage_1_opportunistic"
+ATTR_CODES = "codes"
+ATTR_METHOD = "method"
+ATTR_PRIMARY = "primary"
+ATTR_REPORTED_MODE = "reported_mode"
+TRANSLATION_REASON = "zone_reason"
+TRANSLATION_SPREAD = "zone_temperature_spread"
+TRANSLATION_STAGE = "zone_stage"
+TRANSLATION_OUTDOOR_SOURCE = "outdoor_source"
+TRANSLATION_UNCONTROLLED = "device_uncontrolled"
+TRANSLATION_OUTDOOR_FALLBACK = "outdoor_fallback_active"
+CAPABILITY_UI_HEAT_LABEL = "Can Heat"
+CAPABILITY_UI_COOL_LABEL = "Can Cool"
+CAPABILITY_UI_HEAT_FIELD = "can_heat"
+CAPABILITY_UI_COOL_FIELD = "can_cool"

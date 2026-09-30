@@ -31,12 +31,17 @@ SOURCE_UI_CONFIG = "ui_config"
 SOURCE_OPTIONS_OVERRIDE = "options_override"
 SOURCE_NUMBER_ENTITY = "number_entity"
 SOURCE_DEFAULT = "default"
+SOURCE_AUTO_CREATED = "auto_created"
+SOURCE_YAML = "yaml"
+SOURCE_UI = "ui"
 READ_ONLY_FIELDS = frozenset({
     ("global", "outdoor_sensor"),
     ("global", "outdoor_sensors"),
     ("devices", "idle.action"),
     ("devices", "idle.setback"),
     ("devices", "allow_command"),
+    ("devices", "capabilities"),
+    ("devices", "capabilities_source"),
     ("zones", "regulation"),
 })
 READ_ONLY_MESSAGE = "Read-only field; change it in the integration options UI"
@@ -55,6 +60,8 @@ READ_ONLY_DESCRIPTIONS = {
     "idle.action": "Device action when idle",
     "idle.setback": "Temperature setback when idle",
     "allow_command": "Allow external device changes to update zones",
+    "capabilities": "Loaded heat and cool capabilities",
+    "capabilities_source": "Origin of loaded device capabilities",
     "regulation": "Zone regulation method and devices",
     SENSORS_WEIGHTS_FIELD: "Effective per-sensor weight used for weighted aggregation",
     OUTDOOR_THRESHOLDS_FIELD: "Effective outdoor lockout limits, release points, and hysteresis",
@@ -99,6 +106,7 @@ REASON_DETAILS = {
     "device_conflict": "Cached device conflict blocks a configured device",
     "device_command_failed": "A requested device command failed",
 }
+UNKNOWN_REASON_CODE = "unknown"
 UNKNOWN_REASON_DETAIL = "No definitive cause is recorded in cached runtime state"
 UNCONTROLLED_MODE_DETAIL = (
     "Device reports {reported_mode}, but no zone owns it and the integration "
@@ -113,6 +121,29 @@ HEATING_DEMAND_CODE = "heating_demand"
 HEATING_DEMAND_DETAIL = "Cached hvac_action reports active heating demand"
 COOLING_DEMAND_CODE = "cooling_demand"
 COOLING_DEMAND_DETAIL = "Cached hvac_action reports active cooling demand"
+ABOVE_COOL_TARGET_BELOW_START_CODE = "above_cool_target_below_start"
+ABOVE_COOL_TARGET_BELOW_START_DETAIL = (
+    "Cached temperature is above the cool target but not yet past the cooling start threshold"
+)
+BELOW_HEAT_TARGET_BELOW_START_CODE = "below_heat_target_below_start"
+BELOW_HEAT_TARGET_BELOW_START_DETAIL = (
+    "Cached temperature is below the heat target but not yet past the heating start threshold"
+)
+STAGE_WITHOUT_USABLE_DEVICES_CODE = "stage_without_usable_devices"
+STAGE_WITHOUT_USABLE_DEVICES_DETAIL = "No device in the selected stage can serve its direction"
+
+# All codes zone_reasons() can return: every REASON_DETAILS key, the demand/within_target/
+# below-start codes, and unknown. This is the enum `options` for the reason sensor (spec §3).
+ZONE_REASON_CODES: tuple[str, ...] = (
+    *REASON_DETAILS.keys(),
+    HEATING_DEMAND_CODE,
+    COOLING_DEMAND_CODE,
+    WITHIN_TARGET_CODE,
+    ABOVE_COOL_TARGET_BELOW_START_CODE,
+    BELOW_HEAT_TARGET_BELOW_START_CODE,
+    STAGE_WITHOUT_USABLE_DEVICES_CODE,
+    UNKNOWN_REASON_CODE,
+)
 
 # Public get_status.zones.<id>.tou.mode values. The internal TOU state machine
 # (tou_manager.py / const.py TOU_STATE_*) spells peak relaxation "peak_relaxed";
@@ -129,3 +160,16 @@ CONTROL_REASON_AWAITING_STARTUP_TAKEOVER = "awaiting_startup_takeover"
 CONTROL_REASON_TAKEN_OVER_AT_STARTUP = "taken_over_at_startup"
 CONTROL_REASON_RELEASED_IDLE = "released_idle"
 CONTROL_REASON_NEVER_OWNED_SINCE_START = "never_owned_since_start"
+CONTROL_REASON_MISSING_STAGE_CAPABILITY = "referenced_without_capability"
+CONTROL_REASON_CODES = frozenset({
+    CONTROL_REASON_NOT_REFERENCED, CONTROL_REASON_OWNED_ACTIVE,
+    CONTROL_REASON_AWAITING_STARTUP_TAKEOVER, CONTROL_REASON_TAKEN_OVER_AT_STARTUP,
+    CONTROL_REASON_RELEASED_IDLE, CONTROL_REASON_MISSING_STAGE_CAPABILITY,
+    CONTROL_REASON_NEVER_OWNED_SINCE_START,
+})
+
+# Cached status projection keys shared with history-friendly entities
+STATUS_REASON_CODE = "code"
+STATUS_AGGREGATION_SPREAD = "spread"
+STATUS_REPORTED_MODE = "reported_mode"
+STATUS_UNCONTROLLED_ACTIVE_MODE = "uncontrolled_active_mode"
