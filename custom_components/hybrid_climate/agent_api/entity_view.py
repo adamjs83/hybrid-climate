@@ -5,11 +5,16 @@ Used by: Diagnostic sensor and binary sensor platforms.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.core import HomeAssistant
 
 from ..const import REGULATION_PI, STAGE_COOL_PREFIX, STAGE_HEAT_PREFIX, STAGE_NONE, STAGE_OPPORTUNISTIC
 from ..capability_check import active_stage_unusable
-from .const import STATUS_AGGREGATION_SPREAD, STATUS_REASON_CODE, STATUS_REPORTED_MODE, STATUS_UNCONTROLLED_ACTIVE_MODE
+from .const import (
+    STATUS_AGGREGATION_SPREAD, STATUS_OVERRIDE, STATUS_REASON_CODE, STATUS_REPORTED_MODE,
+    STATUS_UNCONTROLLED_ACTIVE_MODE,
+)
 from ..coordinator import HybridClimateCoordinator
 from ..diagnostics import _device_snapshot, _zone_snapshot
 from .device_control import device_control
@@ -60,8 +65,8 @@ def device_uncontrolled_mode(hass: HomeAssistant, coordinator: HybridClimateCoor
 
 def device_mode_snapshot(
     hass: HomeAssistant, coordinator: HybridClimateCoordinator, device_id: str,
-) -> tuple[str | None, str | None]:
-    """Project reported and uncontrolled modes from one device snapshot."""
+) -> tuple[str | None, str | None, dict[str, Any] | None]:
+    """Project reported mode, uncontrolled mode, and manual override from one device snapshot."""
     config = coordinator.config
     device = config.devices[device_id]
     snapshot = _device_snapshot(
@@ -75,10 +80,13 @@ def device_mode_snapshot(
     )
     control = device_control(
         snapshot, device, coordinator.zone_states, tuple(config.zones), owners,
-        pi_regulated, coordinator.startup_takeover,
+        pi_regulated, coordinator.startup_takeover, overrides=coordinator.manual_overrides,
     )
     reported = snapshot[STATUS_REPORTED_MODE]
-    return reported, reported if control[STATUS_UNCONTROLLED_ACTIVE_MODE] else None
+    return (
+        reported, reported if control[STATUS_UNCONTROLLED_ACTIVE_MODE] else None,
+        control[STATUS_OVERRIDE],
+    )
 
 
 def outdoor_source(coordinator: HybridClimateCoordinator) -> tuple[str | None, bool]:

@@ -3,6 +3,17 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.2] - 2026-10-01
+
+### Added
+- Changing the master preset (Home, Away, Sleep, Vacation, Boost, Off) now restores control once, about 10 seconds after the mode settles, for every configured device no zone is currently using — other than a device under PI regulation, which is already commanded every cycle by its own regulation and needs no restore. Each restored device gets its idle action applied exactly once — off, or a setback that respects the outdoor heat lockout floor when lockout is active. It never turns equipment on, it skips any device another zone is using, and it does not repeat. A manual change you make afterward still sticks until the next mode change or restore.
+- A new service, `hybrid_climate.restore_control` (administrator only, optional `entry_id`/`zone_id`), runs that same restore pass on demand and reports a per-device result. A matching per-zone "Restore control" button (under each zone's Configuration section) does the same for just that zone.
+- Manual-override detection: if a device's mode or setpoint is changed outside Hybrid Climate, its "Uncontrolled" problem sensor now also turns on, with a new `manual_override` attribute describing what was commanded, what's now reported, and when the change was first seen. One logbook entry is written per override; it clears once the device matches the commanded values (e.g. after a restore sends them); a device turned off by hand stays flagged, because restore never turns equipment on. Devices with `allow_command` enabled are never flagged, since their changes are adopted as the zone's new target instead.
+
+### Changed
+- `get_status` gains a new device control reason, `manual_override` (takes precedence over `owned_active`), and a new `control.override` field describing an active override's commanded/reported values and when it started.
+- `get_status` also gains two more device control reasons, `control_restored` and `awaiting_control_restore`, describing a device last touched by a mode-change or manual restore pass rather than the one-time startup takeover.
+
 ## [0.13.1] - 2026-09-30
 
 ### Added

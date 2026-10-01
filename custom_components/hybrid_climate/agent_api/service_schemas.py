@@ -22,6 +22,8 @@ CONFIG_SCHEMA = vol.Schema(
     {**READ, vol.Optional(INCLUDE_STRUCTURE_KEY, default=False): bool},
     extra=vol.PREVENT_EXTRA,
 )
+# Same fields as a read selector (spec §2.1): an optional entry and an optional zone.
+RESTORE_SCHEMA = vol.Schema(READ, extra=vol.PREVENT_EXTRA)
 
 
 def _require_reason(reason: str) -> str:

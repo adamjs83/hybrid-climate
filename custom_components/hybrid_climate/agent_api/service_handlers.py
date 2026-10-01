@@ -16,13 +16,14 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError, Unauthorized
 
 from ..const import DATA_ACTIVE_REVISION, DOMAIN
+from ..control_restore import async_restore
 from .config_patch import async_set_config
 from .config_view import get_config
 from .const import (
     DEVICES_KEY, ENTRY_ID_KEY, INCLUDE_STRUCTURE_KEY, SERVICE_GET_CONFIG, SERVICE_GET_STATUS,
     SERVICE_SET_CONFIG, STAGE_PATCH_KEY, ZONE_ID_KEY, ZONES_KEY,
 )
-from .service_schemas import CONFIG_SCHEMA, SET_SCHEMA, STATUS_SCHEMA
+from .service_schemas import CONFIG_SCHEMA, RESTORE_SCHEMA, SET_SCHEMA, STATUS_SCHEMA
 from .status import async_get_status
 
 
@@ -94,3 +95,15 @@ async def async_handle_service(hass: HomeAssistant, call: ServiceCall) -> dict[s
     if call.service == SERVICE_GET_CONFIG:
         return get_config(hass, entry, data.get(ZONE_ID_KEY), data[INCLUDE_STRUCTURE_KEY])
     return await async_set_config(hass, entry, call, data)
+
+
+async def async_handle_restore_control(hass: HomeAssistant, call: ServiceCall) -> dict[str, Any]:
+    """Authorize, resolve the entry, and run one manual restore pass (spec §2.1)."""
+    await async_require_admin(hass, call)
+    try:
+        data = RESTORE_SCHEMA(dict(call.data))
+    except vol.Invalid as error:
+        raise APIServiceValidationError(str(error)) from error
+    entry = resolve_entry(hass, data.get(ENTRY_ID_KEY))
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    return await async_restore(coordinator, data.get(ZONE_ID_KEY))

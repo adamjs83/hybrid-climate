@@ -16,6 +16,7 @@ API_DATA = "hybrid_climate_agent_api"
 SERVICE_GET_STATUS = "get_status"
 SERVICE_GET_CONFIG = "get_config"
 SERVICE_SET_CONFIG = "set_config"
+SERVICE_RESTORE_CONTROL = "restore_control"
 ENTRY_ID_KEY = "entry_id"
 ZONE_ID_KEY = "zone_id"
 INCLUDE_STRUCTURE_KEY = "include_structure"
@@ -151,19 +152,29 @@ ZONE_REASON_CODES: tuple[str, ...] = (
 TOU_MODE_PEAK_RELAXATION = "peak_relaxation"
 TOU_MODE_PRE_CONDITIONING = "pre_conditioning"
 
-# get_status.devices.<id>.control.reason values (spec §7.6). First match wins,
-# in this order: not_referenced -> owned_active -> awaiting_startup_takeover ->
-# taken_over_at_startup -> released_idle -> never_owned_since_start.
+# get_status.devices.<id>.control.reason values (spec §7.6, v0.13.2 §1 amendments
+# A4/A16, §3 amendment A10). First match wins, in this order: not_referenced ->
+# manual_override -> owned_active -> awaiting_startup_takeover |
+# awaiting_control_restore -> taken_over_at_startup -> control_restored ->
+# released_idle -> referenced_without_capability -> never_owned_since_start.
+# The awaiting_* reason depends on the current pass's source (StartupTakeover.source);
+# the applied_* reason depends on which pass last applied the command
+# (StartupTakeover.applied_source), not the current pass's source. manual_override
+# comes from ManualOverrideTracker, independent of the takeover/restore pass state.
 CONTROL_REASON_NOT_REFERENCED = "not_referenced"
+CONTROL_REASON_MANUAL_OVERRIDE = "manual_override"
 CONTROL_REASON_OWNED_ACTIVE = "owned_active"
 CONTROL_REASON_AWAITING_STARTUP_TAKEOVER = "awaiting_startup_takeover"
+CONTROL_REASON_AWAITING_CONTROL_RESTORE = "awaiting_control_restore"
 CONTROL_REASON_TAKEN_OVER_AT_STARTUP = "taken_over_at_startup"
+CONTROL_REASON_CONTROL_RESTORED = "control_restored"
 CONTROL_REASON_RELEASED_IDLE = "released_idle"
 CONTROL_REASON_NEVER_OWNED_SINCE_START = "never_owned_since_start"
 CONTROL_REASON_MISSING_STAGE_CAPABILITY = "referenced_without_capability"
 CONTROL_REASON_CODES = frozenset({
-    CONTROL_REASON_NOT_REFERENCED, CONTROL_REASON_OWNED_ACTIVE,
-    CONTROL_REASON_AWAITING_STARTUP_TAKEOVER, CONTROL_REASON_TAKEN_OVER_AT_STARTUP,
+    CONTROL_REASON_NOT_REFERENCED, CONTROL_REASON_MANUAL_OVERRIDE, CONTROL_REASON_OWNED_ACTIVE,
+    CONTROL_REASON_AWAITING_STARTUP_TAKEOVER, CONTROL_REASON_AWAITING_CONTROL_RESTORE,
+    CONTROL_REASON_TAKEN_OVER_AT_STARTUP, CONTROL_REASON_CONTROL_RESTORED,
     CONTROL_REASON_RELEASED_IDLE, CONTROL_REASON_MISSING_STAGE_CAPABILITY,
     CONTROL_REASON_NEVER_OWNED_SINCE_START,
 })
@@ -173,3 +184,4 @@ STATUS_REASON_CODE = "code"
 STATUS_AGGREGATION_SPREAD = "spread"
 STATUS_REPORTED_MODE = "reported_mode"
 STATUS_UNCONTROLLED_ACTIVE_MODE = "uncontrolled_active_mode"
+STATUS_OVERRIDE = "override"

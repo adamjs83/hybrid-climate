@@ -28,6 +28,21 @@ get_config:
       default: false
       selector:
         boolean:
+restore_control:
+  name: Restore control
+  description: >-
+    Run one manual restore pass over unowned, control-referenced devices (or one
+    zone's), then report each requested device's outcome; a device outside the
+    requested scope is never listed. Administrator required; request a response.
+  fields:
+    entry_id:
+      description: Config entry ID; optional only with one loaded entry.
+      selector:
+        text:
+    zone_id:
+      description: Optional configured zone ID; restores only that zone's devices.
+      selector:
+        text:
 set_config:
   name: Set configuration
   description: Validate tuning changes; dry run by default. Apply saves and reloads once.

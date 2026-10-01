@@ -35,7 +35,9 @@ from .device_release import release_removed_config_devices
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.CLIMATE, Platform.NUMBER, Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.CLIMATE, Platform.NUMBER, Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON,
+]
 
 # YAML configuration schema
 CONFIG_SCHEMA = vol.Schema(
@@ -125,6 +127,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Activate the prepared config only after platforms and first refresh succeed.
     coordinator = HybridClimateCoordinator(hass, config, entry)
+
+    # Cancel a pending mode-change restore debounce timer on unload/reload (A8),
+    # registered before platform forwarding so it is never skipped on early exit.
+    entry.async_on_unload(coordinator.control_restore.async_shutdown)
 
     # Store coordinator
     hass.data[DOMAIN][entry.entry_id] = {

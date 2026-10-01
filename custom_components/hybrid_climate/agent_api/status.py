@@ -86,6 +86,7 @@ async def async_get_status(
                     view, device, coordinator.zone_states, tuple(config.zones),
                     owners, ident in pi_regulated_device_ids, coordinator.startup_takeover,
                     [item for item in mismatches if item.device == ident],
+                    coordinator.manual_overrides,
                 ),
             }
 

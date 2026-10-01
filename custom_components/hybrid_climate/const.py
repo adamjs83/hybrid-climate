@@ -297,6 +297,62 @@ COMMAND_TIMEOUT_SECONDS = 60
 EXTERNAL_CHANGE_TOLERANCE_F = 0.1
 EXTERNAL_OVERRIDE_THRESHOLD_F = 3.0
 
+# Control restore: re-armable takeover passes (v0.13.2 §1)
+RESTORE_SOURCE_STARTUP = "startup"
+RESTORE_SOURCE_MODE_CHANGE = "mode_change"
+RESTORE_SOURCE_MANUAL = "manual"
+MODE_CHANGE_RESTORE_DEBOUNCE_S = 10
+
+# Per-pass device outcome codes (spec §1.1, amendment A3/A9)
+RESTORE_OUTCOME_OWNED = "owned"
+RESTORE_OUTCOME_PENDING_NORMAL_REQUEST = "pending_normal_request"
+RESTORE_OUTCOME_NOT_FOUND = "not_found"
+RESTORE_OUTCOME_NOT_HEAT_OR_COOL = "not_heat_or_cool"
+RESTORE_OUTCOME_PI_REGULATED = "pi_regulated"
+RESTORE_OUTCOME_UNAVAILABLE_RETRY = "unavailable_retry"
+RESTORE_OUTCOME_MISSING_TEMPERATURE_RETRY = "missing_temperature_retry"
+RESTORE_OUTCOME_BLOCKED_RETRY = "blocked_retry"
+RESTORE_OUTCOME_SENT = "sent"
+RESTORE_OUTCOME_UNCHANGED = "unchanged"
+RESTORE_OUTCOME_IN_FLIGHT_RETRY = "in_flight_retry"
+
+# Manual restore service/button response (spec §2.1): outcome codes group into
+# a coarser `result`; `superseded` has no outcome code (the pass never ran).
+RESTORE_RESULT_SENT = "sent"
+RESTORE_RESULT_UNCHANGED = "unchanged"
+RESTORE_RESULT_SKIPPED = "skipped"
+RESTORE_RESULT_PENDING = "pending"
+RESTORE_RESULT_SUPERSEDED = "superseded"
+RESTORE_OUTCOME_RESULT: dict[str, str] = {
+    RESTORE_OUTCOME_SENT: RESTORE_RESULT_SENT,
+    RESTORE_OUTCOME_UNCHANGED: RESTORE_RESULT_UNCHANGED,
+    RESTORE_OUTCOME_OWNED: RESTORE_RESULT_SKIPPED,
+    RESTORE_OUTCOME_PENDING_NORMAL_REQUEST: RESTORE_RESULT_SKIPPED,
+    RESTORE_OUTCOME_NOT_FOUND: RESTORE_RESULT_SKIPPED,
+    RESTORE_OUTCOME_NOT_HEAT_OR_COOL: RESTORE_RESULT_SKIPPED,
+    RESTORE_OUTCOME_PI_REGULATED: RESTORE_RESULT_SKIPPED,
+    RESTORE_OUTCOME_UNAVAILABLE_RETRY: RESTORE_RESULT_PENDING,
+    RESTORE_OUTCOME_MISSING_TEMPERATURE_RETRY: RESTORE_RESULT_PENDING,
+    RESTORE_OUTCOME_BLOCKED_RETRY: RESTORE_RESULT_PENDING,
+    RESTORE_OUTCOME_IN_FLIGHT_RETRY: RESTORE_RESULT_PENDING,
+}
+RESTORE_CONTROL_KEY = "restore_control"
+RESTORE_CONTROL_NOT_READY_MESSAGE = (
+    "Restore control is not ready: the startup takeover pass has not armed yet"
+)
+RESTORE_CONTROL_REFRESH_FAILED_MESSAGE = (
+    "Restore control refresh failed; the coordinator update did not succeed"
+)
+RESTORE_CONTROL_UNKNOWN_ZONE_MESSAGE = "Unknown zone ID"
+
+# Manual-override detection (spec v0.13.2 §3, amendments A5-A7/A11, review round 1 item 1)
+MANUAL_OVERRIDE_LOG_MESSAGE_FORMAT = "manual override: commanded {commanded}, reported {reported}"
+ATTR_MANUAL_OVERRIDE = "manual_override"
+# HA's own default climate step per unit system, used when a device reports no
+# target_temp_step (e.g. a real Nest entity, which reports whole degrees).
+DEFAULT_TARGET_TEMP_STEP_F = 1.0
+DEFAULT_TARGET_TEMP_STEP_C = 0.5
+
 # History-friendly diagnostic entity identity and attributes
 DIAG_DEVICE_NAME_PREFIX = "Hybrid Climate - "
 DIAG_MANUFACTURER = "Hybrid Climate"

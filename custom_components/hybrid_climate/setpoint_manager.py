@@ -46,8 +46,12 @@ def set_master_mode(coordinator: HybridClimateCoordinator, mode: MasterMode) -> 
     """Set the master operating mode.
 
     This resets all zone targets to their YAML-configured setpoints for the new mode.
-    User changes made after this will persist until the next mode change.
+    User changes made after this will persist until the next mode change. A value
+    that actually changes notes a mode change for the restore-control debounce
+    (spec v0.13.2 §1.2); re-selecting the current mode does not (A13).
     """
+    previous_mode = coordinator.master_state.mode
+
     # Track last non-OFF mode for restore when switching back from OFF
     if mode != MasterMode.OFF:
         coordinator.master_state.last_active_mode = mode
@@ -68,6 +72,9 @@ def set_master_mode(coordinator: HybridClimateCoordinator, mode: MasterMode) -> 
         mode_config.setpoint_offset,
         mode_config.use_zone_away_setpoints,
     )
+
+    if mode != previous_mode:
+        coordinator.control_restore.note_mode_change()
 
 
 def get_zone_occupancy(

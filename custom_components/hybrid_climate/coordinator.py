@@ -19,13 +19,15 @@ from .const import (
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     HVAC_MODE_OFF,
-    OCCUPANCY_ON_STATES,
 )
 from . import setpoint_manager
+from .control_restore import ControlRestore, post_cycle
 from .device_manager import DeviceManager
 from .external_sync import check_external_device_changes
 from .device_arbitration import queue_mutex_releases, queue_retained_demand, reconcile_dispatch
 from .hvac_action_tracking import stamp_hvac_action_transitions
+from .manual_override import ManualOverrideTracker
+from .occupancy import check_master_occupancy, check_zone_occupancy
 from .pi_controller import PIController
 from .startup_takeover import StartupTakeover
 from .tou_manager import TouManager
@@ -70,6 +72,8 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
         self.pi_controller = PIController()
         self.device_manager = DeviceManager(hass, config.devices)
         self.startup_takeover = StartupTakeover()
+        self.control_restore = ControlRestore(self)
+        self.manual_overrides = ManualOverrideTracker()
         self.conflict_resolver = ConflictResolver(
             config.conflicts,
             self.device_manager,
@@ -152,8 +156,9 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
 
             # Mutex releases share the batch, avoiding an OFF/ON pair in one cycle.
             await queue_retained_demand(self)
-            if self.startup_takeover.armed:
-                await self.startup_takeover.queue(self)
+            # queue() applies any pending rearm request itself (A1/A2) and is a
+            # no-op before the first startup pass has armed.
+            await self.startup_takeover.queue(self)
             await queue_mutex_releases(self)
             command_results = await self.device_manager.dispatch_cycle(
                 self.config.conflicts.device_mutex
@@ -166,9 +171,7 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
             # pre-cycle snapshot, and an opportunistic-heating transition is included.
             stamp_hvac_action_transitions(self.zone_states, previous_states)
 
-            self.startup_takeover.record(command_results)
-            if not self.startup_takeover.armed:
-                self.startup_takeover.arm(self)
+            post_cycle(self, command_results)
 
             # 9. Update master state summaries
             update_master_summaries(self.master_state, self.zone_states, self.conflict_resolver, self.master_state.outdoor_temperature, self.config)
@@ -184,60 +187,12 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(f"Update failed: {e}") from e
 
     def _check_master_occupancy(self) -> None:
-        """Check master occupancy entity and auto-switch home/away mode.
-
-        Only switches between HOME and AWAY modes automatically.
-        Other modes (VACATION, BOOST, OFF) are not affected.
-        """
-        occupancy_entity = self.config.master.occupancy_entity
-        if not occupancy_entity:
-            return
-
-        # Only auto-switch if currently in HOME or AWAY mode
-        if self.master_state.mode not in (MasterMode.HOME, MasterMode.AWAY):
-            return
-
-        state = self.hass.states.get(occupancy_entity)
-        if state is None:
-            _LOGGER.debug(
-                "Master occupancy entity %s not found",
-                occupancy_entity,
-            )
-            return
-
-        is_occupied = state.state in OCCUPANCY_ON_STATES
-
-        # Auto-switch based on occupancy
-        if is_occupied and self.master_state.mode == MasterMode.AWAY:
-            _LOGGER.info(
-                "Master occupancy: home detected, switching from AWAY to HOME"
-            )
-            self.master_state.mode = MasterMode.HOME
-            setpoint_manager.apply_mode_setpoints(self)  # Recalculate zone targets for new mode
-        elif not is_occupied and self.master_state.mode == MasterMode.HOME:
-            _LOGGER.info(
-                "Master occupancy: away detected, switching from HOME to AWAY"
-            )
-            self.master_state.mode = MasterMode.AWAY
-            setpoint_manager.apply_mode_setpoints(self)  # Recalculate zone targets for new mode
+        """Delegate master home/away auto-switching to occupancy.py (A12)."""
+        check_master_occupancy(self)
 
     def _check_zone_occupancy(self) -> None:
-        """Reapply a zone's effective targets when its occupancy changes."""
-        for zone_id, zone in self.config.zones.items():
-            occupied = setpoint_manager.get_zone_occupancy(self, zone)
-            previous = self._zone_occupancy.get(zone_id)
-            if occupied is None:
-                continue
-            if occupied != previous:
-                self._zone_occupancy[zone_id] = occupied
-                mode_config = setpoint_manager.get_current_mode_config(self)
-                # Ignore occupancy changes when the selected preset does not use it.
-                if setpoint_manager._selected_setpoint_name(
-                    self.master_state.mode, mode_config, previous
-                ) != setpoint_manager._selected_setpoint_name(
-                    self.master_state.mode, mode_config, occupied
-                ):
-                    setpoint_manager.apply_mode_setpoints(self, zone_id)
+        """Delegate per-zone occupancy setpoint reapplication to occupancy.py (A12)."""
+        check_zone_occupancy(self)
 
     def _calculate_pi_offset(
         self,

@@ -411,6 +411,11 @@
       "outdoor_fallback_active": {
         "name": "Outdoor fallback active"
       }
+    },
+    "button": {
+      "restore_control": {
+        "name": "Restore control"
+      }
     }
   },
   "services": {
@@ -477,6 +482,20 @@
         "expected_hash": {
           "name": "Expected hash",
           "description": "Stored revision from get_config or dry-run revision_before.stored."
+        }
+      }
+    },
+    "restore_control": {
+      "name": "Restore control",
+      "description": "Run one manual restore pass over unowned, control-referenced devices (or one zone's), then report each requested device's outcome; a device outside the requested scope is never listed. Administrator required; request a response.",
+      "fields": {
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "Config entry ID; optional only with one loaded entry."
+        },
+        "zone_id": {
+          "name": "Zone ID",
+          "description": "Optional configured zone ID; restores only that zone's devices."
         }
       }
     }

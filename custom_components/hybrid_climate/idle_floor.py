@@ -1,4 +1,5 @@
-"""Purpose: Select idle heat floors and track dispatched setback basis.
+"""Purpose: Select idle heat floors, the takeover pass's cross-zone idle
+target (idle_target), and track dispatched setback basis.
 
 Key dependencies: Loaded config, conflict resolver latch, and device manager.
 Used by: Regular release, startup takeover, and device dispatch.
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
     from .conflict_resolver import ConflictResolver
     from .device_arbitration import DeviceRequest
     from .device_manager import DeviceManager
-    from .models import Device, HybridClimateConfig
+    from .models import Device, HybridClimateConfig, ZoneConfig, ZoneState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,6 +32,30 @@ def idle_heat_floor(
     if selected and all(resolver.outdoor_heat_locked(zone_id) for zone_id in selected):
         return config.lockout_heat_floor
     return None
+
+
+def idle_target(
+    zones: list[tuple[ZoneConfig, ZoneState]], device_id: str, heating: bool,
+) -> tuple[float | None, list[str]]:
+    """Choose the most conservative idle target for the physical direction.
+
+    Used by the startup-takeover/restore pass to pick a single idle target
+    for a device referenced by more than one zone.
+    """
+    directional = [
+        (zone, state) for zone, state in zones
+        if any(device_id in stage.get_device_ids() for stage in
+               (zone.heat_stages if heating else zone.cool_stages))
+    ]
+    selected = directional or zones
+    targets = [
+        (state.target_temperature if state.target_temperature is not None
+         else zone.setpoints.default) if heating else state.target_temperature_cool
+        for zone, state in selected
+    ]
+    available = [target for target in targets if target is not None]
+    target = (min(available) if heating else max(available)) if available else None
+    return target, [state.zone_id for _, state in selected]
 
 
 def heat_idle_setpoint(target: float, setback: float, floor: float | None) -> tuple[float, str]:

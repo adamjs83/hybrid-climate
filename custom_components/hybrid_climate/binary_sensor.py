@@ -16,7 +16,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .agent_api.entity_view import device_mode_snapshot, outdoor_source
 from .const import (
-    ATTR_REPORTED_MODE, DIAG_DEVICE_NAME_PREFIX, DIAG_MANUFACTURER, DIAG_MASTER_MODEL, DIAG_DEVICE_ID_PREFIX, DIAG_OUTDOOR_FALLBACK_SUFFIX,
+    ATTR_MANUAL_OVERRIDE, ATTR_REPORTED_MODE, DIAG_DEVICE_NAME_PREFIX, DIAG_MANUFACTURER, DIAG_MASTER_MODEL,
+    DIAG_DEVICE_ID_PREFIX, DIAG_OUTDOOR_FALLBACK_SUFFIX,
     DIAG_UNCONTROLLED_SUFFIX, DOMAIN, TRANSLATION_OUTDOOR_FALLBACK, TRANSLATION_UNCONTROLLED,
 )
 from .coordinator import HybridClimateCoordinator
@@ -71,7 +72,7 @@ class DeviceUncontrolledSensor(DiagnosticProblemSensor):
 
     def _refresh_snapshot(self) -> None:
         """Cache one device projection for both state and attributes."""
-        self._reported_mode, self._uncontrolled_mode = device_mode_snapshot(
+        self._reported_mode, self._uncontrolled_mode, self._manual_override = device_mode_snapshot(
             self.hass, self.coordinator, self.device_id,
         )
 
@@ -88,13 +89,16 @@ class DeviceUncontrolledSensor(DiagnosticProblemSensor):
 
     @property
     def is_on(self) -> bool:
-        """Mirror the get_status uncontrolled flag."""
-        return self._uncontrolled_mode is not None
+        """Mirror the get_status uncontrolled flag, or an active manual override."""
+        return self._uncontrolled_mode is not None or self._manual_override is not None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Show the normalized mode reported by the physical device."""
-        return {ATTR_REPORTED_MODE: self._reported_mode}
+        """Show the normalized reported mode and any active manual override."""
+        return {
+            ATTR_REPORTED_MODE: self._reported_mode,
+            ATTR_MANUAL_OVERRIDE: self._manual_override,
+        }
 
 
 class OutdoorFallbackSensor(DiagnosticProblemSensor):

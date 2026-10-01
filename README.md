@@ -421,7 +421,9 @@ Once, after each startup or reload, every such device (any device referenced by 
 - Otherwise the device receives its normal idle action (off or setback) using the most conservative target among the zones that reference it — the lowest heat target or highest cool target, so a shared device never gets a warmer-than-intended setback.
 - Devices under PI regulation are excluded; they're already refreshed every idle cycle by the existing PI/equilibrium logic.
 
-After that one command succeeds, the takeover never touches the device again until the next restart or reload — any manual change you make afterward sticks. A device that can't be commanded yet (unavailable, blocked by compressor protection, waiting on a device mutex, or a zone whose sensors haven't reported) is retried on the following cycles.
+After that one command succeeds, the takeover never touches the device again until the next restart or reload, or the next settled master mode change or restore — any manual change you make afterward sticks until then. A device that can't be commanded yet (unavailable, blocked by compressor protection, waiting on a device mutex, or a zone whose sensors haven't reported) is retried on the following cycles.
+
+**Restore on mode change (v0.13.2)**: the same one-time-per-device pass also runs whenever the master mode settles after a change — switching between Home, Away, Sleep, Vacation, Boost, or Off (including the automatic home/away occupancy switch), about 10 seconds after the change stops flapping. It restores any device no zone currently owns using the same rules above (never turns equipment on, skips devices another zone is using, applies its idle action once), so a device nudged by hand outside the integration is brought back in line the next time the whole-home mode changes — not just at the next restart. You can also trigger this restore on demand: the `hybrid_climate.restore_control` service (see Services) or each zone's "Restore control" button (see Entities Created).
 
 ### Sensor Aggregation
 
@@ -761,6 +763,7 @@ _check_external_device_changes()
 
 - **Master Entity** (`climate.home_hvac` or configured name): Whole-home control with preset modes
 - **Zone Entities** (`climate.<zone_id>`): Per-zone climate control
+- **Restore control button** (one per zone, Configuration category, v0.13.2): manually runs one restore pass over that zone's devices — the same pass a settled master mode change already triggers automatically (see "Startup Takeover")
 
 ### Diagnostic Entities (v0.13.1)
 
@@ -771,7 +774,7 @@ Hidden under each device's "Diagnostic" section by default, so history/graphing 
 | Reason | each zone | The primary Agent API status reason code (e.g. `within_target`, `heating_demand`, `unknown`); attribute `codes` lists every currently recorded code |
 | Temperature spread | each zone | The spread across the zone's smoothed sensor inputs (unit matches your HA temperature unit); attribute `method` is the configured aggregation method |
 | Stage | each zone | The active heating/cooling stage (e.g. `heating_stage_2`), `heating_stage_1_opportunistic` for a piggyback opportunistic run, or `none` when idle |
-| Uncontrolled | whole home (one per configured device) | Problem sensor — on when the device reports heat/cool but no zone currently owns it; attribute `reported_mode` |
+| Uncontrolled | whole home (one per configured device) | Problem sensor — on when the device reports heat/cool but no zone currently owns it, or when its mode/setpoint was changed outside Hybrid Climate (v0.13.2); attributes `reported_mode` and `manual_override` (`{"commanded":{"mode","target"},"reported":{"mode","target"},"since"}` or `null`) |
 | Outdoor fallback active | whole home | Problem sensor — on when a backup outdoor sensor (not the configured primary) is supplying the reading |
 | Outdoor source | whole home | The entity ID currently supplying the outdoor reading; attribute `primary` is the configured primary sensor |
 
@@ -1051,10 +1054,41 @@ Hybrid Climate provides administrator-only services for inspecting status and ma
 | `hybrid_climate.get_status` | Read cached status and recorded restrictions | Required |
 | `hybrid_climate.get_config` | Read active tuning values, bounds, controls, and optional structure | Required |
 | `hybrid_climate.set_config` | Validate or apply an existing tuning field | Optional; recommended |
+| `hybrid_climate.restore_control` | Run one restore pass over devices no zone currently owns | Optional; recommended |
 
-For REST calls, POST to `/api/services/hybrid_climate/{get_status|get_config|set_config}?return_response` with an administrator token. The JSON reply is `{"changed_states":[],"service_response":{...}}`; read `service_response`, rather than treating the reply as a bare result. `get_config` accepts `include_structure: true` for discoverable IDs. A patch may contain `global` fields, `zones` keyed by discovered zone ID, and `devices` keyed by discovered loaded model ID. Stage edits go in a zone's `stages` list, addressed by `direction` (`heat` or `cool`) and zero-based stored `index`.
+For REST calls, POST to `/api/services/hybrid_climate/{get_status|get_config|set_config|restore_control}?return_response` with an administrator token. The JSON reply is `{"changed_states":[],"service_response":{...}}`; read `service_response`, rather than treating the reply as a bare result. `get_config` accepts `include_structure: true` for discoverable IDs. A patch may contain `global` fields, `zones` keyed by discovered zone ID, and `devices` keyed by discovered loaded model ID. Stage edits go in a zone's `stages` list, addressed by `direction` (`heat` or `cool`) and zero-based stored `index`.
 
 `get_status` also reports active global conflicts, per-device control ownership (including devices that report heat or cool with no owner and no matching command, most often after a restart), per-sensor readings, and each zone's temperature aggregation with spread and outlier hints. `get_config` also exposes read-only reference fields — the active outdoor sensor, each device's idle behavior and command permission, each zone's regulation settings, and compressor groups; these can only be changed in the integration's options, and a `set_config` patch naming one of them is rejected.
+
+### Restoring control (v0.13.2)
+
+`hybrid_climate.restore_control` runs the same one-time restore pass that a settled master mode change already triggers automatically (see "Startup Takeover" above): every device no zone currently owns, other than a device under PI regulation (already commanded every cycle by its own regulation), gets its configured idle action — off, or a setback that respects the outdoor heat lockout floor — applied exactly once. It never turns equipment on and never touches a device another zone is actively using. Administrator required; both fields are optional.
+
+| Field | Description |
+|---|---|
+| `entry_id` | Config entry ID; optional only when exactly one entry is loaded |
+| `zone_id` | A configured zone ID; when given, restores only that zone's devices (a device shared with another zone is still skipped if that zone owns it) |
+
+The response reports every device in the requested scope:
+
+```json
+{
+  "entry_id": "01ABCDEF...",
+  "zone_id": "hybrid_first_floor",
+  "source": "manual",
+  "devices": [
+    {
+      "device_id": "nest_thermostat_3",
+      "entity_id": "climate.nest_thermostat_3",
+      "result": "sent",
+      "reason": "sent",
+      "command": {"mode": "heat", "target": 55.0}
+    }
+  ]
+}
+```
+
+`result` groups the pass's own outcome codes: `sent`/`unchanged` pass straight through; `skipped` covers `owned` (a zone already owns the device), `pending_normal_request` (a normal, non-restore command is already in flight for it), `not_found`, `not_heat_or_cool` (the device is already off or not currently reporting heat/cool, so there's nothing to restore — not that it's incapable), and `pi_regulated` (PI regulation already commands it independently, every cycle); `pending` covers `unavailable_retry`, `missing_temperature_retry`, `blocked_retry`, and `in_flight_retry`, all retried on later cycles same as the automatic pass; `superseded` means a newer restore request replaced this one before it ran. `command` is populated only for `sent`/`unchanged`. The same restore pass is available per zone as a "Restore control" button (see Entities below), which needs no administrator role — only HA's own entity permissions.
 
 ### Observability fields
 
@@ -1072,7 +1106,8 @@ These `get_status`/`get_config` fields are read-only projections of cached state
 - `last_command_at`: ISO timestamp of the last time this device actually received a service call, or `null` if none since start. Unlike `command_sent_at` (documented next), this is never cleared.
 - `command_state` / `command_sent_at`: `command_state` is `"listening"` (device matches our last command) or `"commanding"` (a command was just sent, in flight). `command_sent_at` is the time of the *most recent* send and is only cleared on a command timeout — it is **not** cleared when a command is acknowledged, so a non-`null` `command_sent_at` on a `"listening"` device means "last sent at this time," not "currently in flight." Use `last_command_at` to answer "when was this device last commanded."
 - `control.idle_setpoint_basis`: `"lockout_floor"` or `"setback"` after a matching successful idle heat command, `null` otherwise — tells you whether the last idle heat setpoint was capped by the outdoor lockout floor.
-- `control.reason`: one code explaining the device's current control state, first match wins: `not_referenced` (no zone stage references it) → `owned_active` (a zone currently owns it) → `awaiting_startup_takeover` (the one-time startup takeover hasn't reached it yet) → `taken_over_at_startup` (its last command was the startup takeover's) → `released_idle` (commanded since start, but not owned) → `referenced_without_capability` (v0.13.1 — the device is staged in a direction it doesn't support, and owns no stage direction it does support) → `never_owned_since_start`.
+- `control.reason`: one code explaining the device's current control state, first match wins: `not_referenced` (no zone stage references it) → `manual_override` (v0.13.2 — its mode or setpoint was changed outside Hybrid Climate; see `control.override` below) → `owned_active` (a zone currently owns it) → `awaiting_startup_takeover` (the one-time startup takeover hasn't reached it yet) or `awaiting_control_restore` (v0.13.2 — a mode-change or manual restore pass hasn't reached it yet) → `taken_over_at_startup` (its last command was the startup takeover's) or `control_restored` (v0.13.2 — its last command was a mode-change or manual restore pass's) → `released_idle` (commanded since start, but not owned) → `referenced_without_capability` (v0.13.1 — the device is staged in a direction it doesn't support, and owns no stage direction it does support) → `never_owned_since_start`.
+- `control.override` (v0.13.2): `{"commanded": {"mode", "target"}, "reported": {"mode", "target"}, "since": iso}` or `null` — populated when the device's reported mode/setpoint differs from what Hybrid Climate last commanded, outside the brief in-flight command window. Clears once the device matches the commanded values (e.g. after a restore sends them); a device turned off by hand stays flagged, because restore never turns equipment on. `allow_command` devices are never flagged — their changes are adopted into the owning zone's target instead.
 - `control.missing_capabilities` (v0.13.1): `[{"zone", "stage", "capability"}]` for every stage that references this device in a direction it lacks; empty otherwise.
 
 **`get_status.outdoor`**
