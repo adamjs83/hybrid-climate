@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.4] - 2026-10-14
+
+### Changed
+- Maintenance only: the repository's validation workflow now uses `actions/checkout` v7. The integration itself is unchanged from 0.13.3, so updating is optional.
+
 ## [0.13.3] - 2026-10-14
 
 ### Added
