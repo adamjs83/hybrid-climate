@@ -122,6 +122,9 @@ DATA_PREPARED_OPTIONS = "prepared_options"
 
 # Master config
 CONF_OCCUPANCY_ENTITY = "occupancy_entity"
+CONF_OCCUPANCY_OFF_DELAY = "occupancy_off_delay"
+DEFAULT_OCCUPANCY_OFF_DELAY = 0
+MAX_OCCUPANCY_OFF_DELAY = 7200
 CONF_MODES = "modes"
 CONF_USE_ZONE_DEFAULTS = "use_zone_defaults"
 CONF_USE_ZONE_AWAY_SETPOINTS = "use_zone_away_setpoints"  # Deprecated
@@ -352,6 +355,8 @@ ATTR_MANUAL_OVERRIDE = "manual_override"
 # target_temp_step (e.g. a real Nest entity, which reports whole degrees).
 DEFAULT_TARGET_TEMP_STEP_F = 1.0
 DEFAULT_TARGET_TEMP_STEP_C = 0.5
+OUT_OF_RANGE_ERROR_FRAGMENT = "accepted range"
+OUT_OF_RANGE_TRANSLATION_KEY = "temp_out_of_range"
 
 # History-friendly diagnostic entity identity and attributes
 DIAG_DEVICE_NAME_PREFIX = "Hybrid Climate - "

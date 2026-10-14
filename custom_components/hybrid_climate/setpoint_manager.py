@@ -21,12 +21,12 @@ from .const import (
     DEFAULT_AWAY_COOL_RAISE,
     HVAC_MODE_COOL,
     HVAC_MODE_HEAT,
-    OCCUPANCY_ON_STATES,
     TEMP_MAX_VALID,
     TEMP_MIN_VALID,
 )
 from .models import MasterMode, MasterModeConfig, ZoneConfig
 from .zone_helpers import resolve_number_entity_id
+from .zone_occupancy import get_occupancy
 
 if TYPE_CHECKING:
     from .coordinator import HybridClimateCoordinator
@@ -81,11 +81,8 @@ def get_zone_occupancy(
     coordinator: HybridClimateCoordinator, zone_config: ZoneConfig
 ) -> bool | None:
     """Return a zone's known occupancy, or None when its sensor is unavailable."""
-    entity_id = zone_config.setpoints.occupancy_entity
-    state = coordinator.hass.states.get(entity_id) if entity_id else None
-    if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-        return None
-    return state.state in OCCUPANCY_ON_STATES
+    return get_occupancy(coordinator.hass, zone_config,
+                         getattr(coordinator, "_zone_last_observed_occupied", {}))
 
 
 def _selected_setpoint_name(mode: MasterMode, config: MasterModeConfig,

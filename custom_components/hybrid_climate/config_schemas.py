@@ -69,6 +69,9 @@ from .const import (
     MIN_LOCKOUT_HEAT_FLOOR,
     MAX_LOCKOUT_HEAT_FLOOR,
     CONF_OCCUPANCY_ENTITY,
+    CONF_OCCUPANCY_OFF_DELAY,
+    DEFAULT_OCCUPANCY_OFF_DELAY,
+    MAX_OCCUPANCY_OFF_DELAY,
     CONF_OCCUPIED,
     CONF_OFFSET_MAX,
     CONF_OPPORTUNISTIC,
@@ -194,6 +197,13 @@ ZONE_SENSORS_SCHEMA = vol.All(vol.Schema({
     ),
 }), _weights_subset_of_indoor)
 
+def validate_occupancy_off_delay(value: Any) -> int:
+    """Accept only whole seconds within the supported off-delay range."""
+    if type(value) is not int or not 0 <= value <= MAX_OCCUPANCY_OFF_DELAY:
+        raise vol.Invalid("occupancy_off_delay must be an integer from 0 to 7200")
+    return value
+
+
 ZONE_SETPOINTS_SCHEMA = vol.Schema({
     vol.Required(CONF_DEFAULT): vol.Coerce(float),
     vol.Optional(CONF_AWAY): vol.Coerce(float),
@@ -202,6 +212,7 @@ ZONE_SETPOINTS_SCHEMA = vol.Schema({
     vol.Optional(CONF_OCCUPIED): vol.Coerce(float),
     vol.Optional(CONF_UNOCCUPIED): vol.Coerce(float),
     vol.Optional(CONF_OCCUPANCY_ENTITY): cv.entity_id,
+    vol.Optional(CONF_OCCUPANCY_OFF_DELAY, default=DEFAULT_OCCUPANCY_OFF_DELAY): validate_occupancy_off_delay,
     vol.Optional("occupancy_enabled"): bool,  # UI flag to persist checkbox state
 })
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 INTEGER_KEYS = frozenset({
     "_version", "stage", "min_runtime", "smoothing_samples", "time_escalation",
     "open_delay", "close_delay", "min_compressor_runtime",
-    "min_compressor_off_time", "pre_condition_minutes",
+    "min_compressor_off_time", "pre_condition_minutes", "occupancy_off_delay",
 })
 COMPAT_KEYS = ("never_heat_above", "never_cool_below")
 API_DATA = "hybrid_climate_agent_api"
@@ -44,6 +44,7 @@ READ_ONLY_FIELDS = frozenset({
     ("devices", "capabilities"),
     ("devices", "capabilities_source"),
     ("zones", "regulation"),
+    ("zones", "setpoints.occupancy_entity"),
 })
 READ_ONLY_MESSAGE = "Read-only field; change it in the integration options UI"
 # sensors.weights is deliberately absent from READ_ONLY_FIELDS: it has no FIELDS row at
@@ -64,6 +65,7 @@ READ_ONLY_DESCRIPTIONS = {
     "capabilities": "Loaded heat and cool capabilities",
     "capabilities_source": "Origin of loaded device capabilities",
     "regulation": "Zone regulation method and devices",
+    "setpoints.occupancy_entity": "Zone occupancy sensor entity",
     SENSORS_WEIGHTS_FIELD: "Effective per-sensor weight used for weighted aggregation",
     OUTDOOR_THRESHOLDS_FIELD: "Effective outdoor lockout limits, release points, and hysteresis",
 }

@@ -316,6 +316,7 @@ zones:
       default: 68
       away: 62
       occupancy_entity: binary_sensor.basement_occupied
+      occupancy_off_delay: 90  # Seconds since this integration last saw occupancy (0-7200; default 0)
       occupied: 70
       unoccupied: 65
     heat_stages:
@@ -1122,6 +1123,7 @@ These `get_status`/`get_config` fields are read-only projections of cached state
 - `lockout_heat_floor` (writable): current value, bounds (40–60°F), and source (`ui_config` or `default`).
 
 **`get_config.zones.<id>`**
+- `setpoints.occupancy_entity` (read-only): the zone's occupancy sensor; `setpoints.occupancy_off_delay` (writable): whole seconds, 0–7200, measured from the last time this integration saw the zone occupied. After a restart, an off sensor selects unoccupied setpoints immediately.
 - `sensors.weights` (read-only): effective weight (default 1.0) for every configured indoor sensor. Weights themselves are only set through the zone wizard, not `set_config`.
 - `outdoor_thresholds` (read-only): same shape as the global one, using this zone's effective (override-or-global) limits.
 - `regulation.devices` / `regulation.ignored_devices` (read-only): `devices` is the effective PI regulation list actually used by control (heat-capable only); `ignored_devices` lists any stored device IDs that were dropped because they can't heat, without rewriting your saved options.

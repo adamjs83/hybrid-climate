@@ -36,6 +36,9 @@ from ..const import (
     CONF_CLOSE_DELAY,
     CONF_NAME,
     CONF_OCCUPANCY_ENTITY,
+    CONF_OCCUPANCY_OFF_DELAY,
+    DEFAULT_OCCUPANCY_OFF_DELAY,
+    MAX_OCCUPANCY_OFF_DELAY,
     CONF_SENSORS,
     CONF_SMOOTHING_SAMPLES,
     CONF_TOU,
@@ -196,6 +199,7 @@ class ZoneStepsMixin:
                 else:
                     self._zone_wip[CONF_OCCUPANCY_ENTITY] = None
                 self._zone_wip["occupied_offset"] = user_input.get("occupied_offset", 2)
+                self._zone_wip[CONF_OCCUPANCY_OFF_DELAY] = int(user_input.get(CONF_OCCUPANCY_OFF_DELAY, DEFAULT_OCCUPANCY_OFF_DELAY))
                 self._zone_wip["unoccupied_offset"] = user_input.get("unoccupied_offset", -2)
             else:
                 self._zone_wip[CONF_OCCUPANCY_ENTITY] = None
@@ -204,6 +208,7 @@ class ZoneStepsMixin:
         wip = self._zone_wip or {}
         occupancy_enabled = wip.get("occupancy_enabled", False)
         occupancy_entity = wip.get(CONF_OCCUPANCY_ENTITY) or ""
+        occupancy_off_delay = wip.get(CONF_OCCUPANCY_OFF_DELAY, DEFAULT_OCCUPANCY_OFF_DELAY)
         occupied_offset = wip.get("occupied_offset", 2)
         unoccupied_offset = wip.get("unoccupied_offset", -2)
 
@@ -225,6 +230,9 @@ class ZoneStepsMixin:
         # Only add entity selector and offsets - they're optional
         schema_dict[vol.Optional(CONF_OCCUPANCY_ENTITY, description={"suggested_value": occupancy_entity})] = EntitySelector(
             EntitySelectorConfig(domain=["binary_sensor", "input_boolean"])
+        )
+        schema_dict[vol.Optional(CONF_OCCUPANCY_OFF_DELAY, default=occupancy_off_delay)] = NumberSelector(
+            NumberSelectorConfig(min=0, max=MAX_OCCUPANCY_OFF_DELAY, step=1, unit_of_measurement="s", mode=NumberSelectorMode.BOX)
         )
         schema_dict[vol.Optional("occupied_offset", default=occupied_offset)] = NumberSelector(
             NumberSelectorConfig(

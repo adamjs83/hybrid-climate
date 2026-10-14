@@ -106,6 +106,7 @@ zones:
       default: 68
       away: 62
       occupancy_entity: binary_sensor.basement_occupancy  # Optional per-zone
+      occupancy_off_delay: 90  # Optional seconds to hold occupied setpoints after off (0-7200; default 0)
       occupied: 68
       unoccupied: 64
     heat_stages:

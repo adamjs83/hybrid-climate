@@ -87,6 +87,7 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
         self._zone_target_temps: dict[str, float] = {}  # Heat setpoints
         self._zone_target_temps_cool: dict[str, float] = {}  # Cool setpoints
         self._zone_occupancy: dict[str, bool | None] = {}
+        self._zone_last_observed_occupied: dict[str, datetime] = {}
         self._sensor_fail_notified: set[str] = set()  # Zones with active sensor failure notifications
         self._sensor_restore_start_times: dict[str, datetime] = {}  # Grace period tracking
 

@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 
 from homeassistant.util import dt as dt_util
-from .const import DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F
+from .const import DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F
 
 
 class DeviceCapability(Enum):
@@ -214,6 +214,7 @@ class ZoneSetpoints:
     occupied: float | None = None
     unoccupied: float | None = None
     occupancy_entity: str | None = None
+    occupancy_off_delay: int = DEFAULT_OCCUPANCY_OFF_DELAY
 
     def get_setpoint_by_name(self, name: str) -> float | None:
         """Get a setpoint by name (for use_zone_setpoint config)."""

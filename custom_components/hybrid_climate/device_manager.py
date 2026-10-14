@@ -20,13 +20,13 @@ from .const import (
     IDLE_ACTION_SETBACK,
     SERVICE_CLIMATE,
     SERVICE_SET_HVAC_MODE,
-    SERVICE_SET_TEMPERATURE,
 )
 from .models import Device, DeviceMutexRule
 from .capability_check import warn_runtime_capability_skip
 from .device_arbitration import DeviceRequest, dispatch_requests, resolve_requests
 from .compressor_protection import CompressorProtection
 from .idle_floor import IdleBasisTracker, apply_idle_setback
+from .setpoint_limits import clamp_target, send_temperature
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +46,7 @@ class DeviceManager:
         self._pending_commands: dict[str, list[DeviceRequest]] = {}
         self.idle_basis = IdleBasisTracker()
         self.failed_commands: set[str] = set()
+        self._learned_temp_limits: dict[str, dict[str, float]] = {}
         self.accepted_zone_requests: dict[str, set[str]] = {}
         self._collecting = False
         self._forced_off_devices: set[str] = set()
@@ -216,14 +217,7 @@ class DeviceManager:
             return False
         try:
             if target_temp is not None:
-                state = self.hass.states.get(device.entity_id)
-                if state:
-                    minimum = state.attributes.get("min_temp")
-                    maximum = state.attributes.get("max_temp")
-                    if minimum is not None:
-                        target_temp = max(target_temp, minimum)
-                    if maximum is not None:
-                        target_temp = min(target_temp, maximum)
+                target_temp = clamp_target(self.hass, device, target_temp, self._learned_temp_limits)
             if (device.device_id not in self.failed_commands
                     and device.is_commanding() and device.desired_mode == mode
                     and device.desired_temp == target_temp
@@ -254,10 +248,8 @@ class DeviceManager:
                 device.last_command_at = dt_util.utcnow()
                 self.idle_basis.sent(device)
             if temp_changed:
-                await self.hass.services.async_call(
-                    SERVICE_CLIMATE, SERVICE_SET_TEMPERATURE,
-                    {"entity_id": device.entity_id, ATTR_TEMPERATURE: target_temp},
-                    blocking=True,
+                target_temp = await send_temperature(
+                    self.hass, device, target_temp, self._learned_temp_limits,
                 )
                 device.last_command_at = dt_util.utcnow()
                 self.idle_basis.sent(device)

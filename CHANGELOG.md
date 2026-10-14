@@ -3,6 +3,14 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.3] - 2026-10-14
+
+### Added
+- New per-zone **Occupancy off-delay** setting (0–7200 seconds, default 0 = unchanged behavior), next to the zone's occupancy sensor in the zone's occupancy settings. After the sensor turns off, the zone keeps its occupied setpoints until this long after Hybrid Climate last saw it occupied, so a flickering presence sensor no longer flips the setpoint back and forth. A restart or an unavailable sensor never counts as presence. `get_config` now shows each zone's occupancy sensor and delay, and `set_config` can change the delay.
+
+### Fixed
+- A device whose reported minimum or maximum temperature is rounded (for example 79 °F shown for a native 26.0 °C limit) could reject a target at that limit, leaving it running at an old setpoint and failing every cycle. Hybrid Climate now retries once at one step inside the limit, logs a warning, and uses that limit for the device until the next reload.
+
 ## [0.13.2] - 2026-10-01
 
 ### Added

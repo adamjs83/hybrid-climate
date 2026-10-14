@@ -15,6 +15,7 @@ from ..const import (
     CONF_IDLE_SETBACK, CONF_NEVER_COOL_BELOW, CONF_NEVER_HEAT_ABOVE, CONF_OUTDOOR_RESET,
     CONF_OUTDOOR_SENSOR, CONF_OUTDOOR_SENSORS, CONF_REGULATION, CONF_SENSORS, CONF_SETTINGS,
     CONF_UI_CONFIG, CONF_WEIGHTS, IDLE_ACTIONS, CONF_UI_GLOBAL, CONF_ZONES,
+    CONF_OCCUPANCY_ENTITY, CONF_SETPOINTS,
     OUTDOOR_LOCKOUT_HYSTERESIS,
 )
 from ..models import HybridClimateConfig, ZoneConfig
@@ -177,6 +178,11 @@ def readonly_zone(
     never_heat_above, never_cool_below = _effective_zone_limits(model, zone)
     return {
         CONF_REGULATION: _entry(value, source, "object", CONF_REGULATION),
+        f"{CONF_SETPOINTS}.{CONF_OCCUPANCY_ENTITY}": _entry(
+            zone.setpoints.occupancy_entity,
+            SOURCE_UI_CONFIG if CONF_OCCUPANCY_ENTITY in stored.get(CONF_SETPOINTS, {}) else SOURCE_DEFAULT,
+            "entity_id", "setpoints.occupancy_entity",
+        ),
         SENSORS_WEIGHTS_FIELD: _entry(weights, weights_source, "object", SENSORS_WEIGHTS_FIELD),
         OUTDOOR_THRESHOLDS_FIELD: _entry(
             _outdoor_thresholds(never_heat_above, never_cool_below),

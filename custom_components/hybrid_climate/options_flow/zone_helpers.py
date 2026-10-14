@@ -24,6 +24,8 @@ from ..const import (
     CONF_CLOSE_DELAY,
     CONF_NAME,
     CONF_OCCUPANCY_ENTITY,
+    CONF_OCCUPANCY_OFF_DELAY,
+    DEFAULT_OCCUPANCY_OFF_DELAY,
     CONF_SENSORS,
     CONF_SMOOTHING_SAMPLES,
     CONF_WEIGHTS,
@@ -189,6 +191,7 @@ class ZoneHelpersMixin:
             CONF_WEIGHTS: dict(weights),
             "occupancy_enabled": occupancy_enabled,
             CONF_OCCUPANCY_ENTITY: occupancy_entity,
+            CONF_OCCUPANCY_OFF_DELAY: setpoints.get(CONF_OCCUPANCY_OFF_DELAY, DEFAULT_OCCUPANCY_OFF_DELAY),
             "occupied_offset": occupied_offset,
             "unoccupied_offset": unoccupied_offset,
             "heat_stages": heat_stages,
@@ -282,6 +285,7 @@ class ZoneHelpersMixin:
         if wip.get("occupancy_enabled"):
             # Save that occupancy is enabled (even without entity selected yet)
             setpoints["occupancy_enabled"] = True
+            setpoints[CONF_OCCUPANCY_OFF_DELAY] = wip.get(CONF_OCCUPANCY_OFF_DELAY, DEFAULT_OCCUPANCY_OFF_DELAY)
             if wip.get(CONF_OCCUPANCY_ENTITY):
                 setpoints[CONF_OCCUPANCY_ENTITY] = wip[CONF_OCCUPANCY_ENTITY]
                 default_temp = setpoints.get("default", 72)
@@ -291,6 +295,7 @@ class ZoneHelpersMixin:
             # Remove occupancy settings if disabled
             setpoints.pop("occupancy_enabled", None)
             setpoints.pop(CONF_OCCUPANCY_ENTITY, None)
+            setpoints.pop(CONF_OCCUPANCY_OFF_DELAY, None)
             setpoints.pop("occupied", None)
             setpoints.pop("unoccupied", None)
 

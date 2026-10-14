@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from ..const import CONF_LOCKOUT_HEAT_FLOOR, MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR
+from ..const import CONF_LOCKOUT_HEAT_FLOOR, CONF_OCCUPANCY_OFF_DELAY, MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR, MAX_OCCUPANCY_OFF_DELAY
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,7 @@ FIELD_ROWS = (
     Field("global", "never_cool_below", "float", 30, 100, "°F", "Stop cooling below this outdoor temperature"),
     Field("zones", "settings.hysteresis", "float", 0.1, 5, "°F", "Zone hysteresis"),
     Field("zones", "settings.min_runtime", "int", 60, 1800, "s", "Minimum zone runtime"),
+    Field("zones", "setpoints." + CONF_OCCUPANCY_OFF_DELAY, "int", 0, MAX_OCCUPANCY_OFF_DELAY, "s", "Delay before zone becomes unoccupied"),
     Field("zones", "sensors.aggregation", "enum", description="Combine indoor readings",
           enum=("average", "min", "max", "median", "weighted")),
     Field("zones", "sensors.smoothing_samples", "int", 1, 100, "samples", "Moving-average sample count"),
