@@ -18,6 +18,8 @@ from .const import (
     CONF_OUTDOOR_SENSOR,
     CONF_OUTDOOR_SENSORS,
     CONF_LOCKOUT_HEAT_FLOOR,
+    CONF_DEVICE_UNAVAILABLE_GRACE,
+    DEFAULT_DEVICE_UNAVAILABLE_GRACE,
     DEFAULT_LOCKOUT_HEAT_FLOOR,
     CONF_TOU_RATE_SENSOR,
     CONF_ZONES,
@@ -99,6 +101,7 @@ def load_config(raw_config: dict[str, Any]) -> HybridClimateConfig:
         raise vol.Invalid(str(error)) from error
 
     config = HybridClimateConfig(
+        device_unavailable_grace=validated.get(CONF_DEVICE_UNAVAILABLE_GRACE, DEFAULT_DEVICE_UNAVAILABLE_GRACE),
         lockout_heat_floor=validated.get(CONF_LOCKOUT_HEAT_FLOOR, DEFAULT_LOCKOUT_HEAT_FLOOR),
         outdoor_sensors=validated.get(CONF_OUTDOOR_SENSORS, [validated[CONF_OUTDOOR_SENSOR]]
                                       if validated.get(CONF_OUTDOOR_SENSOR) else []),

@@ -10,6 +10,7 @@ INTEGER_KEYS = frozenset({
     "_version", "stage", "min_runtime", "smoothing_samples", "time_escalation",
     "open_delay", "close_delay", "min_compressor_runtime",
     "min_compressor_off_time", "pre_condition_minutes", "occupancy_off_delay",
+    "device_unavailable_grace",
 })
 COMPAT_KEYS = ("never_heat_above", "never_cool_below")
 API_DATA = "hybrid_climate_agent_api"
@@ -134,9 +135,11 @@ BELOW_HEAT_TARGET_BELOW_START_DETAIL = (
 )
 STAGE_WITHOUT_USABLE_DEVICES_CODE = "stage_without_usable_devices"
 STAGE_WITHOUT_USABLE_DEVICES_DETAIL = "No device in the selected stage can serve its direction"
+HOLDING_THROUGH_DEVICE_OUTAGE_CODE = "holding_through_device_outage"
+HOLDING_THROUGH_DEVICE_OUTAGE_DETAIL = "Running stage is held through temporary device unavailability"
 
 # All codes zone_reasons() can return: every REASON_DETAILS key, the demand/within_target/
-# below-start codes, and unknown. This is the enum `options` for the reason sensor (spec §3).
+# below-start and outage-hold codes, and unknown. This is the reason sensor enum.
 ZONE_REASON_CODES: tuple[str, ...] = (
     *REASON_DETAILS.keys(),
     HEATING_DEMAND_CODE,
@@ -145,6 +148,7 @@ ZONE_REASON_CODES: tuple[str, ...] = (
     ABOVE_COOL_TARGET_BELOW_START_CODE,
     BELOW_HEAT_TARGET_BELOW_START_CODE,
     STAGE_WITHOUT_USABLE_DEVICES_CODE,
+    HOLDING_THROUGH_DEVICE_OUTAGE_CODE,
     UNKNOWN_REASON_CODE,
 )
 

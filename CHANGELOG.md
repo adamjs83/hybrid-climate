@@ -3,6 +3,14 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.5] - 2026-10-15
+
+### Added
+- New global **Device outage grace period** setting (0–1800 seconds, default 300) in Global Settings. When a device that is running a zone's stage briefly becomes unavailable, the zone now keeps that stage and its device assignment for up to this long instead of releasing it and restaging. If the device comes back in time, the run simply continues; if not, or if the zone no longer needs heating or cooling, it is released as before. A hold never keeps a stage running past its normal stop point. Set it to 0 to keep the old behavior. `get_status` shows when a zone is holding through an outage and why, and `get_config`/`set_config` can read and change the setting.
+
+### Fixed
+- Global Settings now saves the outage grace as a whole number, and whole-number values saved by older versions are read back correctly.
+
 ## [0.13.4] - 2026-10-14
 
 ### Changed

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from ..const import CONF_LOCKOUT_HEAT_FLOOR, CONF_OCCUPANCY_OFF_DELAY, MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR, MAX_OCCUPANCY_OFF_DELAY
+from ..const import CONF_DEVICE_UNAVAILABLE_GRACE, CONF_LOCKOUT_HEAT_FLOOR, CONF_OCCUPANCY_OFF_DELAY, MIN_DEVICE_UNAVAILABLE_GRACE, MAX_DEVICE_UNAVAILABLE_GRACE, MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR, MAX_OCCUPANCY_OFF_DELAY
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,7 @@ class Field:
 
 
 FIELD_ROWS = (
+    Field("global", CONF_DEVICE_UNAVAILABLE_GRACE, "int", MIN_DEVICE_UNAVAILABLE_GRACE, MAX_DEVICE_UNAVAILABLE_GRACE, "s", "Hold a running stage through device unavailability"),
     Field("global", CONF_LOCKOUT_HEAT_FLOOR, "float", MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR, "°F", "Maximum idle heat setpoint during outdoor heat lockout"),
     Field("global", "never_heat_above", "float", 30, 100, "°F", "Stop heating above this outdoor temperature"),
     Field("global", "never_cool_below", "float", 30, 100, "°F", "Stop cooling below this outdoor temperature"),

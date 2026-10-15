@@ -16,6 +16,9 @@ outdoor_sensors:
 # active (40-60, default 55). Idle heating setback never goes above this.
 lockout_heat_floor: 55
 
+# Keep a running stage through a brief device outage (0-1800 seconds; 0 disables).
+device_unavailable_grace: 300
+
 # Master entity configuration
 master:
   name: "Home HVAC"

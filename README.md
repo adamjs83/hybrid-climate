@@ -74,6 +74,7 @@ Configure integration-wide settings:
 | Occupancy entity | `binary_sensor.*` for automatic home/away switching |
 | Never heat above | Disable heating when outdoor temp exceeds this value |
 | Lockout heat floor | Maximum idle heat setpoint (default 55°F, 40–60°F) while the "never heat above" lockout is active; a device's setback is never raised above this floor while heating is locked out |
+| Device unavailable grace | Keep a running stage through a brief device outage (default 300 seconds, 0–1800; 0 disables) |
 | Never cool below | Disable cooling when outdoor temp is below this value |
 
 #### Zone Configuration (6-Step Wizard)
@@ -256,6 +257,7 @@ outdoor_sensors:  # sensor.* and/or weather.* entities, in priority order
   - weather.home  # backup, used only while the primary is missing/unavailable/invalid
 
 lockout_heat_floor: 55  # Optional: max idle heat setpoint during outdoor heat lockout (40-60, default 55)
+device_unavailable_grace: 300  # Optional: hold running stage through device outage (0-1800 s)
 
 master:
   name: "Home HVAC"
@@ -1121,6 +1123,8 @@ These `get_status`/`get_config` fields are read-only projections of cached state
 - `outdoor_sensors` (read-only): the configured outdoor entities in priority order. `outdoor_sensor` (read-only) remains the primary (first) entity, for compatibility.
 - `outdoor_thresholds` (read-only): `{"never_heat_above", "heat_resume_at_or_below", "never_cool_below", "cool_resume_at_or_above", "hysteresis_degrees", "no_operation_band"}` — the effective release points (including the built-in hysteresis) computed the same way the conflict resolver evaluates them, and the "neither heat nor cool" outdoor band when both limits are set. Any limit not configured is `null`.
 - `lockout_heat_floor` (writable): current value, bounds (40–60°F), and source (`ui_config` or `default`).
+- `device_unavailable_grace` (writable): whole seconds, 0–1800; default 300.
+- `get_status.zones.<id>.outage_hold`: null or `{"since", "until", "devices"}` while a running stage is held; reason `holding_through_device_outage` carries the same fields.
 
 **`get_config.zones.<id>`**
 - `setpoints.occupancy_entity` (read-only): the zone's occupancy sensor; `setpoints.occupancy_off_delay` (writable): whole seconds, 0–7200, measured from the last time this integration saw the zone occupied. After a restart, an off sensor selects unoccupied setpoints immediately.

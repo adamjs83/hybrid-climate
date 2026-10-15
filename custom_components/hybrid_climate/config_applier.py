@@ -19,6 +19,7 @@ from .const import (
     CONF_NEVER_COOL_BELOW,
     CONF_NEVER_HEAT_ABOVE,
     CONF_LOCKOUT_HEAT_FLOOR,
+    CONF_DEVICE_UNAVAILABLE_GRACE,
     CONF_OCCUPANCY_ENTITY,
     CONF_OUTDOOR_SENSOR,
     CONF_OUTDOOR_SENSORS,
@@ -67,6 +68,8 @@ def apply_options_to_config(config: HybridClimateConfig, options: dict[str, Any]
 
     if CONF_LOCKOUT_HEAT_FLOOR in global_options:
         config.lockout_heat_floor = global_options[CONF_LOCKOUT_HEAT_FLOOR]
+    if CONF_DEVICE_UNAVAILABLE_GRACE in global_options:
+        config.device_unavailable_grace = global_options[CONF_DEVICE_UNAVAILABLE_GRACE]
 
     # Apply outdoor reset limits (check both global and legacy locations)
     heat_limit = options.get(CONF_NEVER_HEAT_ABOVE)

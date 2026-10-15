@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    DEFAULT_DEVICE_UNAVAILABLE_GRACE,
     HVAC_MODE_COOL,
     HVAC_MODE_HEAT,
     HVAC_MODE_OFF,
@@ -36,6 +37,7 @@ from .models import (
 )
 from .sensor_manager import get_zone_temperature
 from .opening_lockout import update_opening_lockout
+from .outage_hold import should_hold_outage
 from .zone_helpers import (
     get_active_heat_sources,
     zone_has_device_in_heat_source,
@@ -577,6 +579,7 @@ async def _apply_zone_staging(
     )
 
     if not stages:
+        zone_state.outage_hold_since = None
         _LOGGER.warning(
             "Zone %s has no %s stages configured",
             zone_id,
@@ -641,6 +644,13 @@ async def _apply_zone_staging(
         needed_mode,
         blocked_devices,
     )
+    if should_hold_outage(
+        zone_state, available_devices, coordinator.device_manager,
+        getattr(coordinator.config, "device_unavailable_grace", DEFAULT_DEVICE_UNAVAILABLE_GRACE),
+        dt_util.utcnow(), bool(devices),
+        needed_mode,
+    ):
+        return
 
     # Calculate the command with a prospective integral; commit accumulation
     # only if at least one regulated heating command succeeds below.
@@ -874,6 +884,7 @@ async def _deactivate_zone(
         if zone_state.time_in_current_stage() < zone_config.settings.min_runtime:
             return
 
+    zone_state.outage_hold_since = None
     await reconcile_devices(
         coordinator, zone_id, zone_config, zone_state, [],
         hold_equilibrium=(

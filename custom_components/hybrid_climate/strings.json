@@ -43,6 +43,7 @@
           "tou_rate_sensor": "TOU rate period sensor",
           "never_heat_above": "Never heat above (outdoor temp)",
           "lockout_heat_floor": "Idle heat floor during outdoor lockout",
+          "device_unavailable_grace": "Device outage grace period",
           "never_cool_below": "Never cool below (outdoor temp)"
         },
         "data_description": {
@@ -51,6 +52,7 @@
           "tou_rate_sensor": "sensor.* entity whose state indicates the current rate period (e.g., 'peak', 'off_peak')",
           "never_heat_above": "Disable heating when outdoor temperature exceeds this value",
           "lockout_heat_floor": "Maximum idle heating setpoint while outdoor heating is locked out",
+          "device_unavailable_grace": "Keep a running stage during a brief device outage (seconds; 0 disables)",
           "never_cool_below": "Disable cooling when outdoor temperature is below this value"
         }
       },
@@ -379,6 +381,7 @@
           "above_cool_target_below_start": "Above cool target below start",
           "below_heat_target_below_start": "Below heat target below start",
           "stage_without_usable_devices": "Stage without usable devices",
+          "holding_through_device_outage": "Holding through device outage",
           "unknown": "Unknown"
         }
       },

@@ -19,6 +19,8 @@ from .const import (
     COOLING_DEMAND_DETAIL,
     HEATING_DEMAND_CODE,
     HEATING_DEMAND_DETAIL,
+    HOLDING_THROUGH_DEVICE_OUTAGE_CODE,
+    HOLDING_THROUGH_DEVICE_OUTAGE_DETAIL,
     REASON_DETAILS,
     STAGE_WITHOUT_USABLE_DEVICES_CODE,
     STAGE_WITHOUT_USABLE_DEVICES_DETAIL,
@@ -152,7 +154,11 @@ def zone_reasons(
     for reason in result:
         if reason["code"] == "opening_lockout" and state.opening_changed_at:
             reason["since"] = state.opening_changed_at.isoformat()
-    if stage_without_usable_devices:
+    hold = snapshot.get("outage_hold")
+    if hold is not None:
+        result.append({"code": HOLDING_THROUGH_DEVICE_OUTAGE_CODE,
+                       "detail": HOLDING_THROUGH_DEVICE_OUTAGE_DETAIL, **hold})
+    elif stage_without_usable_devices:
         result.append({"code": STAGE_WITHOUT_USABLE_DEVICES_CODE,
                        "detail": STAGE_WITHOUT_USABLE_DEVICES_DETAIL})
     if result:

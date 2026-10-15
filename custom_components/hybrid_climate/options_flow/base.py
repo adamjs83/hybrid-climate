@@ -21,6 +21,8 @@ from ..const import (
     CONF_NEVER_COOL_BELOW,
     CONF_NEVER_HEAT_ABOVE,
     CONF_LOCKOUT_HEAT_FLOOR,
+    CONF_DEVICE_UNAVAILABLE_GRACE,
+    DEFAULT_DEVICE_UNAVAILABLE_GRACE,
     DEFAULT_LOCKOUT_HEAT_FLOOR,
     CONF_OCCUPANCY_ENTITY,
     CONF_OUTDOOR_RESET,
@@ -140,6 +142,10 @@ class OptionsFlowBase(OptionsFlowWithReload):
             CONF_LOCKOUT_HEAT_FLOOR: ui_global.get(
                 CONF_LOCKOUT_HEAT_FLOOR,
                 yaml_config.get(CONF_LOCKOUT_HEAT_FLOOR, DEFAULT_LOCKOUT_HEAT_FLOOR),
+            ),
+            CONF_DEVICE_UNAVAILABLE_GRACE: ui_global.get(
+                CONF_DEVICE_UNAVAILABLE_GRACE,
+                yaml_config.get(CONF_DEVICE_UNAVAILABLE_GRACE, DEFAULT_DEVICE_UNAVAILABLE_GRACE),
             ),
             CONF_NEVER_HEAT_ABOVE: ui_global.get(
                 CONF_NEVER_HEAT_ABOVE,

@@ -17,6 +17,7 @@ from .const import (
 )
 from ..coordinator import HybridClimateCoordinator
 from ..diagnostics import _device_snapshot, _zone_snapshot
+from ..outage_hold import outage_hold_payload
 from .device_control import device_control
 from .reasons import zone_reasons
 from .sensor_view import temperature_aggregation
@@ -27,6 +28,9 @@ def zone_reason_codes(hass: HomeAssistant, coordinator: HybridClimateCoordinator
     zone = coordinator.config.zones[zone_id]
     state = coordinator.zone_states[zone_id]
     snapshot = _zone_snapshot(hass, zone_id, zone, state, coordinator)
+    snapshot["outage_hold"] = outage_hold_payload(
+        state, coordinator.device_manager, coordinator.config.device_unavailable_grace,
+    )
     _, no_usable = active_stage_unusable(coordinator.config, state, zone_id)
     return [reason[STATUS_REASON_CODE] for reason in zone_reasons(snapshot, state, zone, no_usable)]
 

@@ -22,6 +22,7 @@ from .const import (
     CONF_NEVER_COOL_BELOW,
     CONF_NEVER_HEAT_ABOVE,
     CONF_LOCKOUT_HEAT_FLOOR,
+    CONF_DEVICE_UNAVAILABLE_GRACE,
     CONF_OCCUPANCY_ENTITY,
     CONF_OUTDOOR_SENSOR,
     CONF_OUTDOOR_SENSORS,
@@ -137,6 +138,10 @@ def build_config_from_ui(ui_config: dict[str, Any]) -> dict[str, Any]:
     }
     if CONF_LOCKOUT_HEAT_FLOOR in global_conf:
         result[CONF_LOCKOUT_HEAT_FLOOR] = global_conf[CONF_LOCKOUT_HEAT_FLOOR]
+    if CONF_DEVICE_UNAVAILABLE_GRACE in global_conf:
+        grace = global_conf[CONF_DEVICE_UNAVAILABLE_GRACE]
+        # Older UI saves can contain a whole-number NumberSelector float.
+        result[CONF_DEVICE_UNAVAILABLE_GRACE] = int(grace) if type(grace) is float and grace.is_integer() else grace
 
     if CONF_OUTDOOR_SENSORS in global_conf:
         result[CONF_OUTDOOR_SENSORS] = global_conf[CONF_OUTDOOR_SENSORS]
@@ -311,6 +316,8 @@ def import_yaml_to_ui_config(yaml_config: dict[str, Any]) -> dict[str, Any]:
 
     if CONF_LOCKOUT_HEAT_FLOOR in yaml_config:
         global_conf[CONF_LOCKOUT_HEAT_FLOOR] = yaml_config[CONF_LOCKOUT_HEAT_FLOOR]
+    if CONF_DEVICE_UNAVAILABLE_GRACE in yaml_config:
+        global_conf[CONF_DEVICE_UNAVAILABLE_GRACE] = yaml_config[CONF_DEVICE_UNAVAILABLE_GRACE]
 
     # Outdoor reset
     outdoor_reset = yaml_conflicts.get("outdoor_reset", {})

@@ -22,6 +22,9 @@ from ..const import (
     CONF_NEVER_COOL_BELOW,
     CONF_NEVER_HEAT_ABOVE,
     CONF_LOCKOUT_HEAT_FLOOR,
+    CONF_DEVICE_UNAVAILABLE_GRACE,
+    MIN_DEVICE_UNAVAILABLE_GRACE,
+    MAX_DEVICE_UNAVAILABLE_GRACE,
     MIN_LOCKOUT_HEAT_FLOOR,
     MAX_LOCKOUT_HEAT_FLOOR,
     LOCKOUT_HEAT_FLOOR_STEP,
@@ -79,6 +82,9 @@ class GlobalSettingsMixin(OptionsFlowBase):
                     CONF_LOCKOUT_HEAT_FLOOR: user_input.get(
                         CONF_LOCKOUT_HEAT_FLOOR, current[CONF_LOCKOUT_HEAT_FLOOR],
                     ),
+                    CONF_DEVICE_UNAVAILABLE_GRACE: int(user_input.get(
+                        CONF_DEVICE_UNAVAILABLE_GRACE, current[CONF_DEVICE_UNAVAILABLE_GRACE],
+                    )),
                     CONF_NEVER_COOL_BELOW: cool_below,
                 }
                 return self._save_global_settings(settings)
@@ -135,6 +141,13 @@ class GlobalSettingsMixin(OptionsFlowBase):
                         min=MIN_LOCKOUT_HEAT_FLOOR, max=MAX_LOCKOUT_HEAT_FLOOR,
                         step=LOCKOUT_HEAT_FLOOR_STEP, unit_of_measurement="°F",
                         mode=NumberSelectorMode.SLIDER,
+                    )),
+                    vol.Required(
+                        CONF_DEVICE_UNAVAILABLE_GRACE,
+                        default=current[CONF_DEVICE_UNAVAILABLE_GRACE],
+                    ): NumberSelector(NumberSelectorConfig(
+                        min=MIN_DEVICE_UNAVAILABLE_GRACE, max=MAX_DEVICE_UNAVAILABLE_GRACE,
+                        step=1, unit_of_measurement="s", mode=NumberSelectorMode.BOX,
                     )),
                     vol.Required(
                         CONF_NEVER_COOL_BELOW,

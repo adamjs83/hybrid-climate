@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 
 from homeassistant.util import dt as dt_util
-from .const import DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F
+from .const import DEFAULT_DEVICE_UNAVAILABLE_GRACE, DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F
 
 
 class DeviceCapability(Enum):
@@ -431,6 +431,7 @@ class ZoneState:
     blocked_devices: list[str] = field(default_factory=list)
     stage_start_time: datetime | None = None
     escalated_at: datetime | None = None  # Latches an upper stage for this demand direction
+    outage_hold_since: datetime | None = None
     sensor_values: dict[str, float] = field(default_factory=dict)  # raw current values
     sensor_smoothed_values: dict[str, float] = field(default_factory=dict)  # smoothed values
     is_available: bool = True
@@ -537,6 +538,7 @@ class HybridClimateConfig:
     devices: dict[str, Device]
     zones: dict[str, ZoneConfig]
     lockout_heat_floor: float = DEFAULT_LOCKOUT_HEAT_FLOOR
+    device_unavailable_grace: int = DEFAULT_DEVICE_UNAVAILABLE_GRACE
     outdoor_sensors: list[str] = field(default_factory=list)
     heat_sources: dict[str, HeatSourceConfig] = field(default_factory=dict)
     tou_global: TouGlobalConfig = field(default_factory=TouGlobalConfig)

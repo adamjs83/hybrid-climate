@@ -16,6 +16,7 @@ from homeassistant.util import dt as dt_util
 from ..const import DATA_ACTIVE_REVISION, DOMAIN, REGULATION_PI
 from ..capability_check import active_stage_unusable, find_capability_mismatches
 from ..diagnostics import _sensor_snapshot, async_get_config_entry_diagnostics
+from ..outage_hold import outage_hold_payload
 from .controls import zone_controls
 from .device_control import device_control
 from .entity_view import outdoor_source
@@ -46,6 +47,9 @@ async def async_get_status(
         state = coordinator.zone_states[ident]
         view = deepcopy(snapshot["zones"][ident])
         unusable, no_usable = active_stage_unusable(config, state, ident)
+        view["outage_hold"] = outage_hold_payload(
+            state, coordinator.device_manager, config.device_unavailable_grace,
+        )
         view.update(
             regulation_offset=state.regulation_offset,
             accumulated_error=state.accumulated_error,

@@ -66,6 +66,9 @@ from .const import (
     CONF_NEVER_COOL_BELOW,
     CONF_NEVER_HEAT_ABOVE,
     CONF_LOCKOUT_HEAT_FLOOR,
+    CONF_DEVICE_UNAVAILABLE_GRACE,
+    MIN_DEVICE_UNAVAILABLE_GRACE,
+    MAX_DEVICE_UNAVAILABLE_GRACE,
     MIN_LOCKOUT_HEAT_FLOOR,
     MAX_LOCKOUT_HEAT_FLOOR,
     CONF_OCCUPANCY_ENTITY,
@@ -399,7 +402,18 @@ def _finite_lockout_heat_floor(value: float) -> float:
     return value
 
 
+def _device_unavailable_grace(value: object) -> int:
+    """Require an integer grace interval within configured bounds."""
+    if type(value) is not int or not MIN_DEVICE_UNAVAILABLE_GRACE <= value <= MAX_DEVICE_UNAVAILABLE_GRACE:
+        raise vol.Invalid(
+            f"device_unavailable_grace must be an integer from {MIN_DEVICE_UNAVAILABLE_GRACE} "
+            f"to {MAX_DEVICE_UNAVAILABLE_GRACE}"
+        )
+    return value
+
+
 CONFIG_SCHEMA = vol.Schema({
+    vol.Optional(CONF_DEVICE_UNAVAILABLE_GRACE): _device_unavailable_grace,
     vol.Optional(CONF_LOCKOUT_HEAT_FLOOR): vol.All(
         vol.Coerce(float), vol.Range(min=MIN_LOCKOUT_HEAT_FLOOR, max=MAX_LOCKOUT_HEAT_FLOOR),
         _finite_lockout_heat_floor,
