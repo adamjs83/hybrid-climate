@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-10-15
+
+### Added
+- Two new PI regulation settings per zone, in the zone's PI settings step: **Regulation threshold** (0–5 °F, default 0) and **Minimum regulation period** (0–60 minutes, default 0). They limit how often a heating zone's regulated setpoint is re-sent to its PI devices: a new value is only sent once it has moved at least the threshold, and no sooner than the minimum period after the last change. This cuts the stream of small setpoint nudges that thermostats and heat pumps do not need. Changes to the zone's target, mode changes, direction reversals, releases and restarts are always sent at once. Both settings apply to heating PI only and appear read-only under the zone's `regulation` in `get_config`. Leave them at 0 (the default) to keep the old behavior.
+
 ## [0.14.0] - 2026-10-15
 
 ### Added

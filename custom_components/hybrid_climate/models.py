@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 
 from homeassistant.util import dt as dt_util
-from .const import DEFAULT_COOL_OVERDRIVE, DEFAULT_DEVICE_UNAVAILABLE_GRACE, DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F
+from .const import DEFAULT_COOL_OVERDRIVE, DEFAULT_DEVICE_UNAVAILABLE_GRACE, DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_REGULATION_MIN_PERIOD, DEFAULT_REGULATION_THRESHOLD, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F
 
 
 class DeviceCapability(Enum):
@@ -326,6 +326,8 @@ class RegulationConfig:
     k_ext: float = 0.0  # External (outdoor) temperature factor
     offset_max: float = 10.0  # Maximum offset to apply
     stabilization_threshold: float = 0.1  # Error below this = stable
+    regulation_threshold: float = DEFAULT_REGULATION_THRESHOLD
+    regulation_min_period: int = DEFAULT_REGULATION_MIN_PERIOD
     accumulated_error_threshold: float = 240.0  # Anti-windup cap
     balance_point: float = 65.0  # Outdoor temp where no heating/cooling offset needed
     # Integral management for state changes
@@ -455,6 +457,9 @@ class ZoneState:
     accumulated_error: float = 0.0  # Integral term accumulator (error-minutes)
     regulation_offset: float = 0.0  # Current calculated offset
     regulated_setpoint: float | None = None  # Setpoint sent to regulated devices
+    last_sent_regulated_setpoint: float | None = None
+    last_regulated_send_time: datetime | None = None
+    last_regulated_heat_target: float | None = None
     last_pi_update_time: datetime | None = None  # For dt-scaled integral
 
     # TOU state

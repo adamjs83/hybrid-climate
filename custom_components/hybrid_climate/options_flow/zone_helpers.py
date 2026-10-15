@@ -41,6 +41,8 @@ from ..const import (
     DEFAULT_OPEN_DELAY,
     DEFAULT_CLOSE_DELAY,
     DEFAULT_OFFSET_MAX,
+    DEFAULT_REGULATION_MIN_PERIOD,
+    DEFAULT_REGULATION_THRESHOLD,
     DEFAULT_SMOOTHING_SAMPLES,
     REGULATION_PI,
 )
@@ -363,6 +365,8 @@ class ZoneHelpersMixin:
                 "ki": pi.get("ki", DEFAULT_KI),
                 "k_ext": pi.get("k_ext", DEFAULT_K_EXT),
                 "offset_max": pi.get("offset_max", DEFAULT_OFFSET_MAX),
+                "regulation_threshold": pi.get("regulation_threshold", DEFAULT_REGULATION_THRESHOLD),
+                "regulation_min_period": pi.get("regulation_min_period", DEFAULT_REGULATION_MIN_PERIOD),
                 "balance_point": pi.get("balance_point", DEFAULT_BALANCE_POINT),
             }
 

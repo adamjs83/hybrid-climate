@@ -42,6 +42,7 @@ from .const import (
 )
 from .coordinator import HybridClimateCoordinator
 from .models import HvacAction as ModelHvacAction, HvacMode as ModelHvacMode, ZoneConfig
+from .regulation_limits import reset_regulation_limits
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -183,6 +184,8 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
                         target = zone_state.target_temperature
                         if target is not None:
                             zone_state.regulated_setpoint = target + restored_offset
+                        # Restored PI state is not a sent command in this process.
+                        reset_regulation_limits(zone_state)
                         _LOGGER.debug(
                             "Zone %s: restored regulation_offset %s",
                             self.zone_id,

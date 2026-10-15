@@ -163,6 +163,8 @@ def readonly_zone(
     value = None if regulation is None else {
         "type": regulation.type, "devices": list(regulation.devices),
         "ignored_devices": list(regulation.ignored_devices),
+        "regulation_threshold": regulation.regulation_threshold,
+        "regulation_min_period": regulation.regulation_min_period,
     }
     stored = options.get(CONF_UI_CONFIG, {}).get(CONF_ZONES, {}).get(zone_id, {})
     source = SOURCE_UI_CONFIG if CONF_REGULATION in stored else SOURCE_DEFAULT

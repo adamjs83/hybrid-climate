@@ -21,11 +21,14 @@ from .const import (
     DEFAULT_AWAY_COOL_RAISE,
     HVAC_MODE_COOL,
     HVAC_MODE_HEAT,
+    REGULATION_PI,
     TEMP_MAX_VALID,
     TEMP_MIN_VALID,
 )
 from .device_arbitration import cool_dispatch_target
 from .models import MasterMode, MasterModeConfig, ZoneConfig
+from .regulation_limits import limit_regulated_setpoint, reset_regulation_limits
+from homeassistant.util import dt as dt_util
 from .zone_helpers import resolve_number_entity_id
 from .zone_occupancy import get_occupancy
 
@@ -75,6 +78,8 @@ def set_master_mode(coordinator: HybridClimateCoordinator, mode: MasterMode) -> 
     )
 
     if mode != previous_mode:
+        for state in getattr(coordinator, "zone_states", {}).values():
+            reset_regulation_limits(state)
         coordinator.control_restore.note_mode_change()
 
 
@@ -396,9 +401,13 @@ async def _immediate_device_update(
         # Preserve the current PI offset until the next control cycle recalculates it.
         config = coordinator.config.zones[zone_id]
         if (direction == HVAC_MODE_HEAT and config.regulation
+                and config.regulation.type == REGULATION_PI
                 and device_id in config.regulation.devices):
             device_target = target_temp + zone_state.regulation_offset
-            zone_state.regulated_setpoint = device_target
+            zone_state.regulated_setpoint = limit_regulated_setpoint(
+                zone_state, config.regulation, device_target, dt_util.utcnow()
+            )
+            device_target = zone_state.regulated_setpoint
         else:
             device_target = target_temp
             if direction == HVAC_MODE_COOL:

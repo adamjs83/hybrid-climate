@@ -95,6 +95,8 @@ from .const import (
     CONF_OUTDOOR_TEMP_MAX,
     CONF_OUTDOOR_TEMP_MIN,
     CONF_REGULATION,
+    CONF_REGULATION_MIN_PERIOD,
+    CONF_REGULATION_THRESHOLD,
     CONF_REGULATION_TYPE,
     CONF_SENSORS,
     CONF_SETPOINTS,
@@ -127,6 +129,8 @@ from .const import (
     DEFAULT_OPEN_DELAY,
     DEFAULT_CLOSE_DELAY,
     DEFAULT_OFFSET_MAX,
+    DEFAULT_REGULATION_MIN_PERIOD,
+    DEFAULT_REGULATION_THRESHOLD,
     DEFAULT_OPPORTUNISTIC_THRESHOLD,
     DEFAULT_SMOOTHING_SAMPLES,
     MAX_SENSOR_WEIGHT,
@@ -135,6 +139,10 @@ from .const import (
     DEFAULT_STABILIZATION_THRESHOLD,
     IDLE_ACTIONS,
     MAX_SMOOTHING_SAMPLES,
+    MAX_REGULATION_MIN_PERIOD,
+    MAX_REGULATION_THRESHOLD,
+    MIN_REGULATION_MIN_PERIOD,
+    MIN_REGULATION_THRESHOLD,
     MIN_SMOOTHING_SAMPLES,
     REGULATION_DIRECT,
     REGULATION_PI,
@@ -142,6 +150,23 @@ from .const import (
 
 
 # Validation schemas
+def _regulation_threshold(value: Any) -> float:
+    """Accept a finite numeric threshold but never a boolean."""
+    if isinstance(value, bool):
+        raise vol.Invalid("regulation_threshold must be a number")
+    threshold = vol.Coerce(float)(value)
+    if not isfinite(threshold):
+        raise vol.Invalid("regulation_threshold must be finite")
+    return vol.Range(min=MIN_REGULATION_THRESHOLD, max=MAX_REGULATION_THRESHOLD)(threshold)
+
+
+def _regulation_min_period(value: Any) -> int:
+    """Accept only whole minute counts, excluding booleans."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise vol.Invalid("regulation_min_period must be an integer")
+    return vol.Range(min=MIN_REGULATION_MIN_PERIOD, max=MAX_REGULATION_MIN_PERIOD)(value)
+
+
 STAGE_CONDITION_SCHEMA = vol.Schema({
     vol.Optional(CONF_OUTDOOR_TEMP_MIN): vol.Coerce(float),
     vol.Optional(CONF_OUTDOOR_TEMP_MAX): vol.Coerce(float),
@@ -266,6 +291,8 @@ REGULATION_SCHEMA = vol.Schema({
     vol.Optional(CONF_BALANCE_POINT, default=DEFAULT_BALANCE_POINT): vol.Coerce(float),
     vol.Optional(CONF_OFFSET_MAX, default=DEFAULT_OFFSET_MAX): vol.Coerce(float),
     vol.Optional(CONF_STABILIZATION_THRESHOLD, default=DEFAULT_STABILIZATION_THRESHOLD): vol.Coerce(float),
+    vol.Optional(CONF_REGULATION_THRESHOLD, default=DEFAULT_REGULATION_THRESHOLD): _regulation_threshold,
+    vol.Optional(CONF_REGULATION_MIN_PERIOD, default=DEFAULT_REGULATION_MIN_PERIOD): _regulation_min_period,
     vol.Optional(CONF_ACCUMULATED_ERROR_THRESHOLD, default=DEFAULT_ACCUMULATED_ERROR_THRESHOLD): vol.Coerce(float),
     vol.Optional(CONF_INTEGRAL_RESET_THRESHOLD, default=DEFAULT_INTEGRAL_RESET_THRESHOLD): vol.Coerce(float),
     vol.Optional(CONF_INTEGRAL_RESET_FACTOR, default=DEFAULT_INTEGRAL_RESET_FACTOR): vol.All(

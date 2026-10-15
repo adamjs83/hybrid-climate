@@ -182,7 +182,9 @@
           "ki": "Integral gain (Ki)",
           "k_ext": "Outdoor factor (K_ext)",
           "offset_max": "Maximum offset",
-          "balance_point": "Balance point"
+          "balance_point": "Balance point",
+          "regulation_threshold": "Regulation threshold",
+          "regulation_min_period": "Minimum regulation period"
         },
         "data_description": {
           "pi_devices": "Which devices should receive adjusted setpoints",
@@ -190,7 +192,9 @@
           "ki": "How aggressively to respond to accumulated error",
           "k_ext": "Factor to adjust based on outdoor temperature (0 = disabled)",
           "offset_max": "Maximum setpoint adjustment in either direction",
-          "balance_point": "Outdoor temperature where no adjustment is needed"
+          "balance_point": "Outdoor temperature where no adjustment is needed",
+          "regulation_threshold": "Only send a new regulated setpoint when it moves at least this many °F. 0 = every change.",
+          "regulation_min_period": "Minimum minutes between regulated setpoint changes. Target changes are sent at once. 0 = no limit."
         }
       },
       "zone_tou": {

@@ -38,6 +38,7 @@ from .models import (
 from .sensor_manager import get_zone_temperature
 from .opening_lockout import update_opening_lockout
 from .outage_hold import should_hold_outage
+from .regulation_limits import limit_regulated_setpoint, reset_regulation_limits
 from .zone_helpers import (
     get_active_heat_sources,
     zone_has_device_in_heat_source,
@@ -560,7 +561,10 @@ async def _apply_zone_staging(
             )
             zone_state.regulation_offset = pi_offset
             target_temp = zone_state.target_temperature
-            zone_state.regulated_setpoint = target_temp + pi_offset if target_temp else None
+            raw = target_temp + pi_offset if target_temp is not None else None
+            zone_state.regulated_setpoint = limit_regulated_setpoint(
+                zone_state, zone_config.regulation, raw, dt_util.utcnow()
+            )
         await _deactivate_zone(
             coordinator, zone_id, zone_config, zone_state,
             forced_off=forced_off,
@@ -588,6 +592,7 @@ async def _apply_zone_staging(
         await reconcile_devices(
             coordinator, zone_id, zone_config, zone_state, [], release_regulated=True
         )
+        reset_regulation_limits(zone_state)
         zone_state.hvac_mode = HvacMode(needed_mode)
         zone_state.hvac_action = HvacAction.IDLE
         zone_state.current_stage = None
@@ -615,9 +620,13 @@ async def _apply_zone_staging(
                 zone_config, zone_state, outdoor_temp, is_actively_heating=False
             )
             target_temp = zone_state.target_temperature
-            zone_state.regulated_setpoint = (
-                target_temp + zone_state.regulation_offset if target_temp is not None else None
-            )
+            raw = target_temp + zone_state.regulation_offset if target_temp is not None else None
+            if needed_mode == HVAC_MODE_HEAT:
+                zone_state.regulated_setpoint = limit_regulated_setpoint(
+                    zone_state, zone_config.regulation, raw, dt_util.utcnow()
+                )
+            else:
+                zone_state.regulated_setpoint = raw
         await _deactivate_zone(
             coordinator, zone_id, zone_config, zone_state,
             forced_off=(
@@ -657,10 +666,16 @@ async def _apply_zone_staging(
     heating_regulated = False
     previous_integral = zone_state.accumulated_error
     previous_pi_time = zone_state.last_pi_update_time
+    previous_limit = (
+        zone_state.last_sent_regulated_setpoint,
+        zone_state.last_regulated_send_time,
+        zone_state.last_regulated_heat_target,
+    )
     if zone_config.regulation and zone_config.regulation.type == REGULATION_PI:
         if devices and zone_state.last_active_action is not None and zone_state.last_active_action != new_action:
             zone_state.accumulated_error = 0.0
             zone_state.last_pi_update_time = None
+            reset_regulation_limits(zone_state)
         previous_integral = zone_state.accumulated_error
         previous_pi_time = zone_state.last_pi_update_time
         regulated_ids = set(zone_config.regulation.devices)
@@ -672,7 +687,13 @@ async def _apply_zone_staging(
         )
         zone_state.regulation_offset = pi_offset
         target_temp = zone_state.target_temperature
-        zone_state.regulated_setpoint = target_temp + pi_offset if target_temp is not None else None
+        raw = target_temp + pi_offset if target_temp is not None else None
+        if heating_regulated:
+            zone_state.regulated_setpoint = limit_regulated_setpoint(
+                zone_state, zone_config.regulation, raw, dt_util.utcnow()
+            )
+        else:
+            zone_state.regulated_setpoint = raw
 
     if not devices:
         _LOGGER.warning(
@@ -683,6 +704,7 @@ async def _apply_zone_staging(
         await reconcile_devices(
             coordinator, zone_id, zone_config, zone_state, [], release_regulated=True
         )
+        reset_regulation_limits(zone_state)
         zone_state.hvac_action = HvacAction.IDLE
         zone_state.current_stage = None
         zone_state.stage_start_time = None
@@ -732,9 +754,21 @@ async def _apply_zone_staging(
         zone_state.regulation_offset = coordinator._calculate_pi_offset(
             zone_config, zone_state, outdoor_temp, is_actively_heating=False
         )
-        zone_state.regulated_setpoint = (
-            target_temp + zone_state.regulation_offset if target_temp is not None else None
-        )
+        (zone_state.last_sent_regulated_setpoint,
+         zone_state.last_regulated_send_time,
+         zone_state.last_regulated_heat_target) = previous_limit
+        # A prior command is reusable only for the same heat target, and only
+        # when a limit is configured (0/0 keeps the recomputed value).
+        limits_set = (zone_config.regulation.regulation_threshold > 0
+                      or zone_config.regulation.regulation_min_period > 0)
+        if (limits_set and zone_state.last_sent_regulated_setpoint is not None
+                and zone_state.last_regulated_heat_target == zone_state.target_temperature):
+            zone_state.regulated_setpoint = zone_state.last_sent_regulated_setpoint
+        else:
+            target_temp = zone_state.target_temperature
+            zone_state.regulated_setpoint = (
+                target_temp + zone_state.regulation_offset if target_temp is not None else None
+            )
 
     # Release using the previous direction before recording the new action.
     await reconcile_devices(

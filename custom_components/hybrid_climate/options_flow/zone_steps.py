@@ -56,6 +56,12 @@ from ..const import (
     DEFAULT_OPEN_DELAY,
     DEFAULT_CLOSE_DELAY,
     DEFAULT_OFFSET_MAX,
+    DEFAULT_REGULATION_MIN_PERIOD,
+    DEFAULT_REGULATION_THRESHOLD,
+    MAX_REGULATION_MIN_PERIOD,
+    MAX_REGULATION_THRESHOLD,
+    MIN_REGULATION_MIN_PERIOD,
+    MIN_REGULATION_THRESHOLD,
     DEFAULT_SMOOTHING_SAMPLES,
     DEFAULT_TIME_ESCALATION,
     DEFAULT_TOU_PRE_CONDITION_MINUTES,
@@ -310,9 +316,6 @@ class ZoneStepsMixin:
 
         wip = self._zone_wip or {}
         heat_stages = wip.get("heat_stages", [])
-
-        # Get available climate devices
-        climate_entities = self._get_climate_entities()
 
         # Extract existing stage data
         stage1 = next((s for s in heat_stages if s.get("stage") == 1), {})
@@ -718,6 +721,8 @@ class ZoneStepsMixin:
                 "ki": user_input.get("ki", DEFAULT_KI),
                 "k_ext": user_input.get("k_ext", DEFAULT_K_EXT),
                 "offset_max": user_input.get("offset_max", DEFAULT_OFFSET_MAX),
+                "regulation_threshold": user_input.get("regulation_threshold", DEFAULT_REGULATION_THRESHOLD),
+                "regulation_min_period": int(user_input.get("regulation_min_period", DEFAULT_REGULATION_MIN_PERIOD)),
                 "balance_point": user_input.get("balance_point", DEFAULT_BALANCE_POINT),
             }
             return await self.async_step_zone_tou()
@@ -766,6 +771,14 @@ class ZoneStepsMixin:
                         unit_of_measurement="°F",
                         mode=NumberSelectorMode.BOX,
                     )
+                ),
+                vol.Required("regulation_threshold", default=pi_config.get("regulation_threshold", DEFAULT_REGULATION_THRESHOLD)): NumberSelector(
+                    NumberSelectorConfig(min=MIN_REGULATION_THRESHOLD, max=MAX_REGULATION_THRESHOLD,
+                                         step=0.1, unit_of_measurement="°F", mode=NumberSelectorMode.BOX)
+                ),
+                vol.Required("regulation_min_period", default=pi_config.get("regulation_min_period", DEFAULT_REGULATION_MIN_PERIOD)): NumberSelector(
+                    NumberSelectorConfig(min=MIN_REGULATION_MIN_PERIOD, max=MAX_REGULATION_MIN_PERIOD,
+                                         step=1, unit_of_measurement="min", mode=NumberSelectorMode.BOX)
                 ),
                 vol.Required("balance_point", default=pi_config.get("balance_point", DEFAULT_BALANCE_POINT)): NumberSelector(
                     NumberSelectorConfig(

@@ -141,6 +141,9 @@ def reconcile_dispatch(
             state.last_pi_update_time = before.last_pi_update_time
             state.regulation_offset = before.regulation_offset
             state.regulated_setpoint = before.regulated_setpoint
+            state.last_sent_regulated_setpoint = before.last_sent_regulated_setpoint
+            state.last_regulated_send_time = before.last_regulated_send_time
+            state.last_regulated_heat_target = before.last_regulated_heat_target
 
         if not accepted:
             # Preserve prior control state on failed release/refresh; a new

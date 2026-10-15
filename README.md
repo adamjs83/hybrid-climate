@@ -968,6 +968,8 @@ zones:
       balance_point: 65        # Outdoor temp where no offset needed
       offset_max: 10           # Max ±10° adjustment
       stabilization_threshold: 0.5  # Error deadband for integral
+      regulation_threshold: 0.5     # Minimum regulated setpoint change (0-5°F; 0 disables)
+      regulation_min_period: 10     # Minimum minutes between changes (0-60; 0 disables)
       accumulated_error_threshold: 240  # Anti-windup cap
       # Integral state management (optional, these are defaults)
       integral_reset_threshold: 2.5   # °F change triggers partial reset
@@ -1015,6 +1017,8 @@ The floor thermostat gets 78°F, which makes it heat harder to overcome the cold
 | `balance_point` | Outdoor temp for zero offset | 65 | Adjust to your climate |
 | `offset_max` | Maximum offset (±) | 10 | Floor can handle more: increase. Comfort issues: decrease. |
 | `stabilization_threshold` | Error deadband | 0.5 | Room oscillates ±0.3°F: increase. Never quite reaches target: decrease. |
+| `regulation_threshold` | Minimum new regulated setpoint difference (°F) | 0 | Reduce tiny thermostat changes; 0 allows every change. |
+| `regulation_min_period` | Minimum time between regulated setpoint changes (minutes) | 0 | Reduce frequent commands; 0 allows every change. |
 | `accumulated_error_threshold` | Anti-windup cap | 240 | Prevents runaway integral during long recovery periods. |
 | `integral_reset_threshold` | Setpoint change trigger | 2.5 | °F change that triggers partial integral reset. |
 | `integral_reset_factor` | Reset retention | 0.3 | Fraction of integral to keep on reset (0.3 = keep 30%). |
@@ -1034,6 +1038,8 @@ The integral term is protected from "windup" (growing unboundedly) and stale sta
 5. **Idle decay**: When at setpoint (idle), the integral decays exponentially with the configured half-life. This gradually "forgets" old assumptions during extended idle periods while preserving responsiveness for short idle periods.
 
 ### Idle Behavior for PI Devices
+
+Both limits apply only to PI heating and must pass for a changed setpoint. A changed heat target sends immediately, as does the first cycle after restart/reload or after equipment release, deactivation, or direction reversal. While limited, devices keep receiving the last selected regulated setpoint. `regulation_offset` still shows the raw PI calculation; `regulated_setpoint` shows the held value. Cooling and direct zones are unaffected.
 
 When a PI-regulated zone goes idle (room at target), the floor is held at the **current regulated setpoint** rather than applying a setback. This:
 - Maintains the equilibrium the PI found

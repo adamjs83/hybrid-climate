@@ -13,6 +13,7 @@ from homeassistant.util import dt as dt_util
 from .const import HEAT_COOL_REVERSAL_SECONDS, HVAC_MODE_COOL, HVAC_MODE_HEAT, REGULATION_PI
 from .models import HvacAction, HvacMode, HybridClimateConfig, MasterMode, ZoneConfig, ZoneState
 from .idle_floor import idle_heat_floor
+from .regulation_limits import reset_regulation_limits
 
 if TYPE_CHECKING:
     from .coordinator import HybridClimateCoordinator
@@ -112,6 +113,8 @@ async def reconcile_devices(
             _LOGGER.warning("Zone %s: retaining device %s after failed idle command", zone_id, device_id)
 
     state.active_devices = retained
+    if forced_off or (release_regulated and not hold_equilibrium):
+        reset_regulation_limits(state)
     # Every release path, including empty selections, starts the same off timer.
     if previously_owned and not retained:
         state.last_direction_stop_time = dt_util.utcnow()
