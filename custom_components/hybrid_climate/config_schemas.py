@@ -39,6 +39,10 @@ from .const import (
     CONF_COMPRESSOR_GROUP,
     CONF_MIN_COMPRESSOR_RUNTIME,
     CONF_MIN_COMPRESSOR_OFF_TIME,
+    CONF_COOL_OVERDRIVE,
+    DEFAULT_COOL_OVERDRIVE,
+    MIN_COOL_OVERDRIVE,
+    MAX_COOL_OVERDRIVE,
     CONF_OPENINGS,
     CONF_OPENING_ENTITIES,
     CONF_OPEN_DELAY,
@@ -314,6 +318,20 @@ DEVICE_IDLE_SCHEMA = vol.Schema({
     vol.Optional(CONF_IDLE_SETBACK, default=DEFAULT_IDLE_SETBACK): vol.Coerce(float),
 })
 
+
+def _cool_overdrive(value: Any) -> float:
+    """Accept only a finite numeric cooling offset within device bounds."""
+    if type(value) is bool:
+        raise vol.Invalid("cool_overdrive must be a number")
+    offset = vol.Coerce(float)(value)
+    if not isfinite(offset) or not MIN_COOL_OVERDRIVE <= offset <= MAX_COOL_OVERDRIVE:
+        raise vol.Invalid(
+            f"cool_overdrive must be finite and between {MIN_COOL_OVERDRIVE} "
+            f"and {MAX_COOL_OVERDRIVE}°F"
+        )
+    return offset
+
+
 DEVICE_SCHEMA = vol.Schema({
     vol.Required(CONF_ENTITY_ID): cv.entity_id,
     vol.Required(CONF_CAPABILITIES): vol.All(
@@ -324,6 +342,7 @@ DEVICE_SCHEMA = vol.Schema({
     vol.Optional(CONF_COMPRESSOR_GROUP): vol.All(cv.string, vol.Length(min=1)),
     vol.Optional(CONF_MIN_COMPRESSOR_RUNTIME, default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
     vol.Optional(CONF_MIN_COMPRESSOR_OFF_TIME, default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
+    vol.Optional(CONF_COOL_OVERDRIVE, default=DEFAULT_COOL_OVERDRIVE): _cool_overdrive,
     # Note: allow_command moved to stage device config (per-zone, not per-device)
 })
 

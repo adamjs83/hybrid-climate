@@ -59,7 +59,7 @@ def build_config_from_ui(ui_config: dict[str, Any]) -> dict[str, Any]:
             CONF_ENTITY_ID: entity_id,
             "capabilities": dev_conf.get("capabilities", ["heat"]),
         }
-        for key in ("compressor_group", "min_compressor_runtime", "min_compressor_off_time"):
+        for key in ("compressor_group", "min_compressor_runtime", "min_compressor_off_time", "cool_overdrive"):
             if dev_conf.get(key) is not None and dev_conf.get(key) != "":
                 devices[device_id][key] = dev_conf[key]
         # Add idle config if present
@@ -279,7 +279,7 @@ def import_yaml_to_ui_config(yaml_config: dict[str, Any]) -> dict[str, Any]:
             CONF_ENTITY_ID: entity_id,
             "capabilities": dev_conf.get("capabilities", ["heat"]),
         }
-        for key in ("compressor_group", "min_compressor_runtime", "min_compressor_off_time"):
+        for key in ("compressor_group", "min_compressor_runtime", "min_compressor_off_time", "cool_overdrive"):
             if key in dev_conf:
                 ui_devices[entity_id][key] = dev_conf[key]
         # Add idle config

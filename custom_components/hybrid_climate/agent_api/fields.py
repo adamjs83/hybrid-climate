@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from ..const import CONF_DEVICE_UNAVAILABLE_GRACE, CONF_LOCKOUT_HEAT_FLOOR, CONF_OCCUPANCY_OFF_DELAY, MIN_DEVICE_UNAVAILABLE_GRACE, MAX_DEVICE_UNAVAILABLE_GRACE, MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR, MAX_OCCUPANCY_OFF_DELAY
+from ..const import CONF_COOL_OVERDRIVE, CONF_DEVICE_UNAVAILABLE_GRACE, CONF_LOCKOUT_HEAT_FLOOR, CONF_OCCUPANCY_OFF_DELAY, MIN_COOL_OVERDRIVE, MAX_COOL_OVERDRIVE, MIN_DEVICE_UNAVAILABLE_GRACE, MAX_DEVICE_UNAVAILABLE_GRACE, MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR, MAX_OCCUPANCY_OFF_DELAY
 
 
 @dataclass(frozen=True)
@@ -47,6 +47,7 @@ FIELD_ROWS = (
     Field("stage", "outdoor_temp_min", "float", -20, 80, "°F", "Heating stage 2 outdoor minimum"),
     Field("devices", "min_compressor_runtime", "int", 0, 3600, "s", "Minimum compressor runtime"),
     Field("devices", "min_compressor_off_time", "int", 0, 3600, "s", "Minimum compressor off interval"),
+    Field("devices", CONF_COOL_OVERDRIVE, "float", MIN_COOL_OVERDRIVE, MAX_COOL_OVERDRIVE, "°F", "Cooling device setpoint offset during owned demand"),
 )
 FIELDS = {(row.scope, row.key): row for row in FIELD_ROWS}
 OUTDOOR_VALUE_FIELDS = {

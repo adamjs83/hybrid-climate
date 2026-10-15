@@ -163,6 +163,7 @@ Configure what each device does when its zone is satisfied (idle):
 | Setback amount | Degrees below (heat) or above (cool) target |
 | Compressor group | Shared outdoor compressor identifier; use the same value on all members |
 | Minimum compressor runtime/off time | Seconds to hold the shared group on or off |
+| Cooling overdrive | °F (0–10, step 0.5; default 0) subtracted from the device's cool setpoint while a zone actively calls for cooling. The zone still stops at its own target. |
 
 Compressor protection is optional. For a shared group, the longest configured interval among its members applies. It uses each climate entity's reported HVAC mode as a proxy for compressor activity; a thermostat that cycles its compressor while remaining in `heat` or `cool` cannot be timed precisely. On startup, the previous transition is unknown, so the first observed state begins a full interval. Explicit shutdowns, including door/window lockouts, bypass the minimum runtime.
 
@@ -293,6 +294,7 @@ devices:
     compressor_group: basement_outdoor  # shared by indoor units on this compressor
     min_compressor_runtime: 300          # seconds
     min_compressor_off_time: 180         # seconds
+    cool_overdrive: 5                    # °F below zone cool target during active cooling; 0 disables
     idle:
       action: setback  # or "off"
       setback: 5
@@ -1062,6 +1064,8 @@ Hybrid Climate provides administrator-only services for inspecting status and ma
 For REST calls, POST to `/api/services/hybrid_climate/{get_status|get_config|set_config|restore_control}?return_response` with an administrator token. The JSON reply is `{"changed_states":[],"service_response":{...}}`; read `service_response`, rather than treating the reply as a bare result. `get_config` accepts `include_structure: true` for discoverable IDs. A patch may contain `global` fields, `zones` keyed by discovered zone ID, and `devices` keyed by discovered loaded model ID. Stage edits go in a zone's `stages` list, addressed by `direction` (`heat` or `cool`) and zero-based stored `index`.
 
 `get_status` also reports active global conflicts, per-device control ownership (including devices that report heat or cool with no owner and no matching command, most often after a restart), per-sensor readings, and each zone's temperature aggregation with spread and outlier hints. `get_config` also exposes read-only reference fields — the active outdoor sensor, each device's idle behavior and command permission, each zone's regulation settings, and compressor groups; these can only be changed in the integration's options, and a `set_config` patch naming one of them is rejected.
+
+`get_config` exposes each device's writable `cool_overdrive` (0–10°F, default 0). Set it through `set_config` under the discovered device ID, for example `{"devices":{"hp":{"cool_overdrive":5}}}`. `get_status.devices.<id>.desired_target_temperature` shows the actual commanded target after overdrive and device clamping.
 
 ### Restoring control (v0.13.2)
 

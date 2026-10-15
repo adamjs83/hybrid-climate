@@ -164,6 +164,11 @@ CONF_ALLOW_COMMAND = "allow_command"
 CONF_COMPRESSOR_GROUP = "compressor_group"
 CONF_MIN_COMPRESSOR_RUNTIME = "min_compressor_runtime"
 CONF_MIN_COMPRESSOR_OFF_TIME = "min_compressor_off_time"
+CONF_COOL_OVERDRIVE = "cool_overdrive"
+DEFAULT_COOL_OVERDRIVE = 0.0
+MIN_COOL_OVERDRIVE = 0.0
+MAX_COOL_OVERDRIVE = 10.0
+COOL_OVERDRIVE_STEP = 0.5
 DEFAULT_ALLOW_COMMAND = False  # Device changes don't propagate to zone by default
 
 # Zone config

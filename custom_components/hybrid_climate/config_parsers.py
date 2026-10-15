@@ -14,7 +14,6 @@ from .const import (
     AGGREGATION_MAX,
     AGGREGATION_MEDIAN,
     AGGREGATION_WEIGHTED,
-    CAPABILITY_COOL,
     CAPABILITY_HEAT,
     CONF_ACCUMULATED_ERROR_THRESHOLD,
     CONF_AGGREGATION,
@@ -34,6 +33,7 @@ from .const import (
     CONF_COMPRESSOR_GROUP,
     CONF_MIN_COMPRESSOR_RUNTIME,
     CONF_MIN_COMPRESSOR_OFF_TIME,
+    CONF_COOL_OVERDRIVE,
     CONF_OPENINGS,
     CONF_OPENING_ENTITIES,
     CONF_OPEN_DELAY,
@@ -67,7 +67,6 @@ from .const import (
     CONF_TOU_COOL,
     CONF_TOU_HEAT,
     CONF_TOU_PRE_CONDITION_MINUTES,
-    CONF_TOU_RATE_SENSOR,
     CONF_TOU_RELAXATION_AMOUNT,
     CONF_OUTDOOR_TEMP_MAX,
     CONF_OUTDOOR_TEMP_MIN,
@@ -89,6 +88,7 @@ from .const import (
     CONF_ENTITY_ID,
     DEFAULT_ACCUMULATED_ERROR_THRESHOLD,
     DEFAULT_ALLOW_COMMAND,
+    DEFAULT_COOL_OVERDRIVE,
     DEFAULT_BALANCE_POINT,
     DEFAULT_HYSTERESIS,
     DEFAULT_IDLE_ACTION,
@@ -124,7 +124,6 @@ from .models import (
     OpportunisticConfig,
     OpeningConfig,
     OutdoorResetConfig,
-    TouGlobalConfig,
     RegulationConfig,
     Stage,
     StageCondition,
@@ -202,6 +201,7 @@ def parse_device(device_id: str, data: dict[str, Any]) -> Device:
         compressor_group=data.get(CONF_COMPRESSOR_GROUP),
         min_compressor_runtime=data.get(CONF_MIN_COMPRESSOR_RUNTIME, 0),
         min_compressor_off_time=data.get(CONF_MIN_COMPRESSOR_OFF_TIME, 0),
+        cool_overdrive=data.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE),
     )
 
 

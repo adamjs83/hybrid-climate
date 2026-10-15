@@ -62,6 +62,7 @@ devices:
   basement_family_hp:
     entity_id: climate.basement_family_heatpump
     capabilities: [heat, cool]
+    cool_overdrive: 0  # °F below zone cool target while cooling; 0 disables
 
   # Main floor devices
   main_radiant_1:

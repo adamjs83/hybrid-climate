@@ -240,7 +240,8 @@
           "setback": "Setback amount",
           "compressor_group": "Compressor group",
           "min_compressor_runtime": "Minimum compressor run time",
-          "min_compressor_off_time": "Minimum compressor off time"
+          "min_compressor_off_time": "Minimum compressor off time",
+          "cool_overdrive": "Cooling overdrive"
         },
         "data_description": {
           "can_heat": "Device can be used for heating",
@@ -249,7 +250,8 @@
           "setback": "Degrees below (heat) or above (cool) target when idle",
           "compressor_group": "Devices with the same group share compressor timing; leave empty to disable",
           "min_compressor_runtime": "Seconds the shared compressor must run before a normal stop",
-          "min_compressor_off_time": "Seconds the shared compressor must remain off before restarting"
+          "min_compressor_off_time": "Seconds the shared compressor must remain off before restarting",
+          "cool_overdrive": "Send the device this many °F below the zone's cooling target while a zone calls for cooling; the zone still stops at its own target. 0 = off."
         }
       },
       "heat_sources": {

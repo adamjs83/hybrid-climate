@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-10-15
+
+### Added
+- New per-device **Cooling overdrive** setting (0–10 °F, default 0) in Device Behaviors. While a zone calls for cooling from a device, the device is sent a setpoint this many degrees below the zone's cooling target, so units that coast once their own sensor reaches the setpoint keep cooling until the zone itself is satisfied. The zone still stops at its own target. Heating, idle setbacks and devices no zone is cooling with are unaffected. If you change the setpoint on the device itself while a zone is cooling with it, the zone's target is updated with the overdrive added back. `get_config`/`set_config` can read and change the setting. Set it to 0 (the default) to keep the old behavior.
+
 ## [0.13.5] - 2026-10-15
 
 ### Added

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from homeassistant.util import dt as dt_util
 
 from .const import HVAC_MODE_COOL, HVAC_MODE_HEAT, HVAC_MODE_OFF
-from .models import DeviceMutexRule, HvacAction, ZoneState
+from .models import Device, DeviceMutexRule, HvacAction, ZoneState
 
 if TYPE_CHECKING:
     from .coordinator import HybridClimateCoordinator
@@ -20,6 +20,11 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 DeviceRequest = tuple[str, float | None, str | None]
+
+
+def cool_dispatch_target(device: Device, target: float) -> float:
+    """Return the physical target for an owned cooling request."""
+    return target - device.cool_overdrive if device.cool_overdrive > 0 else target
 
 
 def resolve_requests(requests: list[DeviceRequest]) -> tuple[str, float | None, set[str]]:
@@ -57,6 +62,9 @@ async def queue_retained_demand(coordinator: HybridClimateCoordinator) -> None:
                 target = state.regulated_setpoint
             if not state.is_available:
                 mode, target = device.current_mode, device.current_target_temp
+                if mode == HVAC_MODE_COOL and target is not None:
+                    # The held physical target was already offset and clamped.
+                    target += device.cool_overdrive
             if mode in (HVAC_MODE_HEAT, HVAC_MODE_COOL):
                 await manager.set_device_mode(device, mode, target, zone_id=zone_id)
 
@@ -186,9 +194,14 @@ async def dispatch_requests(
             _LOGGER.warning("Device %s: waiting for mutex equipment to release", device_id)
             results[device_id] = False
             continue
+        device = manager.devices[device_id]
+        dispatch_target = (
+            cool_dispatch_target(device, target)
+            if mode == HVAC_MODE_COOL and owners and target is not None else target
+        )
         before_send = manager.idle_basis.sent_serial
         results[device_id] = await manager._dispatch_device_mode(
-            manager.devices[device_id], mode, target,
+            device, mode, dispatch_target,
             force_off=device_id in manager._forced_off_devices,
         )
         manager.idle_basis.attach_dispatched(

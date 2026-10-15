@@ -24,14 +24,18 @@ from homeassistant.helpers.selector import (
 
 from ..const import (
     CONF_CAPABILITIES,
+    CONF_COOL_OVERDRIVE,
     CONF_DEVICES,
     CONF_ENTITY_ID,
     CONF_IDLE,
     CONF_IDLE_ACTION,
     CONF_IDLE_SETBACK,
-    CONF_UI_CONFIG,
     CONF_UI_VERSION,
     DEFAULT_IDLE_SETBACK,
+    DEFAULT_COOL_OVERDRIVE,
+    MIN_COOL_OVERDRIVE,
+    MAX_COOL_OVERDRIVE,
+    COOL_OVERDRIVE_STEP,
     IDLE_ACTION_OFF,
     IDLE_ACTION_SETBACK,
 )
@@ -179,6 +183,7 @@ class DeviceFlowMixin(OptionsFlowBase):
                 compressor_group=user_input.get("compressor_group", "").strip(),
                 min_compressor_runtime=int(user_input.get("min_compressor_runtime", 0)),
                 min_compressor_off_time=int(user_input.get("min_compressor_off_time", 0)),
+                cool_overdrive=float(user_input.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE)),
             )
 
         current = self._load_device_config(device_id)
@@ -249,6 +254,13 @@ class DeviceFlowMixin(OptionsFlowBase):
                     min=0, max=3600, step=30, unit_of_measurement="s",
                     mode=NumberSelectorMode.BOX,
                 )),
+                vol.Required(CONF_COOL_OVERDRIVE,
+                    default=current.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE),
+                ): NumberSelector(NumberSelectorConfig(
+                    min=MIN_COOL_OVERDRIVE, max=MAX_COOL_OVERDRIVE, step=COOL_OVERDRIVE_STEP,
+                    unit_of_measurement="°F",
+                    mode=NumberSelectorMode.BOX,
+                )),
             }),
             errors=errors,
             description_placeholders={
@@ -284,6 +296,7 @@ class DeviceFlowMixin(OptionsFlowBase):
             "compressor_group": device_conf.get("compressor_group", ""),
             "min_compressor_runtime": device_conf.get("min_compressor_runtime", 0),
             "min_compressor_off_time": device_conf.get("min_compressor_off_time", 0),
+            CONF_COOL_OVERDRIVE: device_conf.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE),
         }
 
     # Backwards compat alias
@@ -294,7 +307,7 @@ class DeviceFlowMixin(OptionsFlowBase):
     def _save_device_config(
         self, device_id: str, capabilities: list[str], action: str, setback: float,
         *, compressor_group: str = "", min_compressor_runtime: int = 0,
-        min_compressor_off_time: int = 0,
+        min_compressor_off_time: int = 0, cool_overdrive: float = DEFAULT_COOL_OVERDRIVE,
     ) -> FlowResult:
         """Save device configuration to options storage."""
         stored_config = dict(self._get_ui_config())
@@ -313,6 +326,7 @@ class DeviceFlowMixin(OptionsFlowBase):
             "compressor_group": compressor_group,
             "min_compressor_runtime": min_compressor_runtime,
             "min_compressor_off_time": min_compressor_off_time,
+            CONF_COOL_OVERDRIVE: cool_overdrive,
         }
         stored_config["devices"] = devices
 

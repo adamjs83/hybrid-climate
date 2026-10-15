@@ -36,6 +36,7 @@ def _sync_zone_setpoint_from_device(
     zone_state: ZoneState | None,
     current_temp: float,
     current_mode: str,
+    cool_overdrive: float = 0.0,
 ) -> None:
     """Sync zone setpoint from device, writing to heat or cool target based on mode.
 
@@ -44,9 +45,11 @@ def _sync_zone_setpoint_from_device(
     because we can't determine which setpoint the user intended to change.
     """
     if current_mode == HVAC_MODE_COOL:
-        coordinator._zone_target_temps_cool[zone_id] = current_temp
+        # The physical cool target includes overdrive; recover the user's zone target.
+        cool_target = current_temp + cool_overdrive
+        coordinator._zone_target_temps_cool[zone_id] = cool_target
         if zone_state:
-            zone_state.target_temperature_cool = current_temp
+            zone_state.target_temperature_cool = cool_target
     elif current_mode == HVAC_MODE_HEAT:
         coordinator._zone_target_temps[zone_id] = current_temp
         if zone_state:
@@ -204,13 +207,13 @@ async def check_external_device_changes(coordinator: HybridClimateCoordinator) -
 
 def _sync_eligible_zones(
     coordinator: HybridClimateCoordinator, zone_ids: list[str],
-    current_temp: float, current_mode: str,
+    current_temp: float, current_mode: str, cool_overdrive: float = 0.0,
 ) -> None:
     """Distribute one physical change before the device acknowledges it."""
     for zone_id in zone_ids:
         _sync_zone_setpoint_from_device(
             coordinator, zone_id, coordinator.zone_states.get(zone_id),
-            current_temp, current_mode,
+            current_temp, current_mode, cool_overdrive,
         )
 
 
@@ -283,8 +286,13 @@ async def _handle_listening_state(
         zone_ids,
     )
 
-    # Sync overlay to match underlay
-    _sync_eligible_zones(coordinator, zone_ids, current_temp, current_mode)
+    # Only an active cooling owner commanded the physical offset.
+    owned_cooling = any(
+        device_id in state.active_devices and state.hvac_action == HvacAction.COOLING
+        for state in coordinator.zone_states.values()
+    )
+    cool_overdrive = device.cool_overdrive if owned_cooling else 0.0
+    _sync_eligible_zones(coordinator, zone_ids, current_temp, current_mode, cool_overdrive)
 
     # Update desired state to match current (we're now in sync again)
     device.desired_temp = current_temp

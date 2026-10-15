@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 
 from homeassistant.util import dt as dt_util
-from .const import DEFAULT_DEVICE_UNAVAILABLE_GRACE, DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F
+from .const import DEFAULT_COOL_OVERDRIVE, DEFAULT_DEVICE_UNAVAILABLE_GRACE, DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F
 
 
 class DeviceCapability(Enum):
@@ -132,6 +132,7 @@ class Device:
     compressor_group: str | None = None
     min_compressor_runtime: int = 0
     min_compressor_off_time: int = 0
+    cool_overdrive: float = DEFAULT_COOL_OVERDRIVE
 
     # Runtime state
     current_mode: str | None = None  # heat, cool, off

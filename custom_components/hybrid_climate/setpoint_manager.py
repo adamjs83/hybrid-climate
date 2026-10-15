@@ -24,6 +24,7 @@ from .const import (
     TEMP_MAX_VALID,
     TEMP_MIN_VALID,
 )
+from .device_arbitration import cool_dispatch_target
 from .models import MasterMode, MasterModeConfig, ZoneConfig
 from .zone_helpers import resolve_number_entity_id
 from .zone_occupancy import get_occupancy
@@ -400,4 +401,6 @@ async def _immediate_device_update(
             zone_state.regulated_setpoint = device_target
         else:
             device_target = target_temp
+            if direction == HVAC_MODE_COOL:
+                device_target = cool_dispatch_target(device, device_target)
         await coordinator.device_manager.set_device_mode(device, direction, device_target)
