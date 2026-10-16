@@ -3,6 +3,12 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2026-10-16
+
+### Fixed
+- The zone menu header showed a translation error instead of a title. It now reads "Zone settings"; the zone's name is in the text below it.
+- A thermostat reporting a target up to 1.5 °F away from the one Hybrid Climate sent (for example a Nest showing 56 °F for a commanded 55 °F) is no longer flagged as a manual override.
+
 ## [0.17.0] - 2026-10-16
 
 Cooling PI arrives, and the options pages are rebuilt so that editing one setting means opening one page and saving it.

@@ -8,8 +8,8 @@ command (desired_mode is not None), is outside the 60s in-flight command window
 (command_sent_at is None or older than COMMAND_TIMEOUT_SECONDS -- never
 is_commanding(), which never clears for a non-allow_command device), and its
 reported mode/target differs from that desired command by more than tolerance
-(spec v0.13.2 §3.1, amendments A5-A7). When a device reports no
-`target_temp_step` attribute at all (e.g. a real Nest entity, which reports
+(spec v0.13.2 §3.1, amendments A5-A7; at least MANUAL_OVERRIDE_TOLERANCE_F since
+v0.17.1). When a device reports no `target_temp_step` attribute at all (e.g. a real Nest entity, which reports
 whole degrees), the tolerance falls back to HA's own default step for the
 configured unit system (review round 1 item 1).
 
@@ -42,8 +42,8 @@ from .const import (
     DEFAULT_TARGET_TEMP_STEP_C,
     DEFAULT_TARGET_TEMP_STEP_F,
     DOMAIN,
-    EXTERNAL_CHANGE_TOLERANCE_F,
     MANUAL_OVERRIDE_LOG_MESSAGE_FORMAT,
+    MANUAL_OVERRIDE_TOLERANCE_F,
 )
 from .zone_helpers import get_allow_command_devices_for_zone
 
@@ -199,13 +199,13 @@ def _default_target_temp_step(coordinator: HybridClimateCoordinator) -> float:
 
 
 def _tolerance(coordinator: HybridClimateCoordinator, device: Device) -> float:
-    """A7: max(EXTERNAL_CHANGE_TOLERANCE_F, target_temp_step / 2); target_temp_step
-    comes from the device's live attributes, or HA's per-unit default when absent."""
+    """max(MANUAL_OVERRIDE_TOLERANCE_F, target_temp_step / 2) (A7, widened in v0.17.1 for Nest
+    rounding); target_temp_step comes from the device's live attributes, or HA's per-unit default."""
     state = coordinator.hass.states.get(device.entity_id)
     step = state.attributes.get(ATTR_TARGET_TEMP_STEP) if state else None
     if step is None:
         step = _default_target_temp_step(coordinator)
-    return max(EXTERNAL_CHANGE_TOLERANCE_F, step / 2)
+    return max(MANUAL_OVERRIDE_TOLERANCE_F, step / 2)
 
 
 def _format_command(mode: str | None, target: float | None) -> str:

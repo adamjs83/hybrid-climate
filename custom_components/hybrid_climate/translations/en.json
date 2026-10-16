@@ -69,7 +69,7 @@
         }
       },
       "zone_menu": {
-        "title": "Zone: {zone_name}",
+        "title": "Zone settings",
         "description": "Choose what to change in **{zone_name}**.",
         "menu_options": {
           "zone_basics": "Basics & sensors",

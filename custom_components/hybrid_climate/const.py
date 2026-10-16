@@ -396,6 +396,9 @@ COMMAND_GRACE_PERIOD_SECONDS = 10
 COMMAND_TIMEOUT_SECONDS = 60
 EXTERNAL_CHANGE_TOLERANCE_F = 0.1
 EXTERNAL_OVERRIDE_THRESHOLD_F = 3.0
+# A reported target this close to the commanded one is device rounding (a Nest reports a
+# commanded 55 as 56), not a manual override.
+MANUAL_OVERRIDE_TOLERANCE_F = 1.5
 
 # Control restore: re-armable takeover passes (v0.13.2 §1)
 RESTORE_SOURCE_STARTUP = "startup"
