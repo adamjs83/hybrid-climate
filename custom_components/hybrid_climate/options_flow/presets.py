@@ -1,4 +1,8 @@
-"""Preset mode configuration flow for Hybrid Climate options."""
+"""Purpose: Preset mode options steps (list and edit per master mode).
+
+Key dependencies: const.py, options_flow/base.py.
+Used by: options_flow/handler.py (PresetFlowMixin).
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -129,8 +133,18 @@ class PresetFlowMixin(OptionsFlowBase):
         # Load current values
         current = self._load_preset_for_edit(mode)
 
-        # Build schema based on mode
-        schema_dict = {}
+        # Build schema based on mode; navigation comes first, like every other options page.
+        schema_dict: dict[Any, Any] = {
+            vol.Required("nav_action", default="save"): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        {"value": "cancel", "label": "← Cancel"},
+                        {"value": "save", "label": "Save →"},
+                    ],
+                    mode=SelectSelectorMode.LIST,
+                )
+            ),
+        }
 
         if mode != MODE_OFF:
             schema_dict[vol.Required(
@@ -181,17 +195,6 @@ class PresetFlowMixin(OptionsFlowBase):
             MODE_BOOST: "Boost",
             MODE_OFF: "Off",
         }
-
-        # Add navigation at the end
-        schema_dict[vol.Required("nav_action", default="save")] = SelectSelector(
-            SelectSelectorConfig(
-                options=[
-                    {"value": "cancel", "label": "← Cancel"},
-                    {"value": "save", "label": "Save →"},
-                ],
-                mode=SelectSelectorMode.LIST,
-            )
-        )
 
         return self.async_show_form(
             step_id="preset_edit",

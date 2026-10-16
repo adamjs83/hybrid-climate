@@ -39,8 +39,8 @@ master:
 # Global conflict rules
 conflicts:
   outdoor_reset:
-    never_heat_above: 75  # Don't heat if outdoor temp > 75°F
-    never_cool_below: 55  # Don't cool if outdoor temp < 55°F
+    never_heat_above: 55  # Don't heat if outdoor temp > 55°F
+    never_cool_below: 63  # Don't cool if outdoor temp < 63°F
 
   # Device mutex rules for shared equipment
   device_mutex:

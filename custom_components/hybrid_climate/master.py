@@ -1,4 +1,8 @@
-"""Master climate entity for Hybrid Climate integration."""
+"""Purpose: Master climate entity; its friendly name is the master device name.
+
+Key dependencies: coordinator.py, models.py, const.py.
+Used by: climate.py (platform setup creates the single master).
+"""
 from __future__ import annotations
 
 import logging
@@ -75,7 +79,8 @@ class MasterClimateEntity(ClimateEntity, RestoreEntity):
 
         # Entity attributes
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_master"
-        self._attr_name = coordinator.config.master.name
+        # None: HA shows the device name ("Hybrid Climate - <master>") without repeating it.
+        self._attr_name = None
         self._attr_precision = 0.1  # Show temperature with 1 decimal place
 
     @property

@@ -1,4 +1,8 @@
-"""Global settings flow for Hybrid Climate options."""
+"""Purpose: Global settings options step (master name, outdoor sensors, occupancy, TOU sensor, outdoor limits).
+
+Key dependencies: const.py, options_flow/base.py.
+Used by: options_flow/handler.py (GlobalSettingsMixin).
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -90,7 +94,7 @@ class GlobalSettingsMixin(OptionsFlowBase):
                 return self._save_global_settings(settings)
 
         outdoor_sensors_default = current.get(CONF_OUTDOOR_SENSORS) or []
-        occupancy_default = current.get(CONF_OCCUPANCY_ENTITY) or ""
+        occupancy_default = current.get(CONF_OCCUPANCY_ENTITY) or None
         tou_rate_sensor_default = current.get(CONF_TOU_RATE_SENSOR) or ""
 
         return self.async_show_form(
@@ -114,10 +118,11 @@ class GlobalSettingsMixin(OptionsFlowBase):
                         CONF_OUTDOOR_SENSORS,
                         default=outdoor_sensors_default,
                     ): EntitySelector(EntitySelectorConfig(domain=list(OUTDOOR_ENTITY_DOMAINS), multiple=True)),
+                    # Suggested, not default: a blank picker stays blank instead of validating "".
                     vol.Optional(
                         CONF_OCCUPANCY_ENTITY,
-                        default=occupancy_default,
-                    ): str,
+                        description={"suggested_value": occupancy_default},
+                    ): EntitySelector(EntitySelectorConfig(domain=["binary_sensor", "input_boolean"])),
                     vol.Optional(
                         CONF_TOU_RATE_SENSOR,
                         description={"suggested_value": tou_rate_sensor_default},

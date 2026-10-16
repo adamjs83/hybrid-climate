@@ -1,10 +1,7 @@
-"""Zone configuration wizard steps.
+"""Purpose: The seven zone configuration wizard steps (basics, occupancy, heat stages, cool stages, settings, PI settings, TOU).
 
-Contains the 6 step methods for the zone configuration wizard:
-basics, occupancy, heat stages, cool stages, settings, PI settings.
-
-Key dependencies: options_flow/base.py (BaseFlowMixin), zone_helpers.py
-Used by: options_flow/zones.py (ZoneFlowMixin inherits these)
+Key dependencies: const.py, entity registry (PI number ids), regulation_devices.py, sensor_weights.py (aggregation_selector), zone_helpers.py methods via the composed flow.
+Used by: options_flow/zones.py (ZoneFlowMixin inherits ZoneStepsMixin).
 """
 from __future__ import annotations
 
@@ -13,6 +10,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
@@ -39,6 +37,8 @@ from ..const import (
     CONF_OCCUPANCY_OFF_DELAY,
     DEFAULT_OCCUPANCY_OFF_DELAY,
     MAX_OCCUPANCY_OFF_DELAY,
+    OCCUPANCY_OFF_DELAY_MINUTES_STEP,
+    SECONDS_PER_MINUTE,
     CONF_SENSORS,
     CONF_SMOOTHING_SAMPLES,
     CONF_TOU,
@@ -47,15 +47,10 @@ from ..const import (
     CONF_TOU_PRE_CONDITION_MINUTES,
     CONF_TOU_RELAXATION_AMOUNT,
     CONF_ZONES,
-    DEFAULT_BALANCE_POINT,
     DEFAULT_HYSTERESIS,
-    DEFAULT_KP,
-    DEFAULT_KI,
-    DEFAULT_K_EXT,
     DEFAULT_MIN_RUNTIME,
     DEFAULT_OPEN_DELAY,
     DEFAULT_CLOSE_DELAY,
-    DEFAULT_OFFSET_MAX,
     DEFAULT_REGULATION_MIN_PERIOD,
     DEFAULT_REGULATION_THRESHOLD,
     MAX_REGULATION_MIN_PERIOD,
@@ -63,20 +58,28 @@ from ..const import (
     MIN_REGULATION_MIN_PERIOD,
     MIN_REGULATION_THRESHOLD,
     DEFAULT_SMOOTHING_SAMPLES,
-    DEFAULT_TIME_ESCALATION,
     DEFAULT_TOU_PRE_CONDITION_MINUTES,
     DEFAULT_TOU_RELAXATION_AMOUNT,
+    DOMAIN,
     MAX_SMOOTHING_SAMPLES,
-    MIN_SMOOTHING_SAMPLES,
+    MIN_SMOOTHING_SAMPLES, NEW_ZONE_TITLE,
+    PI_NUMBER_KEYS,
+    PI_NUMBERS_NEW_ZONE_TEXT,
     REGULATION_DIRECT,
     REGULATION_PI,
+    STAGES_DISABLED_KEYS,
 )
+from .base import minutes_to_seconds, seconds_to_minutes
 from .regulation_devices import heat_capable_stage_devices, selected_pi_devices
 from .sensor_weights import aggregation_selector
+from .stage_fields import stage_form_fields, submitted_stages
 
 
 class ZoneStepsMixin:
     """Mixin providing zone wizard step methods."""
+
+    # Zone being edited; None while adding a zone (ZoneFlowMixin sets it).
+    _zone_edit_id: str | None = None
 
     async def async_step_zone_basics(
         self, user_input: dict[str, Any] | None = None
@@ -169,7 +172,7 @@ class ZoneStepsMixin:
             data_schema=vol.Schema(schema_dict),
             errors=errors,
             description_placeholders={
-                "zone_id": self._zone_edit_id or "(new)",
+                "zone_name": name_default if self._zone_edit_id and name_default else NEW_ZONE_TITLE,
             },
         )
 
@@ -205,7 +208,10 @@ class ZoneStepsMixin:
                 else:
                     self._zone_wip[CONF_OCCUPANCY_ENTITY] = None
                 self._zone_wip["occupied_offset"] = user_input.get("occupied_offset", 2)
-                self._zone_wip[CONF_OCCUPANCY_OFF_DELAY] = int(user_input.get(CONF_OCCUPANCY_OFF_DELAY, DEFAULT_OCCUPANCY_OFF_DELAY))
+                # The form shows minutes; storage stays in seconds.
+                self._zone_wip[CONF_OCCUPANCY_OFF_DELAY] = minutes_to_seconds(
+                    user_input.get(CONF_OCCUPANCY_OFF_DELAY), DEFAULT_OCCUPANCY_OFF_DELAY,
+                )
                 self._zone_wip["unoccupied_offset"] = user_input.get("unoccupied_offset", -2)
             else:
                 self._zone_wip[CONF_OCCUPANCY_ENTITY] = None
@@ -214,7 +220,7 @@ class ZoneStepsMixin:
         wip = self._zone_wip or {}
         occupancy_enabled = wip.get("occupancy_enabled", False)
         occupancy_entity = wip.get(CONF_OCCUPANCY_ENTITY) or ""
-        occupancy_off_delay = wip.get(CONF_OCCUPANCY_OFF_DELAY, DEFAULT_OCCUPANCY_OFF_DELAY)
+        occupancy_off_delay = seconds_to_minutes(wip.get(CONF_OCCUPANCY_OFF_DELAY) or DEFAULT_OCCUPANCY_OFF_DELAY)
         occupied_offset = wip.get("occupied_offset", 2)
         unoccupied_offset = wip.get("unoccupied_offset", -2)
 
@@ -224,7 +230,7 @@ class ZoneStepsMixin:
                 SelectSelectorConfig(
                     options=[
                         {"value": "back", "label": "← Back"},
-                        {"value": "skip", "label": "Skip (no occupancy)"},
+                        {"value": "skip", "label": "Disable occupancy for this zone"},
                         {"value": "next", "label": "Next →"},
                     ],
                     mode=SelectSelectorMode.LIST,
@@ -238,7 +244,13 @@ class ZoneStepsMixin:
             EntitySelectorConfig(domain=["binary_sensor", "input_boolean"])
         )
         schema_dict[vol.Optional(CONF_OCCUPANCY_OFF_DELAY, default=occupancy_off_delay)] = NumberSelector(
-            NumberSelectorConfig(min=0, max=MAX_OCCUPANCY_OFF_DELAY, step=1, unit_of_measurement="s", mode=NumberSelectorMode.BOX)
+            NumberSelectorConfig(
+                min=0,
+                max=MAX_OCCUPANCY_OFF_DELAY / SECONDS_PER_MINUTE,
+                step=OCCUPANCY_OFF_DELAY_MINUTES_STEP,
+                unit_of_measurement="min",
+                mode=NumberSelectorMode.BOX,
+            )
         )
         schema_dict[vol.Optional("occupied_offset", default=occupied_offset)] = NumberSelector(
             NumberSelectorConfig(
@@ -282,36 +294,16 @@ class ZoneStepsMixin:
 
             self._zone_wip = self._zone_wip or {}
 
-            # Parse stage data from form
-            # allow_command is managed on the zone_settings step, but preserve
-            # existing values so editing stages doesn't clear them
-            existing_allow = {
-                d.get("entity_id", ""): d.get("allow_command", False)
-                for s in self._zone_wip.get("heat_stages", [])
-                for d in s.get("devices", [])
-                if isinstance(d, dict)
-            }
-            heat_stages = []
-            if user_input.get("has_heat_stages", True):
-                stage1_devices = user_input.get("stage1_devices", [])
-                if stage1_devices:
-                    heat_stages.append({
-                        "stage": 1,
-                        "devices": [{"entity_id": eid, "allow_command": existing_allow.get(eid, False)} for eid in stage1_devices if eid],
-                        "threshold": user_input.get("stage1_threshold", 1.0),
-                    })
-
-                stage2_devices = user_input.get("stage2_devices", [])
-                if stage2_devices:
-                    heat_stages.append({
-                        "stage": 2,
-                        "devices": [{"entity_id": eid, "allow_command": existing_allow.get(eid, False)} for eid in stage2_devices if eid],
-                        "threshold": user_input.get("stage2_threshold", 2.5),
-                        "time_escalation": int(user_input.get("stage2_time_escalation", DEFAULT_TIME_ESCALATION)),
-                        "outdoor_temp_min": user_input.get("stage2_outdoor_min"),
-                    })
-
-            self._zone_wip["heat_stages"] = heat_stages
+            key = "heat_stages"
+            enabled = bool(user_input.get("has_heat_stages", True))
+            # Stages 1-2 from the form, then the stored stages 3+ (canonical) for later pages.
+            baseline = (self._zone_wip.get("_edit_baseline") or {}) if self._zone_edit_id else {}
+            self._zone_wip[key] = submitted_stages(
+                user_input, self._zone_wip.get(key, []), baseline.get(key, []),
+                enabled=enabled, include_outdoor_min=True,
+            )
+            # Unticking the toggle disables the mode: the save drops stored stages 3+ too.
+            self._zone_wip[STAGES_DISABLED_KEYS[key]] = not enabled
             return await self.async_step_zone_cool_stages()
 
         wip = self._zone_wip or {}
@@ -337,48 +329,9 @@ class ZoneStepsMixin:
                         mode=SelectSelectorMode.LIST,
                     )
                 ),
-                vol.Required("has_heat_stages", default=len(heat_stages) > 0 or not heat_stages): BooleanSelector(),
-                vol.Optional("stage1_devices", default=stage1_device_ids): EntitySelector(
-                    EntitySelectorConfig(domain="climate", multiple=True)
-                ),
-                vol.Optional("stage1_threshold", default=stage1.get("threshold", 1.0)): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0.5,
-                        max=10,
-                        step=0.5,
-                        unit_of_measurement="°F",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Optional("stage2_devices", description={"suggested_value": stage2_device_ids if stage2_device_ids else None}): EntitySelector(
-                    EntitySelectorConfig(domain="climate", multiple=True)
-                ),
-                vol.Optional("stage2_threshold", description={"suggested_value": stage2.get("threshold")}): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0.5,
-                        max=10,
-                        step=0.5,
-                        unit_of_measurement="°F",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Optional("stage2_time_escalation", description={"suggested_value": stage2.get("time_escalation")}): NumberSelector(
-                    NumberSelectorConfig(
-                        min=300,
-                        max=7200,
-                        step=300,
-                        unit_of_measurement="sec",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Optional("stage2_outdoor_min", description={"suggested_value": stage2.get("outdoor_temp_min")}): NumberSelector(
-                    NumberSelectorConfig(
-                        min=-20,
-                        max=80,
-                        step=1,
-                        unit_of_measurement="°F",
-                        mode=NumberSelectorMode.BOX,
-                    )
+                vol.Required("has_heat_stages", default=len(heat_stages) > 0 or not self._zone_edit_id): BooleanSelector(),
+                **stage_form_fields(
+                    stage1, stage2, stage1_device_ids, stage2_device_ids, include_outdoor_min=True,
                 ),
             }),
             errors=errors,
@@ -401,35 +354,16 @@ class ZoneStepsMixin:
 
             self._zone_wip = self._zone_wip or {}
 
-            # Parse stage data from form
-            # allow_command is managed on the zone_settings step, but preserve
-            # existing values so editing stages doesn't clear them
-            existing_allow = {
-                d.get("entity_id", ""): d.get("allow_command", False)
-                for s in self._zone_wip.get("cool_stages", [])
-                for d in s.get("devices", [])
-                if isinstance(d, dict)
-            }
-            cool_stages = []
-            if user_input.get("has_cool_stages", False):
-                stage1_devices = user_input.get("stage1_devices", [])
-                if stage1_devices:
-                    cool_stages.append({
-                        "stage": 1,
-                        "devices": [{"entity_id": eid, "allow_command": existing_allow.get(eid, False)} for eid in stage1_devices if eid],
-                        "threshold": user_input.get("stage1_threshold", 1.0),
-                    })
-
-                stage2_devices = user_input.get("stage2_devices", [])
-                if stage2_devices:
-                    cool_stages.append({
-                        "stage": 2,
-                        "devices": [{"entity_id": eid, "allow_command": existing_allow.get(eid, False)} for eid in stage2_devices if eid],
-                        "threshold": user_input.get("stage2_threshold", 2.5),
-                        "time_escalation": int(user_input.get("stage2_time_escalation", DEFAULT_TIME_ESCALATION)),
-                    })
-
-            self._zone_wip["cool_stages"] = cool_stages
+            key = "cool_stages"
+            enabled = bool(user_input.get("has_cool_stages", False))
+            # Stages 1-2 from the form, then the stored stages 3+ (canonical) for later pages.
+            baseline = (self._zone_wip.get("_edit_baseline") or {}) if self._zone_edit_id else {}
+            self._zone_wip[key] = submitted_stages(
+                user_input, self._zone_wip.get(key, []), baseline.get(key, []),
+                enabled=enabled, include_outdoor_min=False,
+            )
+            # Unticking the toggle disables the mode: the save drops stored stages 3+ too.
+            self._zone_wip[STAGES_DISABLED_KEYS[key]] = not enabled
             return await self.async_step_zone_settings()
 
         wip = self._zone_wip or {}
@@ -456,38 +390,8 @@ class ZoneStepsMixin:
                     )
                 ),
                 vol.Required("has_cool_stages", default=len(cool_stages) > 0): BooleanSelector(),
-                vol.Optional("stage1_devices", default=stage1_device_ids): EntitySelector(
-                    EntitySelectorConfig(domain="climate", multiple=True)
-                ),
-                vol.Optional("stage1_threshold", default=stage1.get("threshold", 1.0)): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0.5,
-                        max=10,
-                        step=0.5,
-                        unit_of_measurement="°F",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Optional("stage2_devices", description={"suggested_value": stage2_device_ids if stage2_device_ids else None}): EntitySelector(
-                    EntitySelectorConfig(domain="climate", multiple=True)
-                ),
-                vol.Optional("stage2_threshold", description={"suggested_value": stage2.get("threshold")}): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0.5,
-                        max=10,
-                        step=0.5,
-                        unit_of_measurement="°F",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Optional("stage2_time_escalation", description={"suggested_value": stage2.get("time_escalation")}): NumberSelector(
-                    NumberSelectorConfig(
-                        min=300,
-                        max=7200,
-                        step=300,
-                        unit_of_measurement="sec",
-                        mode=NumberSelectorMode.BOX,
-                    )
+                **stage_form_fields(
+                    stage1, stage2, stage1_device_ids, stage2_device_ids, include_outdoor_min=False,
                 ),
             }),
             errors=errors,
@@ -625,7 +529,7 @@ class ZoneStepsMixin:
                     min=60,
                     max=1800,
                     step=60,
-                    unit_of_measurement="sec",
+                    unit_of_measurement="s",
                     mode=NumberSelectorMode.BOX,
                 )
             ),
@@ -633,10 +537,10 @@ class ZoneStepsMixin:
                 EntitySelectorConfig(domain="binary_sensor", multiple=True)
             ),
             vol.Required(CONF_OPEN_DELAY, default=open_delay): NumberSelector(
-                NumberSelectorConfig(min=0, max=3600, step=1, unit_of_measurement="sec", mode=NumberSelectorMode.BOX)
+                NumberSelectorConfig(min=0, max=3600, step=1, unit_of_measurement="s", mode=NumberSelectorMode.BOX)
             ),
             vol.Required(CONF_CLOSE_DELAY, default=close_delay): NumberSelector(
-                NumberSelectorConfig(min=0, max=3600, step=1, unit_of_measurement="sec", mode=NumberSelectorMode.BOX)
+                NumberSelectorConfig(min=0, max=3600, step=1, unit_of_measurement="s", mode=NumberSelectorMode.BOX)
             ),
             # Opportunistic heating settings
             vol.Required("opportunistic_enabled", default=opportunistic_enabled): BooleanSelector(),
@@ -675,8 +579,8 @@ class ZoneStepsMixin:
             vol.Required("regulation_type", default=regulation_type): SelectSelector(
                 SelectSelectorConfig(
                     options=[
-                        {"value": REGULATION_DIRECT, "label": "Direct (send zone target to devices)"},
-                        {"value": REGULATION_PI, "label": "PI Control (adjust device setpoint based on error)"},
+                        {"value": REGULATION_DIRECT, "label": "Direct (send the zone target)"},
+                        {"value": REGULATION_PI, "label": "PI (adjust the thermostat setpoint from the room error)"},
                     ],
                     mode=SelectSelectorMode.DROPDOWN,
                 )
@@ -717,13 +621,8 @@ class ZoneStepsMixin:
             self._zone_wip = self._zone_wip or {}
             self._zone_wip["pi_config"] = {
                 "devices": user_input.get("pi_devices", []),
-                "kp": user_input.get("kp", DEFAULT_KP),
-                "ki": user_input.get("ki", DEFAULT_KI),
-                "k_ext": user_input.get("k_ext", DEFAULT_K_EXT),
-                "offset_max": user_input.get("offset_max", DEFAULT_OFFSET_MAX),
                 "regulation_threshold": user_input.get("regulation_threshold", DEFAULT_REGULATION_THRESHOLD),
                 "regulation_min_period": int(user_input.get("regulation_min_period", DEFAULT_REGULATION_MIN_PERIOD)),
-                "balance_point": user_input.get("balance_point", DEFAULT_BALANCE_POINT),
             }
             return await self.async_step_zone_tou()
 
@@ -754,24 +653,6 @@ class ZoneStepsMixin:
                         mode=SelectSelectorMode.LIST,
                     )
                 ),
-                vol.Required("kp", default=pi_config.get("kp", DEFAULT_KP)): NumberSelector(
-                    NumberSelectorConfig(min=0.1, max=5.0, step=0.1, mode=NumberSelectorMode.BOX)
-                ),
-                vol.Required("ki", default=pi_config.get("ki", DEFAULT_KI)): NumberSelector(
-                    NumberSelectorConfig(min=0.001, max=0.5, step=0.001, mode=NumberSelectorMode.BOX)
-                ),
-                vol.Required("k_ext", default=pi_config.get("k_ext", DEFAULT_K_EXT)): NumberSelector(
-                    NumberSelectorConfig(min=0.0, max=1.0, step=0.05, mode=NumberSelectorMode.BOX)
-                ),
-                vol.Required("offset_max", default=pi_config.get("offset_max", DEFAULT_OFFSET_MAX)): NumberSelector(
-                    NumberSelectorConfig(
-                        min=1,
-                        max=20,
-                        step=1,
-                        unit_of_measurement="°F",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
                 vol.Required("regulation_threshold", default=pi_config.get("regulation_threshold", DEFAULT_REGULATION_THRESHOLD)): NumberSelector(
                     NumberSelectorConfig(min=MIN_REGULATION_THRESHOLD, max=MAX_REGULATION_THRESHOLD,
                                          step=0.1, unit_of_measurement="°F", mode=NumberSelectorMode.BOX)
@@ -780,20 +661,23 @@ class ZoneStepsMixin:
                     NumberSelectorConfig(min=MIN_REGULATION_MIN_PERIOD, max=MAX_REGULATION_MIN_PERIOD,
                                          step=1, unit_of_measurement="min", mode=NumberSelectorMode.BOX)
                 ),
-                vol.Required("balance_point", default=pi_config.get("balance_point", DEFAULT_BALANCE_POINT)): NumberSelector(
-                    NumberSelectorConfig(
-                        min=30,
-                        max=80,
-                        step=1,
-                        unit_of_measurement="°F",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
             }),
             errors=errors,
             description_placeholders={
                 "zone_name": wip.get(CONF_NAME, "Zone"),
+                "pi_numbers": self._pi_number_entity_ids(),
             },
+        )
+
+    def _pi_number_entity_ids(self) -> str:
+        """Name the edited zone's PI gain number entities, resolved from the entity registry."""
+        if not self._zone_edit_id:
+            return PI_NUMBERS_NEW_ZONE_TEXT
+        registry = er.async_get(self.hass)
+        # Resolve by unique id (as number_entities.py sets it); a missing entity shows its key.
+        return ", ".join(
+            registry.async_get_entity_id("number", DOMAIN, f"{DOMAIN}_{self._zone_edit_id}_{key}") or key
+            for key in PI_NUMBER_KEYS
         )
 
     async def async_step_zone_tou(

@@ -1,4 +1,8 @@
-"""Heat source group configuration flow for Hybrid Climate options."""
+"""Purpose: Heat source group options steps (list, add and edit).
+
+Key dependencies: const.py, options_flow/base.py.
+Used by: options_flow/handler.py (HeatSourceFlowMixin).
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -134,17 +138,8 @@ class HeatSourceFlowMixin(OptionsFlowBase):
         # Load current values for editing
         current = self._load_heat_source_for_edit()
 
-        schema_dict = {}
-        
-        # Only show source_id field when adding new
-        if not self._heat_source_edit_id:
-            schema_dict[vol.Required("source_id", default=current.get("source_id", ""))] = str
-
-        schema_dict.update({
-            vol.Required(CONF_NAME, default=current.get(CONF_NAME, "")): str,
-            vol.Required(CONF_DEVICES, default=current.get(CONF_DEVICES, [])): EntitySelector(
-                EntitySelectorConfig(domain="climate", multiple=True)
-            ),
+        # Navigation comes first, like every other options page.
+        schema_dict: dict[Any, Any] = {
             vol.Required("nav_action", default="save"): SelectSelector(
                 SelectSelectorConfig(
                     options=[
@@ -153,6 +148,17 @@ class HeatSourceFlowMixin(OptionsFlowBase):
                     ],
                     mode=SelectSelectorMode.LIST,
                 )
+            ),
+        }
+
+        # Only show source_id field when adding new
+        if not self._heat_source_edit_id:
+            schema_dict[vol.Required("source_id", default=current.get("source_id", ""))] = str
+
+        schema_dict.update({
+            vol.Required(CONF_NAME, default=current.get(CONF_NAME, "")): str,
+            vol.Required(CONF_DEVICES, default=current.get(CONF_DEVICES, [])): EntitySelector(
+                EntitySelectorConfig(domain="climate", multiple=True)
             ),
         })
 

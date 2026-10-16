@@ -1,4 +1,8 @@
-"""Zone climate entity for Hybrid Climate integration."""
+"""Purpose: Zone climate entity; its friendly name is the zone device name.
+
+Key dependencies: coordinator.py, models.py, const.py.
+Used by: climate.py (platform setup creates one per zone).
+"""
 from __future__ import annotations
 
 import logging
@@ -69,7 +73,8 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
 
         # Entity attributes
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{self.zone_id}"
-        self._attr_name = zone_config.name
+        # None: HA shows the device name ("Hybrid Climate - <zone>") without repeating the zone.
+        self._attr_name = None
 
         # Determine supported HVAC modes based on configured stages
         modes = [HVACMode.OFF]

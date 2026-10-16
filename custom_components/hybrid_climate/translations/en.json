@@ -12,9 +12,6 @@
         }
       }
     },
-    "error": {
-      "no_yaml_config": "No YAML configuration found. You can configure zones and devices via the options menu after setup."
-    },
     "abort": {
       "already_configured": "Hybrid Climate is already configured."
     }
@@ -30,28 +27,28 @@
           "heat_sources": "Heat Source Groups",
           "presets": "Preset Modes",
           "conflicts": "Device Conflicts",
-          "devices": "Device Behaviors"
+          "devices": "Devices"
         }
       },
       "global_settings": {
         "title": "Global Settings",
-        "description": "Configure the master entity, sensors, and outdoor temperature limits.",
+        "description": "Configure the master entity, presence, outdoor sensors and limits, the device outage grace period, and the TOU rate sensor that electricity price adjustments use.",
         "data": {
           "master_name": "Master name",
           "outdoor_sensors": "Outdoor temperature entities (in priority order)",
-          "occupancy_entity": "Occupancy entity",
+          "occupancy_entity": "Presence entity (home/away)",
           "tou_rate_sensor": "TOU rate period sensor",
           "never_heat_above": "Never heat above (outdoor temp)",
-          "lockout_heat_floor": "Idle heat floor during outdoor lockout",
+          "lockout_heat_floor": "Maximum idle heat target during outdoor lockout",
           "device_unavailable_grace": "Device outage grace period",
           "never_cool_below": "Never cool below (outdoor temp)"
         },
         "data_description": {
           "outdoor_sensors": "Select sensor.* or weather.* entities in priority order",
-          "occupancy_entity": "binary_sensor.* or input_boolean.* tracking home occupancy",
+          "occupancy_entity": "binary_sensor or input_boolean; when it changes, the master switches between Home and Away.",
           "tou_rate_sensor": "sensor.* entity whose state indicates the current rate period (e.g., 'peak', 'off_peak')",
           "never_heat_above": "Disable heating when outdoor temperature exceeds this value",
-          "lockout_heat_floor": "Maximum idle heating setpoint while outdoor heating is locked out",
+          "lockout_heat_floor": "Caps the next idle heat command; it does not immediately change an already-idle thermostat.",
           "device_unavailable_grace": "Keep a running stage during a brief device outage (seconds; 0 disables)",
           "never_cool_below": "Disable cooling when outdoor temperature is below this value"
         }
@@ -64,7 +61,7 @@
         }
       },
       "zone_basics": {
-        "title": "Zone: Basic Settings",
+        "title": "Zone: {zone_name} - Basics",
         "description": "Configure zone identity and temperature sensors.",
         "data": {
           "zone_id": "Zone ID",
@@ -96,65 +93,65 @@
         },
         "data_description": {
           "occupancy_entity": "binary_sensor that indicates room occupancy",
-          "occupancy_off_delay": "Seconds to keep occupied setpoints after this integration last saw the zone occupied (0-7200)",
-          "occupied_offset": "Temperature adjustment when occupied",
-          "unoccupied_offset": "Temperature adjustment when unoccupied"
+          "occupancy_off_delay": "Minutes to keep occupied setpoints after this integration last saw the zone occupied (0-120)",
+          "occupied_offset": "Temperature adjustment when occupied (heating; cooling uses the Occupied/Unoccupied Cool numbers)",
+          "unoccupied_offset": "Temperature adjustment when unoccupied (heating; cooling uses the Occupied/Unoccupied Cool numbers)"
         }
       },
       "zone_heat_stages": {
         "title": "Zone: {zone_name} - Heat Stages",
-        "description": "Configure heating stages. Stage 1 activates first; Stage 2 adds devices when Stage 1 can't keep up.",
+        "description": "Configure heating stages. Stage 1 activates first; Stage 2 adds devices when Stage 1 can't keep up. Stages 3 and up are kept as saved.",
         "data": {
           "has_heat_stages": "Enable heating for this zone",
           "stage1_devices": "Stage 1 devices",
           "stage1_threshold": "Stage 1 threshold",
           "stage2_devices": "Stage 2 devices (optional)",
           "stage2_threshold": "Stage 2 threshold",
-          "stage2_time_escalation": "Stage 2 time escalation",
+          "stage2_time_escalation": "Add backup equipment after",
           "stage2_outdoor_min": "Stage 2 min outdoor temp"
         },
         "data_description": {
-          "stage1_threshold": "Activate when this far below target",
-          "stage2_threshold": "Activate Stage 2 when this far below target",
-          "stage2_time_escalation": "Or activate after Stage 1 runs this long without satisfaction",
+          "stage1_threshold": "Start heating when the room is this far below target",
+          "stage2_threshold": "Add stage 2 when the room is this far below target",
+          "stage2_time_escalation": "Or activate after Stage 1 runs this many minutes without satisfaction",
           "stage2_outdoor_min": "Only use Stage 2 when outdoor temp is above this (for heat pump efficiency)"
         }
       },
       "zone_cool_stages": {
         "title": "Zone: {zone_name} - Cool Stages",
-        "description": "Configure cooling stages.",
+        "description": "Configure cooling stages. Stages 3 and up are kept as saved.",
         "data": {
           "has_cool_stages": "Enable cooling for this zone",
           "stage1_devices": "Stage 1 devices",
           "stage1_threshold": "Stage 1 threshold",
           "stage2_devices": "Stage 2 devices (optional)",
           "stage2_threshold": "Stage 2 threshold",
-          "stage2_time_escalation": "Stage 2 time escalation"
+          "stage2_time_escalation": "Add backup equipment after"
         },
         "data_description": {
-          "stage1_threshold": "Activate when this far above target",
-          "stage2_threshold": "Activate Stage 2 when this far above target",
-          "stage2_time_escalation": "Or activate after Stage 1 runs this long without satisfaction"
+          "stage1_threshold": "Start cooling when the room is this far above target",
+          "stage2_threshold": "Add stage 2 when the room is this far above target",
+          "stage2_time_escalation": "Or activate after Stage 1 runs this many minutes without satisfaction"
         }
       },
       "zone_settings": {
         "title": "Zone: {zone_name} - Settings",
         "description": "Configure zone control behavior, opportunistic heating, and outdoor reset overrides.",
         "data": {
-          "hysteresis": "Hysteresis",
+          "hysteresis": "Start/stop temperature buffer",
           "min_runtime": "Minimum runtime",
           "entities": "Door/window contacts",
           "open_delay": "Open delay",
           "close_delay": "Close delay",
-          "opportunistic_enabled": "Enable opportunistic heating",
+          "opportunistic_enabled": "Use an already-running shared heat source (see Heat Source Groups)",
           "opportunistic_threshold": "Opportunistic threshold",
           "override_outdoor_reset": "Override global outdoor reset limits",
           "disable_cool_limit": "Disable cooling temperature limit",
           "zone_never_cool_below": "Zone-specific never cool below",
           "disable_heat_limit": "Disable heating temperature limit",
           "zone_never_heat_above": "Zone-specific never heat above",
-          "regulation_type": "Regulation type",
-          "allow_command_devices": "Devices that sync external changes"
+          "regulation_type": "Heating regulation",
+          "allow_command_devices": "Wall thermostats allowed to change this zone's target"
         },
         "data_description": {
           "hysteresis": "Temperature buffer to prevent short-cycling",
@@ -169,37 +166,27 @@
           "zone_never_cool_below": "Only cool when outdoor temp is above this (leave empty to use global)",
           "disable_heat_limit": "Allow heating regardless of outdoor temperature",
           "zone_never_heat_above": "Only heat when outdoor temp is below this (leave empty to use global)",
-          "regulation_type": "How to control underlying devices",
-          "allow_command_devices": "Select devices whose manual thermostat changes should sync back to the zone setpoint. One toggle per device applies across all stages."
+          "regulation_type": "How heating devices receive the zone target (cooling regulation is set per device under Devices)",
+          "allow_command_devices": "A manual edit can affect every zone sharing this thermostat with sync enabled."
         }
       },
       "zone_pi_settings": {
-        "title": "Zone: {zone_name} - PI Control",
-        "description": "Configure PI controller for regulated devices. The controller adjusts device setpoints based on error to improve comfort.",
+        "title": "Zone: {zone_name} - Heating regulation (PI)",
+        "description": "Choose which heating thermostats PI adjusts and how often a new setpoint is sent. The gains live on the zone's number entities: {pi_numbers}.",
         "data": {
-          "pi_devices": "Devices to regulate",
-          "kp": "Proportional gain (Kp)",
-          "ki": "Integral gain (Ki)",
-          "k_ext": "Outdoor factor (K_ext)",
-          "offset_max": "Maximum offset",
-          "balance_point": "Balance point",
-          "regulation_threshold": "Regulation threshold",
-          "regulation_min_period": "Minimum regulation period"
+          "pi_devices": "Heating thermostats to adjust",
+          "regulation_threshold": "Minimum heating command change",
+          "regulation_min_period": "Minimum time between changes"
         },
         "data_description": {
-          "pi_devices": "Which devices should receive adjusted setpoints",
-          "kp": "How aggressively to respond to current error",
-          "ki": "How aggressively to respond to accumulated error",
-          "k_ext": "Factor to adjust based on outdoor temperature (0 = disabled)",
-          "offset_max": "Maximum setpoint adjustment in either direction",
-          "balance_point": "Outdoor temperature where no adjustment is needed",
+          "pi_devices": "These receive a calculated equipment temperature, which may differ from the room target.",
           "regulation_threshold": "Only send a new regulated setpoint when it moves at least this many °F. 0 = every change.",
           "regulation_min_period": "Minimum minutes between regulated setpoint changes. Target changes are sent at once. 0 = no limit."
         }
       },
       "zone_tou": {
-        "title": "Zone: {zone_name} - TOU Optimization",
-        "description": "Configure Time-of-Use rate optimization. When a peak rate period is detected, the system pre-conditions before the peak and relaxes setpoints during the peak to reduce electric device runtime.",
+        "title": "Zone: {zone_name} - Electricity price adjustments",
+        "description": "Needs the TOU rate sensor from Global Settings. Configure Time-of-Use rate optimization. When a peak rate period is detected, the system pre-conditions before the peak and relaxes setpoints during the peak to reduce electric device runtime.",
         "data": {
           "tou_heat_enabled": "Enable TOU for heating",
           "tou_heat_pre_condition_minutes": "Heat pre-condition minutes",
@@ -216,27 +203,15 @@
         }
       },
       "devices": {
-        "title": "Device Behaviors",
-        "description": "Select a device to configure its idle behavior.",
+        "title": "Devices",
+        "description": "Choose a device to edit its heating/cooling support, idle action, compressor protection and cooling regulation.",
         "data": {
           "action": "Select device"
         }
       },
-      "device_idle": {
-        "title": "Device: {device_id}",
-        "description": "Configure what this device does when its zone is satisfied.",
-        "data": {
-          "action": "When idle",
-          "setback": "Setback amount"
-        },
-        "data_description": {
-          "action": "Turn off or maintain a setback temperature",
-          "setback": "Degrees below (heat) or above (cool) target when idle"
-        }
-      },
       "device_edit": {
         "title": "Device: {device_id}",
-        "description": "Configure capabilities, idle behavior, and shared compressor timing.",
+        "description": "Edit this device's heating/cooling support, idle action, compressor protection and cooling regulation.",
         "data": {
           "can_heat": "Can Heat",
           "can_cool": "Can Cool",
@@ -245,31 +220,31 @@
           "compressor_group": "Compressor group",
           "min_compressor_runtime": "Minimum compressor run time",
           "min_compressor_off_time": "Minimum compressor off time",
-          "cool_overdrive": "Cooling overdrive",
+          "cool_overdrive": "Lower equipment cooling target by",
           "cool_regulation": "Cooling regulation",
-          "cool_compensation_max": "Maximum compensation",
-          "cool_compensation_sensor": "Unit temperature sensor",
-          "cool_regulation_threshold": "Resend threshold",
-          "cool_regulation_min_period": "Minimum time between resends",
-          "cool_dry_out": "Coil dry-out",
-          "cool_dry_out_minutes": "Dry-out time"
+          "cool_compensation_max": "Maximum sensor correction",
+          "cool_compensation_sensor": "Unit's own temperature sensor",
+          "cool_regulation_threshold": "Minimum cooling correction change",
+          "cool_regulation_min_period": "Minimum time between cooling correction changes",
+          "cool_dry_out": "Run fan after cooling",
+          "cool_dry_out_minutes": "Fan run time after cooling"
         },
         "data_description": {
           "can_heat": "Device can be used for heating",
-          "can_cool": "Device can be used for cooling",
+          "can_cool": "Turn on to show the cooling regulation settings on the next open.",
           "action": "Turn off or maintain a setback temperature",
           "setback": "Degrees below (heat) or above (cool) target when idle",
           "compressor_group": "Devices with the same group share compressor timing; leave empty to disable",
           "min_compressor_runtime": "Seconds the shared compressor must run before a normal stop",
           "min_compressor_off_time": "Seconds the shared compressor must remain off before restarting",
-          "cool_overdrive": "Send the device this many °F below the zone's cooling target while a zone calls for cooling; the zone still stops at its own target. 0 = off.",
-          "cool_regulation": "How this device's cooling setpoint is chosen: off sends the zone target, fixed overdrive sends the target minus the overdrive below, compensate sends the zone target plus (unit reading − room reading), and cooling PI arrives in the next release.",
-          "cool_compensation_max": "Largest compensation in °F, in either direction, added to the zone target.",
-          "cool_compensation_sensor": "Optional sensor that reports the unit's own temperature reading in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature.",
-          "cool_regulation_threshold": "Limits changes in the compensation offset: a new offset is sent only when it differs from the last one sent by at least this many °F. A changed cool target is sent at once.",
-          "cool_regulation_min_period": "Minutes to wait after sending a compensated setpoint before sending another one.",
-          "cool_dry_out": "When cooling ends, the unit runs fan-only for a while to dry the coil, then applies its normal idle behavior.",
-          "cool_dry_out_minutes": "Minutes the unit runs fan-only to dry the coil when coil dry-out is on."
+          "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
+          "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading). A device saved with cooling PI shows no selection; that mode is not available yet.",
+          "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+          "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
+          "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
+          "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once.",
+          "cool_dry_out": "When cooling ends, the unit runs fan-only for a while to dry the coil.",
+          "cool_dry_out_minutes": "Afterward, the idle action applies. New heating/cooling or Off can end this early."
         }
       },
       "heat_sources": {
@@ -323,21 +298,25 @@
         }
       },
       "conflict_edit": {
-        "title": "{edit_mode} Mutex Rule",
+        "title": "Equipment that cannot run together",
         "description": "When a device is active in a zone, it can prevent other zones from heating or cooling.",
         "data": {
           "device": "Device",
           "mode": "When device is",
           "for_zone": "In zone",
           "block_heat": "Block heating in zones",
-          "block_cool": "Block cooling in zones"
+          "block_cool": "Block cooling in zones",
+          "blocked_devices_heat": "Prevent these devices heating",
+          "blocked_devices_cool": "Prevent these devices cooling"
         },
         "data_description": {
           "device": "The climate device this rule applies to",
           "mode": "Heating or cooling mode that triggers the block",
           "for_zone": "The zone that triggers the block when this device is active",
           "block_heat": "Zones that cannot heat while this rule is active",
-          "block_cool": "Zones that cannot cool while this rule is active"
+          "block_cool": "Zones that cannot cool while this rule is active",
+          "blocked_devices_heat": "Devices that cannot heat while this rule is active",
+          "blocked_devices_cool": "Devices that cannot cool while this rule is active"
         }
       }
     },
@@ -353,7 +332,7 @@
       "source_id_exists": "A group with this ID already exists.",
       "device_required": "Please select a device.",
       "zone_required": "Please select a zone.",
-      "no_blocks_specified": "Please specify at least one zone to block."
+      "no_blocks_specified": "Choose at least one zone or device to block."
     },
     "abort": {
       "cannot_delete_yaml_zone": "Cannot delete zones defined in YAML. Remove from configuration.yaml instead.",
@@ -402,10 +381,10 @@
           "heating_demand": "Heating demand",
           "cooling_demand": "Cooling demand",
           "within_target": "Within target",
-          "above_cool_target_below_start": "Above cool target below start",
-          "below_heat_target_below_start": "Below heat target below start",
-          "stage_without_usable_devices": "Stage without usable devices",
-          "holding_through_device_outage": "Holding through device outage",
+          "above_cool_target_below_start": "Waiting for cooling start temperature",
+          "below_heat_target_below_start": "Waiting for heating start temperature",
+          "stage_without_usable_devices": "No available equipment can run this stage",
+          "holding_through_device_outage": "Waiting briefly for equipment to reconnect",
           "unknown": "Unknown"
         }
       },

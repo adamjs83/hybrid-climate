@@ -3,6 +3,25 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.1] - 2026-10-16
+
+Quick wins from a full review of the setup experience. Nothing changes in how zones and devices are controlled; stored settings, the Agent API and the entity ids of existing installs are untouched.
+
+### Fixed
+- **Global Settings can be saved with its defaults.** They are now 55 °F (never heat above) and 63 °F (never cool below); the check that heat-above stays below cool-below remains.
+- **Editing a zone no longer loses settings its pages do not show.** Stages 3 and up, a stage's `outdoor_temp_max`, and advanced PI settings (stabilization threshold, integral settings) survive a save. Turning a mode off on its page saves no stages for it.
+- **PI gains are set on the number entities.** The wizard's Kp/Ki/K_ext/max offset/balance point fields only seeded numbers that already existed, so they are gone; the page now names the zone's PI number entities instead.
+- In YAML, `action: off` for a device's idle action works without quotes.
+- The **temperature spread** sensor is only created for zones with two or more sensors. On a single-sensor zone an existing one shows unavailable instead of unknown forever.
+- "Enable heating" is no longer pre-ticked for a zone that has no heat stages.
+- The device page shows its **cooling settings only for devices that can cool**, with the overdrive amount directly under the mode. "Cooling PI (next release)" is no longer offered.
+- Saving a device conflict rule no longer writes a warning to the log.
+- **Entity names no longer repeat the zone name** ("Hybrid Climate - Basement" instead of "Hybrid Climate - Basement Basement"; numbers read "Hybrid Climate - Basement Default Heat"). Uncontrolled-device sensors use the device's name. Existing installs keep every entity id; new installs get shorter ones such as `climate.hybrid_climate_basement`.
+
+### Changed
+- Clearer wording throughout the options pages: the menu item is **Devices**; cooling modes are "Use room target", "Fixed cooling correction" and "Correct the unit's temperature reading"; the zone pages say "Heating regulation", "Start/stop temperature buffer", "Add backup equipment after", "Electricity price adjustments" and "Equipment that cannot run together"; the global presence entity is an entity picker; four Reason states read as plain sentences ("Waiting for cooling start temperature", "No available equipment can run this stage", …).
+- Units are `s` everywhere; the stage 2 escalation time and the occupancy off delay are entered in minutes (stored in seconds as before). The navigation choice is the first field on every page.
+
 ## [0.16.0] - 2026-10-15
 
 ### Added

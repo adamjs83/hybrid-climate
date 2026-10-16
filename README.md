@@ -61,7 +61,7 @@ Available sections:
 | **Heat Source Groups** | Group devices sharing a heat source for opportunistic heating |
 | **Preset Modes** | Configure behavior for each master mode |
 | **Device Conflicts** | Set up mutex rules for shared equipment |
-| **Device Behaviors** | Configure per-device idle behavior |
+| **Devices** | Per-device heating/cooling support, idle action, compressor protection and cooling regulation |
 
 #### Global Settings
 
@@ -71,53 +71,45 @@ Configure integration-wide settings:
 |---------|-------------|
 | Master name | Display name for the master climate entity |
 | Outdoor sensors | Ordered list of `sensor.*` and/or `weather.*` entities for outdoor temperature. Each cycle uses the first entity in the list with a valid reading; later entries are backups, read in priority order |
-| Occupancy entity | `binary_sensor.*` for automatic home/away switching |
+| Presence entity (home/away) | `binary_sensor.*` or `input_boolean.*`; switches the master between Home and Away |
 | Never heat above | Disable heating when outdoor temp exceeds this value |
-| Lockout heat floor | Maximum idle heat setpoint (default 55°F, 40–60°F) while the "never heat above" lockout is active; a device's setback is never raised above this floor while heating is locked out |
+| Maximum idle heat target during outdoor lockout | Maximum idle heat setpoint (default 55°F, 40–60°F) while the "never heat above" lockout is active; a device's setback is never raised above this floor while heating is locked out |
 | Device unavailable grace | Keep a running stage through a brief device outage (default 300 seconds, 0–1800; 0 disables) |
 | Never cool below | Disable cooling when outdoor temp is below this value |
 
-#### Zone Configuration (6-Step Wizard)
+#### Zone wizard (up to 8 steps)
 
-Creating or editing a zone walks through these steps:
+Creating or editing a zone walks through these pages:
 
-**Step 1: Basic Settings**
-- Zone ID (unique identifier, lowercase, no spaces)
-- Display name
+**1. Basics** ("Zone: <name> - Basics", "New zone - Basics" when adding)
+- Zone ID (unique identifier, lowercase, no spaces; adding only), display name
 - Temperature sensors (or leave empty to use device's built-in sensor)
-- Sensor aggregation method (average/min/max/median/weighted). Choosing weighted adds a follow-up step to set each selected sensor's weight (0.1–10.0)
-- Smoothing samples (moving average window)
+- Sensor aggregation method (average/min/max/median/weighted) and smoothing samples (moving average window)
 
-**Step 2: Occupancy**
-- Enable/disable occupancy-based setpoint adjustments
-- Select occupancy sensor (binary_sensor)
-- Set temperature offsets for occupied/unoccupied states
+**2. Sensor weights** (weighted aggregation only): a weight per selected sensor (0.1–10.0)
 
-**Step 3: Heat Stages**
-- Enable/disable heating for this zone
-- Stage 1: Primary heating devices and activation threshold
-- Stage 2: Backup heating devices, threshold, time escalation, outdoor temp minimum
+**3. Occupancy**
+- Enable occupancy, occupancy sensor (binary_sensor), off delay in minutes
+- Occupied/unoccupied offsets (heating; cooling uses the Occupied/Unoccupied Cool numbers). "Disable occupancy for this zone" clears it
 
-**Step 4: Cool Stages**
-- Enable/disable cooling for this zone
-- Stage 1: Primary cooling devices and threshold
-- Stage 2: Backup cooling devices, threshold, time escalation
+**4. Heat stages** / **5. Cool stages**
+- Enable heating/cooling for this zone
+- Stage 1: devices; "Start heating when the room is this far below target" (cooling: above)
+- Stage 2: devices, threshold, "Add backup equipment after" (minutes), and for heating the outdoor minimum
+- Stages 3 and up (YAML or Agent API) are kept as saved
 
-**Step 5: Zone Settings**
-- Hysteresis (deadband to prevent short-cycling)
-- Minimum runtime (seconds)
-- Door/window binary sensors and their open/close delays (optional)
-- Opportunistic heating enable/threshold (piggyback on boiler cycles)
-- Zone-specific outdoor reset override (disable/override global limits)
-- Regulation type: Direct or PI Control
+**6. Settings**
+- "Start/stop temperature buffer" (hysteresis), minimum runtime (s), door/window contacts and delays
+- Opportunistic heating, zone outdoor reset override
+- "Heating regulation": Direct (send the zone target) or PI (adjust the thermostat setpoint from the room error); cooling regulation is set per device under Devices
+- "Wall thermostats allowed to change this zone's target" (`allow_command`)
 
-**Step 6: PI Control** (if PI selected)
-- Select devices to regulate (only heat-capable devices from this zone's stages are offered — PI regulation only ever applies to heating, so a cool-only device such as a shared AC is excluded)
-- Kp (proportional gain)
-- Ki (integral gain)
-- K_ext (outdoor temperature factor)
-- Maximum offset
-- Balance point (outdoor temp where no offset needed)
+**7. Heating regulation (PI)** (PI only)
+- Heating thermostats to adjust (only heat-capable devices from this zone's stages are offered, so a cool-only device such as a shared AC is excluded)
+- Minimum heating command change and minimum time between changes
+- The gains (Kp, Ki, K_ext, maximum offset, balance point) are the zone's PI number entities, not wizard fields
+
+**8. Electricity price adjustments** (TOU): needs the TOU rate sensor from Global Settings
 
 #### Heat Source Groups
 
@@ -152,9 +144,9 @@ Create rules to prevent conflicting HVAC operations:
 
 Example: When the shared heat pump is cooling the basement, block heating in the main floor.
 
-#### Device Behaviors
+#### Devices
 
-Configure what each device does when its zone is satisfied (idle):
+Each device's heating/cooling support, idle action, compressor protection and, for cool-capable devices, cooling regulation (the cooling block shows on the next open after ticking Can cool). The list shows `<id> (heat+cool, setback 5°F, cooling: compensation)`:
 
 | Setting | Description |
 |---------|-------------|
@@ -163,14 +155,14 @@ Configure what each device does when its zone is satisfied (idle):
 | Setback amount | Degrees below (heat) or above (cool) target |
 | Compressor group | Shared outdoor compressor identifier; use the same value on all members |
 | Minimum compressor runtime/off time | Seconds to hold the shared group on or off |
-| Cooling overdrive | °F (0–10, step 0.5; default 0) subtracted from the device's cool setpoint while a zone actively calls for cooling (mode `overdrive`). The zone still stops at its own target. |
-| Cooling regulation mode | `off` (send the zone target), `overdrive` (fixed overdrive above), `compensation` (correct for the unit's own sensor), or `pi` (accepted, sends the zone target until v0.17.0). Unset: `overdrive` when cooling overdrive > 0, else `off`; an explicit `off` wins. |
-| Compensation maximum | °F (0–10, step 0.5; default 3): the largest compensation offset either way |
-| Compensation sensor | Optional `sensor.*` read as the unit's own temperature; must report °F (its number is used as-is, with no unit check or conversion, so a °C sensor miscompensates, usually pinned at the maximum). Blank uses the climate entity's `current_temperature` |
-| Compensation change threshold | °F (0–5; default 0.5) the offset must move before it is re-sent |
-| Compensation minimum period | Minutes (0–60; default 10) between offset re-sends |
-| Dry coil after cooling | Tick box (default off): run `fan_only` after a cooling run instead of the idle action |
-| Dry-out minutes | 1–30 (default 10): how long `fan_only` runs before the normal idle action |
+| Lower equipment cooling target by (`cool_overdrive`) | °F (0–10, step 0.5; default 0) subtracted from the device's cool setpoint while a zone actively calls for cooling (mode `overdrive`). The zone still stops at its own target. |
+| Cooling regulation (`cool_regulation`) | Use room target (`off`), Fixed cooling correction (`overdrive`), Correct the unit's temperature reading (`compensation`); `pi` is accepted in YAML and the Agent API and sends the zone target until v0.17.0. Unset: `overdrive` when cooling overdrive > 0, else `off`; an explicit `off` wins. |
+| Maximum sensor correction (`cool_compensation_max`) | °F (0–10, step 0.5; default 3): the largest compensation offset either way |
+| Unit's own temperature sensor (`cool_compensation_sensor`) | Optional `sensor.*` read as the unit's own temperature; must report °F (its number is used as-is, with no unit check or conversion, so a °C sensor miscompensates, usually pinned at the maximum). Blank uses the climate entity's `current_temperature` |
+| Minimum cooling correction change (`cool_regulation_threshold`) | °F (0–5; default 0.5) the offset must move before it is re-sent |
+| Minimum time between cooling correction changes (`cool_regulation_min_period`) | Minutes (0–60; default 10) between offset re-sends |
+| Run fan after cooling (`cool_dry_out`) | Tick box (default off): run `fan_only` after a cooling run instead of the idle action |
+| Fan run time after cooling (`cool_dry_out_minutes`) | 1–30 (default 10): how long `fan_only` runs before the normal idle action |
 
 Compensation sends the zone cool target plus (unit reading − room temperature), clamped to the maximum: a unit that reads 1°F below the room gets 71 for a 72 target, one that reads 1°F above gets 73. The new offset goes out only when it has moved by the threshold and the minimum period has passed; a first send or a changed cool target goes out at once. If the unit reading is missing or not a number, the raw offset is 0 and one warning is logged; the limiter still applies, so a previously sent offset stays in place until the change passes the threshold and the minimum period. `control.cool_offset` shows the offset actually applied; `control.cool_regulation_fallback` only says the unit reading is missing. With coil dry-out on, a device released from `cool` runs `fan_only` for the set minutes, then gets its normal idle action (off, or the setback from the highest cool target of its enabled zones); any new heat, cool or off command ends the window early. A unit without `fan_only` logs one warning and gets the idle action as before. `fan_only` counts as a compressor stop.
 
@@ -214,26 +206,12 @@ Temperature and mode changes on the card are live controls. Its setpoint and PI 
 
 The integration automatically creates `number.*` entities for each zone, allowing real-time adjustment of setpoints and PI parameters without reloading.
 
-**Automatically created entities:**
+**Automatically created entities** (named by the zone's device, e.g. "Basement Default Heat"):
+- Heating: Default Heat, Away Heat, Sleep Heat, Vacation Heat
+- Cooling: Default Cool, Away Cool, Occupied Cool, Unoccupied Cool, Sleep Cool, Vacation Cool
+- PI regulation: PI Kp (0.1-5.0), PI Ki (0.001-0.5), PI K_ext (0.0-1.0), PI Max Offset (1-20°F), PI Balance Point (30-80°F)
 
-For each zone with heating:
-- `number.hybrid_climate_{zone}_default_heat_temp` - Default heating setpoint
-- `number.hybrid_climate_{zone}_away_heat_temp` - Away mode heating
-- `number.hybrid_climate_{zone}_sleep_heat_temp` - Sleep mode heating
-- `number.hybrid_climate_{zone}_vacation_heat_temp` - Vacation mode heating
-
-For each zone with cooling:
-- `number.hybrid_climate_{zone}_default_cool_temp` - Default cooling setpoint
-- `number.hybrid_climate_{zone}_away_cool_temp` - Away mode cooling
-- `number.hybrid_climate_{zone}_sleep_cool_temp` - Sleep mode cooling
-- `number.hybrid_climate_{zone}_vacation_cool_temp` - Vacation mode cooling
-
-For zones with PI regulation:
-- `number.hybrid_climate_{zone}_pi_kp` - Proportional gain (0.1-5.0)
-- `number.hybrid_climate_{zone}_pi_ki` - Integral gain (0.001-0.5)
-- `number.hybrid_climate_{zone}_pi_k_ext` - Outdoor factor (0.0-1.0)
-- `number.hybrid_climate_{zone}_pi_offset_max` - Max offset (1-20°F)
-- `number.hybrid_climate_{zone}_pi_balance_point` - Balance point (30-80°F)
+Entity ids are generated by Home Assistant from the entity's name when it is first registered, so they follow the zone's display name and can differ between installs; existing installs keep the ids they already have. Find a zone's ids in the entity registry by unique id (`hybrid_climate_<zone_id>_<key>`, for example `hybrid_climate_basement_pi_kp`) or in `get_config` → `entity_controlled`; never build an entity id from the zone name or the key.
 
 **Usage:**
 - Entities appear automatically in Home Assistant
@@ -246,7 +224,7 @@ For zones with PI regulation:
 ```yaml
 service: number.set_value
 target:
-  entity_id: number.hybrid_climate_basement_default_heat_temp
+  entity_id: number.hybrid_climate_basement_default_heat_temp  # look yours up; ids vary by install
 data:
   value: 70
 ```
@@ -285,8 +263,8 @@ master:
 
 conflicts:
   outdoor_reset:
-    never_heat_above: 75  # Don't heat when outdoor > 75°F
-    never_cool_below: 55  # Don't cool when outdoor < 55°F
+    never_heat_above: 55  # Don't heat when outdoor > 55°F
+    never_cool_below: 63  # Don't cool when outdoor < 63°F
   device_mutex:
     - when:
         device: shared_heat_pump
@@ -458,7 +436,7 @@ Each zone combines its configured indoor sensors with one of five methods:
 | `median` | Middle value; ignores a single outlier without needing per-sensor weights |
 | `weighted` | Weighted average using each sensor's configured weight (default 1.0) |
 
-`weighted` is useful when one sensor reads consistently high or low relative to the others (for example, a sensor placed near a heat source) — give it a lower weight instead of excluding it. Configure weights per sensor in the zone wizard (Step 1); weights outside 0.1–10.0 are rejected. A weighted zone with no stored weights behaves exactly like `average`. A stale/unavailable sensor simply drops out of whichever method is configured.
+`weighted` is useful when one sensor reads consistently high or low relative to the others (for example, a sensor placed near a heat source) — give it a lower weight instead of excluding it. Configure weights per sensor in the zone wizard (Sensor weights page); weights outside 0.1–10.0 are rejected. A weighted zone with no stored weights behaves exactly like `average`. A stale/unavailable sensor simply drops out of whichever method is configured.
 
 ### Outdoor Sensor Fallback
 
@@ -493,7 +471,7 @@ zones:
 | `null` | Disable this restriction entirely for this zone |
 | Numeric value | Use this zone-specific limit instead of global |
 
-**UI Configuration:** In the zone wizard (Step 5: Settings), check "Override global outdoor reset limits" and then either:
+**UI Configuration:** In the zone wizard (Settings page), check "Override global outdoor reset limits" and then either:
 - Check "Disable cooling temperature limit" to allow cooling regardless of outdoor temp
 - Enter a zone-specific "Never cool below" value
 - Same options available for heating limits
@@ -516,7 +494,7 @@ When opportunistic heating activates:
 2. This zone's temperature must be below setpoint by at least `threshold`
 3. Only Stage 1 devices activate (opportunistic doesn't trigger Stage 2)
 
-**UI Configuration:** In the zone wizard (Step 5: Settings), toggle "Enable opportunistic heating" and set the threshold.
+**UI Configuration:** In the zone wizard (Settings page), toggle "Use an already-running shared heat source (see Heat Source Groups)" and set the threshold.
 
 ## Complete Control Flow
 
@@ -782,8 +760,8 @@ _check_external_device_changes()
 
 ## Entities Created
 
-- **Master Entity** (`climate.home_hvac` or configured name): Whole-home control with preset modes
-- **Zone Entities** (`climate.<zone_id>`): Per-zone climate control
+- **Master Entity**: Whole-home control with preset modes, on the device "Hybrid Climate - <master name>". Home Assistant generates its id from that name; find it in the entity registry (unique id `hybrid_climate_<entry_id>_master`)
+- **Zone Entities**: Per-zone climate control. Fresh installs get `climate.hybrid_climate_<zone_id>`; existing installs keep their ids. Find them in the entity registry or `get_config` → `entity_controlled`
 - **Restore control button** (one per zone, Configuration category, v0.13.2): manually runs one restore pass over that zone's devices — the same pass a settled master mode change already triggers automatically (see "Startup Takeover")
 
 ### Diagnostic Entities (v0.13.1)
@@ -793,7 +771,7 @@ Hidden under each device's "Diagnostic" section by default, so history/graphing 
 | Entity | Attached to | Reports |
 |---|---|---|
 | Reason | each zone | The primary Agent API status reason code (e.g. `within_target`, `heating_demand`, `unknown`); attribute `codes` lists every currently recorded code |
-| Temperature spread | each zone | The spread across the zone's smoothed sensor inputs (unit matches your HA temperature unit); attribute `method` is the configured aggregation method |
+| Temperature spread | each zone with two or more indoor sensors (one already registered stays, unavailable, if the zone drops to one sensor) | The spread across the zone's smoothed sensor inputs (unit matches your HA temperature unit); attribute `method` is the configured aggregation method |
 | Stage | each zone | The active heating/cooling stage (e.g. `heating_stage_2`), `heating_stage_1_opportunistic` for a piggyback opportunistic run, or `none` when idle |
 | Uncontrolled | whole home (one per configured device) | Problem sensor — on when the device reports heat/cool but no zone currently owns it, or when its mode/setpoint was changed outside Hybrid Climate (v0.13.2); attributes `reported_mode` and `manual_override` (`{"commanded":{"mode","target"},"reported":{"mode","target"},"since"}` or `null`) |
 | Outdoor fallback active | whole home | Problem sensor — on when a backup outdoor sensor (not the configured primary) is supplying the reading |

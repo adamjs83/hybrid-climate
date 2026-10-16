@@ -1,6 +1,6 @@
 """Voluptuous validation schemas for YAML configuration.
 
-Key dependencies: const.py (all CONF_* and DEFAULT_* constants)
+Key dependencies: const.py (all CONF_* and DEFAULT_* constants), config_validators.py
 Used by: config_loader.py (load_config validates against CONFIG_SCHEMA)
 """
 from __future__ import annotations
@@ -44,8 +44,6 @@ from .const import (
     MIN_COOL_OVERDRIVE,
     MAX_COOL_OVERDRIVE,
     CONF_COOL_REGULATION,
-    COOL_REGULATION_MODES,
-    COOL_REGULATION_OFF,
     CONF_COOL_COMPENSATION_MAX,
     DEFAULT_COOL_COMPENSATION_MAX,
     MIN_COOL_COMPENSATION_MAX,
@@ -160,7 +158,6 @@ from .const import (
     DEFAULT_TOU_PRE_CONDITION_MINUTES,
     DEFAULT_TOU_RELAXATION_AMOUNT,
     DEFAULT_STABILIZATION_THRESHOLD,
-    IDLE_ACTIONS,
     MAX_SMOOTHING_SAMPLES,
     MAX_REGULATION_MIN_PERIOD,
     MAX_REGULATION_THRESHOLD,
@@ -170,6 +167,7 @@ from .const import (
     REGULATION_DIRECT,
     REGULATION_PI,
 )
+from .config_validators import _cool_regulation_mode, _idle_action, _strict_bool
 
 
 # Validation schemas
@@ -363,12 +361,6 @@ ZONE_SCHEMA = vol.Schema({
     vol.Optional(CONF_TOU): TOU_ZONE_SCHEMA,
 })
 
-DEVICE_IDLE_SCHEMA = vol.Schema({
-    vol.Optional(CONF_IDLE_ACTION, default=DEFAULT_IDLE_ACTION): vol.In(IDLE_ACTIONS),
-    vol.Optional(CONF_IDLE_SETBACK, default=DEFAULT_IDLE_SETBACK): vol.Coerce(float),
-})
-
-
 def _cool_overdrive(value: Any) -> float:
     """Accept only a finite numeric cooling offset within device bounds."""
     if type(value) is bool:
@@ -404,20 +396,10 @@ def _compensation_sensor(entity: str) -> str:
     return entity
 
 
-def _strict_bool(value: Any) -> bool:
-    """Accept only a real boolean (no "yes"/1 coercion)."""
-    if type(value) is not bool:
-        raise vol.Invalid("value must be true or false")
-    return value
-
-
-def _cool_regulation_mode(value: Any) -> str:
-    """Accept a cooling regulation mode; bare YAML off arrives as boolean false."""
-    # YAML 1.1 reads an unquoted off as False. Only exactly False maps to off;
-    # True and every other non-string still fail the enum check below.
-    if type(value) is bool and value is False:
-        value = COOL_REGULATION_OFF
-    return vol.In(COOL_REGULATION_MODES)(value)
+DEVICE_IDLE_SCHEMA = vol.Schema({
+    vol.Optional(CONF_IDLE_ACTION, default=DEFAULT_IDLE_ACTION): _idle_action,
+    vol.Optional(CONF_IDLE_SETBACK, default=DEFAULT_IDLE_SETBACK): vol.Coerce(float),
+})
 
 
 DEVICE_SCHEMA = vol.Schema({

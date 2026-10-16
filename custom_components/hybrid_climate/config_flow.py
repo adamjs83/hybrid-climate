@@ -80,7 +80,6 @@ class HybridClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 description_placeholders={
                     "zone_count": str(zone_count),
                     "device_count": str(device_count),
-                    "has_yaml": "true",
                 },
             )
         else:
@@ -95,7 +94,6 @@ class HybridClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 description_placeholders={
                     "zone_count": "0",
                     "device_count": "0",
-                    "has_yaml": "false",
                 },
             )
 

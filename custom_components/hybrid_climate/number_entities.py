@@ -167,8 +167,8 @@ class HybridClimateNumberEntity(NumberEntity):
 
     @property
     def name(self) -> str:
-        """Return the name of the entity."""
-        return f"{self.zone_name} {self.entity_description.name}"
+        """Return the parameter name; HA prefixes the zone device name."""
+        return self.entity_description.name
 
     async def async_set_native_value(self, value: float) -> None:
         """Set the value, persist it, and update coordinator."""

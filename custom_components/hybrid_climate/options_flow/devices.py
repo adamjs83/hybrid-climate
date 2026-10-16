@@ -1,6 +1,6 @@
-"""Purpose: Edit device capabilities and idle behavior in integration options.
+"""Purpose: Edit device capabilities, idle behavior, compressor timing and cooling in integration options.
 
-Key dependencies: Home Assistant selectors and cached entity HVAC modes.
+Key dependencies: Home Assistant selectors, cached entity HVAC modes, config_parsers.resolve_cool_regulation.
 Used by: Hybrid Climate options flow handler.
 """
 from __future__ import annotations
@@ -25,6 +25,7 @@ from homeassistant.helpers.selector import (
 from ..const import (
     CONF_CAPABILITIES,
     CONF_COOL_OVERDRIVE,
+    CONF_COOL_REGULATION,
     CONF_DEVICES,
     CONF_ENTITY_ID,
     CONF_IDLE,
@@ -33,16 +34,18 @@ from ..const import (
     CONF_UI_VERSION,
     DEFAULT_IDLE_SETBACK,
     DEFAULT_COOL_OVERDRIVE,
-    MIN_COOL_OVERDRIVE,
-    MAX_COOL_OVERDRIVE,
-    COOL_OVERDRIVE_STEP,
+    DEVICE_LIST_COOLING,
+    DEVICE_LIST_IDLE_OFF,
+    DEVICE_LIST_IDLE_SETBACK,
     IDLE_ACTION_OFF,
     IDLE_ACTION_SETBACK,
 )
+from ..config_parsers import resolve_cool_regulation
 from .base import OptionsFlowBase
 from .capability_defaults import device_form_capabilities, submitted_capabilities
 from .device_cooling import (
-    cooling_form_fields, cooling_settings_from_input, cooling_settings_from_yaml, merge_cooling_settings,
+    cooling_form_fields, cooling_settings_from_input, cooling_settings_from_stored,
+    cooling_settings_from_yaml, merge_cooling_settings,
 )
 
 
@@ -54,8 +57,28 @@ CAP_HEAT = "heat"
 CAP_COOL = "cool"
 
 
+def device_list_label(name: str, capabilities: list[str], conf: dict[str, Any]) -> str:
+    """Return a device list label: name, capabilities, idle action and effective cooling mode."""
+    # Capabilities read "heat", "cool" or "heat+cool" in that order.
+    caps = "+".join(cap for cap in (CAP_HEAT, CAP_COOL) if cap in capabilities)
+    if conf.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF) == IDLE_ACTION_SETBACK:
+        idle = DEVICE_LIST_IDLE_SETBACK.format(
+            setback=float(conf.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK)))
+    else:
+        idle = DEVICE_LIST_IDLE_OFF
+    parts = [caps, idle]
+    # Heat-only devices have no cooling regulation to show.
+    if CAP_COOL in capabilities:
+        mode = resolve_cool_regulation(
+            conf.get(CONF_COOL_REGULATION),
+            float(conf.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE)),
+        )
+        parts.append(DEVICE_LIST_COOLING.format(mode=mode))
+    return f"{name} ({', '.join(parts)})"
+
+
 class DeviceFlowMixin(OptionsFlowBase):
-    """Mixin providing device idle behavior configuration flow steps."""
+    """Mixin providing the device list and device edit options flow steps."""
 
     # Selected device for editing
     _device_edit_id: str | None = None
@@ -99,43 +122,39 @@ class DeviceFlowMixin(OptionsFlowBase):
             entity_id = device_conf.get(CONF_ENTITY_ID, device_id)
             seen_entity_ids.add(entity_id)
             
-            # Check UI devices first, then YAML
+            # Check UI devices first, then YAML (the same values the edit page loads)
             if entity_id in ui_devices:
-                dev_conf = ui_devices[entity_id]
-                action = dev_conf.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF)
-                setback = dev_conf.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK)
+                summary_conf = ui_devices[entity_id]
             else:
                 idle_conf = device_conf.get(CONF_IDLE, {})
-                action = idle_conf.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF)
-                setback = idle_conf.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK)
-
-            if action == IDLE_ACTION_SETBACK:
-                status = f"setback {setback}°F"
-            else:
-                status = "off when idle"
+                summary_conf = {
+                    **device_conf,
+                    CONF_IDLE_ACTION: idle_conf.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF),
+                    CONF_IDLE_SETBACK: idle_conf.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK),
+                }
+            capabilities = device_form_capabilities(
+                self.hass, entity_id, ui_devices.get(entity_id),
+                device_conf.get(CONF_CAPABILITIES, [CAP_HEAT]),
+            )
 
             device_options.append({
                 "value": f"edit_{entity_id}",  # Use entity_id for consistency
-                "label": f"{device_id} ({status})",
+                "label": device_list_label(device_id, capabilities, summary_conf),
             })
 
         # Then add UI-only devices (from ui_devices or zones, not in YAML)
         all_ui_entity_ids = set(ui_devices.keys()) | ui_zone_entity_ids
         for entity_id in sorted(all_ui_entity_ids - seen_entity_ids):
             dev_conf = ui_devices.get(entity_id, {})
-            action = dev_conf.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF)
-            setback = dev_conf.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK)
-
-            if action == IDLE_ACTION_SETBACK:
-                status = f"setback {setback}°F"
-            else:
-                status = "off when idle"
+            capabilities = device_form_capabilities(
+                self.hass, entity_id, ui_devices.get(entity_id), [CAP_HEAT],
+            )
 
             # Display name from entity_id (climate.xxx -> xxx)
             display_name = entity_id.replace("climate.", "")
             device_options.append({
                 "value": f"edit_{entity_id}",
-                "label": f"{display_name} ({status})",
+                "label": device_list_label(display_name, capabilities, dev_conf),
             })
 
         device_names = list(yaml_devices.keys()) + [
@@ -168,6 +187,15 @@ class DeviceFlowMixin(OptionsFlowBase):
         if not device_id:
             return await self.async_step_devices()
 
+        # The capabilities that pre-fill Can heat / Can cool also decide whether the
+        # cooling block is shown; ticking Can cool shows it on the next open.
+        current = self._load_device_config(device_id)
+        defaults = device_form_capabilities(
+            self.hass, device_id, self._get_ui_config().get(CONF_DEVICES, {}).get(device_id),
+            current.get(CONF_CAPABILITIES, [CAP_HEAT]),
+        )
+        show_cooling = CAP_COOL in defaults
+
         if user_input is not None:
             # Handle navigation
             nav_action = user_input.get("nav_action", "save")
@@ -180,21 +208,25 @@ class DeviceFlowMixin(OptionsFlowBase):
             action = user_input.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF)
             setback = user_input.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK)
 
+            # A hidden cooling block was not submitted: write the stored values back.
+            if show_cooling:
+                cooling = {
+                    CONF_COOL_OVERDRIVE: float(user_input.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE)),
+                    **cooling_settings_from_input(user_input, current.get(CONF_COOL_REGULATION)),
+                }
+            else:
+                cooling = cooling_settings_from_stored(current)
+            cool_overdrive = cooling.pop(CONF_COOL_OVERDRIVE)
+
             # Save device config
             return self._save_device_config(
                 device_id, capabilities, action, setback,
                 compressor_group=user_input.get("compressor_group", "").strip(),
                 min_compressor_runtime=int(user_input.get("min_compressor_runtime", 0)),
                 min_compressor_off_time=int(user_input.get("min_compressor_off_time", 0)),
-                cool_overdrive=float(user_input.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE)),
-                **cooling_settings_from_input(user_input),
+                cool_overdrive=cool_overdrive,
+                **cooling,
             )
-
-        current = self._load_device_config(device_id)
-        defaults = device_form_capabilities(
-            self.hass, device_id, self._get_ui_config().get(CONF_DEVICES, {}).get(device_id),
-            current.get(CONF_CAPABILITIES, [CAP_HEAT]),
-        )
 
         return self.async_show_form(
             step_id="device_edit",
@@ -258,27 +290,13 @@ class DeviceFlowMixin(OptionsFlowBase):
                     min=0, max=3600, step=30, unit_of_measurement="s",
                     mode=NumberSelectorMode.BOX,
                 )),
-                vol.Required(CONF_COOL_OVERDRIVE,
-                    default=current.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE),
-                ): NumberSelector(NumberSelectorConfig(
-                    min=MIN_COOL_OVERDRIVE, max=MAX_COOL_OVERDRIVE, step=COOL_OVERDRIVE_STEP,
-                    unit_of_measurement="°F",
-                    mode=NumberSelectorMode.BOX,
-                )),
-                **cooling_form_fields(current),
+                **(cooling_form_fields(current) if show_cooling else {}),
             }),
             errors=errors,
             description_placeholders={
                 "device_id": device_id,
             },
         )
-
-    # Keep old method name for backwards compatibility
-    async def async_step_device_idle(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Redirect to device_edit for backwards compatibility."""
-        return await self.async_step_device_edit(user_input)
 
     def _load_device_config(self, device_id: str) -> dict[str, Any]:
         """Load existing device config (capabilities + idle)."""
@@ -304,11 +322,6 @@ class DeviceFlowMixin(OptionsFlowBase):
             CONF_COOL_OVERDRIVE: device_conf.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE),
             **cooling_settings_from_yaml(device_conf),
         }
-
-    # Backwards compat alias
-    def _load_device_idle_config(self, device_id: str) -> dict[str, Any]:
-        """Load existing device idle config (backwards compat)."""
-        return self._load_device_config(device_id)
 
     def _save_device_config(
         self, device_id: str, capabilities: list[str], action: str, setback: float,
@@ -346,12 +359,3 @@ class DeviceFlowMixin(OptionsFlowBase):
         self._device_edit_id = None
 
         return self._save_ui_config(stored_config)
-
-    # Backwards compat alias
-    def _save_device_idle_config(
-        self, device_id: str, action: str, setback: float
-    ) -> FlowResult:
-        """Save device idle configuration (backwards compat)."""
-        current = self._load_device_config(device_id)
-        capabilities = current.get(CONF_CAPABILITIES, [CAP_HEAT])
-        return self._save_device_config(device_id, capabilities, action, setback)

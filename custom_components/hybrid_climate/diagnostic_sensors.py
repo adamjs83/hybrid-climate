@@ -10,13 +10,14 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 
 from .agent_api.const import ZONE_REASON_CODES
 from .agent_api.entity_view import outdoor_source, zone_reason_codes, zone_spread, zone_stage_options, zone_stage_value
 from .const import (
     ATTR_CODES, ATTR_METHOD, ATTR_PRIMARY, DIAG_DEVICE_NAME_PREFIX, DIAG_MANUFACTURER, DIAG_MASTER_MODEL, DIAG_ZONE_MODEL, DIAG_OUTDOOR_SOURCE_SUFFIX, DIAG_REASON_SUFFIX,
-    DIAG_SPREAD_SUFFIX, DIAG_STAGE_SUFFIX, DOMAIN, STAGE_NONE, TRANSLATION_OUTDOOR_SOURCE,
+    DIAG_SPREAD_SUFFIX, DIAG_STAGE_SUFFIX, DOMAIN, MIN_SPREAD_SENSORS, STAGE_NONE, TRANSLATION_OUTDOOR_SOURCE,
     TRANSLATION_REASON, TRANSLATION_SPREAD, TRANSLATION_STAGE,
 )
 from .coordinator import HybridClimateCoordinator
@@ -114,7 +115,16 @@ class ZoneSpreadSensor(ZoneDiagnosticSensor):
     def __init__(self, hass: HomeAssistant, coordinator: HybridClimateCoordinator, zone_id: str) -> None:
         """Set the stable spread identity."""
         super().__init__(hass, coordinator, zone_id)
-        self._attr_unique_id = f"{DOMAIN}_{zone_id}_{DIAG_SPREAD_SUFFIX}"
+        self._attr_unique_id = spread_unique_id(zone_id)
+
+    @property
+    def available(self) -> bool:
+        """Report unavailable while the zone has fewer than two indoor sensors."""
+        # Read the live config: a reload can drop a zone to one sensor while the
+        # registry still holds this entity, which then stays but cannot report.
+        if len(self.coordinator.config.zones[self.zone_id].sensors.indoor) < MIN_SPREAD_SENSORS:
+            return False
+        return super().available
 
     @property
     def native_unit_of_measurement(self) -> str:
@@ -182,14 +192,22 @@ class OutdoorSourceSensor(DiagnosticSensor):
         return {ATTR_PRIMARY: self.coordinator.config.outdoor_sensor}
 
 
+def spread_unique_id(zone_id: str) -> str:
+    """Return the stable unique id of a zone's spread sensor."""
+    return f"{DOMAIN}_{zone_id}_{DIAG_SPREAD_SUFFIX}"
+
+
 def diagnostic_sensors(hass: HomeAssistant, coordinator: HybridClimateCoordinator) -> list[SensorEntity]:
     """Create the new diagnostic sensors for the loaded entry."""
     entities: list[SensorEntity] = []
-    for zone_id in coordinator.config.zones:
-        entities.extend((
-            ZoneReasonSensor(hass, coordinator, zone_id),
-            ZoneSpreadSensor(hass, coordinator, zone_id),
-            ZoneStageSensor(hass, coordinator, zone_id),
-        ))
+    registry = er.async_get(hass)
+    for zone_id, zone in coordinator.config.zones.items():
+        entities.append(ZoneReasonSensor(hass, coordinator, zone_id))
+        # Spread needs two inputs; keep an already-registered one (it reports
+        # unavailable) so existing installs lose no registry entry.
+        if (len(zone.sensors.indoor) >= MIN_SPREAD_SENSORS
+                or registry.async_get_entity_id("sensor", DOMAIN, spread_unique_id(zone_id)) is not None):
+            entities.append(ZoneSpreadSensor(hass, coordinator, zone_id))
+        entities.append(ZoneStageSensor(hass, coordinator, zone_id))
     entities.append(OutdoorSourceSensor(hass, coordinator))
     return entities

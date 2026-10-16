@@ -1,6 +1,6 @@
 """Zone configuration flow entry point.
 
-Key dependencies: zone_steps.py, zone_helpers.py
+Key dependencies: zone_steps.py, zone_save.py, zone_helpers.py
 Used by: options_flow/handler.py
 """
 from __future__ import annotations
@@ -23,6 +23,7 @@ from ..const import (
 from .base import OptionsFlowBase
 from .sensor_weights import SensorWeightsMixin
 from .zone_helpers import ZoneHelpersMixin
+from .zone_save import ZoneSaveMixin
 from .zone_steps import ZoneStepsMixin
 
 
@@ -31,7 +32,7 @@ ZONE_ACTION_ADD = "add"
 ZONE_ACTION_BACK = "back"
 
 
-class ZoneFlowMixin(ZoneStepsMixin, SensorWeightsMixin, ZoneHelpersMixin, OptionsFlowBase):
+class ZoneFlowMixin(ZoneStepsMixin, SensorWeightsMixin, ZoneSaveMixin, ZoneHelpersMixin, OptionsFlowBase):
     """Zone configuration flow combining steps and helpers."""
 
     # Work-in-progress storage for multi-step zone wizard

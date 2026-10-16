@@ -77,6 +77,10 @@ COOL_SLIDER_MIN = 60.0
 COOL_SLIDER_MAX = 95.0
 COOL_SLIDER_STEP = 0.5
 DEFAULT_TIME_ESCALATION = 1800  # 30 minutes
+SECONDS_PER_MINUTE = 60  # Options forms show minutes; stored values stay in seconds
+MIN_TIME_ESCALATION_MINUTES = 5  # Stage 2 time escalation form range, minutes
+MAX_TIME_ESCALATION_MINUTES = 120
+TIME_ESCALATION_MINUTES_STEP = 5
 DEFAULT_SENSOR_STALE_TIME = 600  # 10 minutes - use last known value
 OUTDOOR_TEMP_STALE_SECONDS = 600  # Last outdoor reading remains valid for 10 minutes
 OUTDOOR_LOCKOUT_HYSTERESIS = 1.0  # Degrees between lockout entry and release
@@ -130,6 +134,7 @@ CONF_OCCUPANCY_ENTITY = "occupancy_entity"
 CONF_OCCUPANCY_OFF_DELAY = "occupancy_off_delay"
 DEFAULT_OCCUPANCY_OFF_DELAY = 0
 MAX_OCCUPANCY_OFF_DELAY = 7200
+OCCUPANCY_OFF_DELAY_MINUTES_STEP = 0.5  # Off-delay form step, minutes
 CONF_MODES = "modes"
 CONF_USE_ZONE_DEFAULTS = "use_zone_defaults"
 CONF_USE_ZONE_AWAY_SETPOINTS = "use_zone_away_setpoints"  # Deprecated
@@ -282,6 +287,47 @@ DEFAULT_INTEGRAL_RESET_THRESHOLD = 2.5  # °F change triggers partial reset
 DEFAULT_INTEGRAL_RESET_FACTOR = 0.3  # Fraction of integral to keep on reset
 DEFAULT_INTEGRAL_DECAY_HALFLIFE = 120.0  # Minutes for idle decay (0 = disabled)
 
+# Zone options wizard: stored keys the pages own (v0.16.1). Editing a zone rewrites
+# only these; every other stored stage and regulation key is kept as saved.
+# Stage keys a stage page writes, per stage list and stage number (only stage 2 shows a timer).
+_PAGE_STAGE_KEYS_BY_NUMBER: dict[int, tuple[str, ...]] = {
+    1: ("devices", "threshold"),
+    2: ("devices", "threshold", "time_escalation"),
+}
+PAGE_STAGE_KEYS: dict[str, dict[int, tuple[str, ...]]] = {
+    "heat_stages": _PAGE_STAGE_KEYS_BY_NUMBER,
+    "cool_stages": _PAGE_STAGE_KEYS_BY_NUMBER,
+}
+PAGE_STAGE_NUMBERS = (1, 2)  # stages the pages show; one the page omits was removed
+# Threshold a stage page stores when its field is left blank, per stage number (°F).
+PAGE_STAGE_DEFAULT_THRESHOLDS: dict[int, float] = {1: 1.0, 2: 2.5}
+# Stage conditions an older UI version stored as top-level stage keys; nested conditions win.
+LEGACY_STAGE_CONDITION_KEYS = ("outdoor_temp_min", "outdoor_temp_max")
+# Condition keys a stage page writes, per stage list and stage number (heat stage 2's
+# minimum outdoor temperature only; no cool stage page shows a condition).
+PAGE_CONDITION_KEYS: dict[str, dict[int, tuple[str, ...]]] = {
+    "heat_stages": {2: ("outdoor_temp_min",)},
+    "cool_stages": {},
+}
+# Wizard-state flag per stage list: the page's "enable" toggle was unticked.
+STAGES_DISABLED_KEYS = {
+    "heat_stages": "heat_stages_disabled",
+    "cool_stages": "cool_stages_disabled",
+}
+PAGE_REGULATION_KEYS = ("type", "devices", "regulation_threshold", "regulation_min_period")
+# Seed gains for a new PI block; the zone's PI number entities load these once, then own them.
+DEFAULT_PI_GAINS: dict[str, float] = {
+    "kp": DEFAULT_KP,
+    "ki": DEFAULT_KI,
+    "k_ext": DEFAULT_K_EXT,
+    "offset_max": DEFAULT_OFFSET_MAX,
+    "balance_point": DEFAULT_BALANCE_POINT,
+}
+# Number entity description keys of a zone's PI gains (number_definitions.py), named on the PI page.
+PI_NUMBER_KEYS = ("pi_kp", "pi_ki", "pi_k_ext", "pi_offset_max", "pi_balance_point")
+# PI page placeholder for a zone that has no number entities yet.
+PI_NUMBERS_NEW_ZONE_TEXT = "created when the zone is saved; tune them there"
+
 # Heat source config (for opportunistic heating)
 CONF_HEAT_SOURCES = "heat_sources"
 CONF_OPPORTUNISTIC = "opportunistic"
@@ -420,6 +466,8 @@ DIAG_MASTER_MODEL = "Master Controller"
 DIAG_ZONE_MODEL = "Zone"
 DIAG_REASON_SUFFIX = "reason"
 DIAG_SPREAD_SUFFIX = "temperature_spread"
+# A temperature spread needs at least this many indoor sensor inputs.
+MIN_SPREAD_SENSORS = 2
 DIAG_STAGE_SUFFIX = "stage"
 DIAG_OUTDOOR_SOURCE_SUFFIX = "outdoor_source"
 DIAG_UNCONTROLLED_SUFFIX = "uncontrolled"
@@ -443,3 +491,9 @@ CAPABILITY_UI_HEAT_LABEL = "Can Heat"
 CAPABILITY_UI_COOL_LABEL = "Can Cool"
 CAPABILITY_UI_HEAT_FIELD = "can_heat"
 CAPABILITY_UI_COOL_FIELD = "can_cool"
+
+# Options flow display text (v0.16.1 wording)
+NEW_ZONE_TITLE = "New zone"  # zone_basics {zone_name} while adding a zone
+DEVICE_LIST_IDLE_OFF = "off when idle"
+DEVICE_LIST_IDLE_SETBACK = "setback {setback:g}°F"
+DEVICE_LIST_COOLING = "cooling: {mode}"

@@ -11,6 +11,7 @@ from typing import Any
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -67,8 +68,17 @@ class DeviceUncontrolledSensor(DiagnosticProblemSensor):
         super().__init__(hass, coordinator)
         self.device_id = device_id
         self._attr_unique_id = f"{DOMAIN}_{DIAG_DEVICE_ID_PREFIX}_{device_id}_{DIAG_UNCONTROLLED_SUFFIX}"
-        self._attr_translation_placeholders = {"device": device_id}
+        self._attr_translation_placeholders = {"device": self._device_display_name()}
         self._refresh_snapshot()
+
+    def _device_display_name(self) -> str:
+        """Return the physical entity's registry name, else its entity id."""
+        device = self.coordinator.config.devices.get(self.device_id)
+        entity_id = device.entity_id if device is not None else self.device_id
+        registered = er.async_get(self.hass).async_get(entity_id)
+        if registered is not None and (registered.name or registered.original_name):
+            return registered.name or registered.original_name
+        return entity_id
 
     def _refresh_snapshot(self) -> None:
         """Cache one device projection for both state and attributes."""

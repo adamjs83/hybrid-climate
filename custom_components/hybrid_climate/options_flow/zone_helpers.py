@@ -1,13 +1,15 @@
-"""Purpose: Load, save, and transform zone wizard configuration.
+"""Purpose: Load, transform, and delete zone wizard configuration.
 
-Handles loading, saving, and transforming zone configuration data
-between the options flow UI and the stored config format.
+Handles loading and transforming zone configuration data between the
+options flow UI and the stored config format, and deleting zones.
+Saving lives in zone_save.py; the canonical stage form and merge baseline in zone_merge.py.
 
-Key dependencies: Options flow storage and capability defaults.
+Key dependencies: Options flow storage; zone_merge.py.
 Used by: Zone wizard steps.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 from homeassistant.data_entry_flow import FlowResult
@@ -30,23 +32,15 @@ from ..const import (
     CONF_SMOOTHING_SAMPLES,
     CONF_WEIGHTS,
     CONF_TOU,
-    CONF_UI_VERSION,
     CONF_ZONES,
-    DEFAULT_BALANCE_POINT,
     DEFAULT_HYSTERESIS,
-    DEFAULT_KP,
-    DEFAULT_KI,
-    DEFAULT_K_EXT,
     DEFAULT_MIN_RUNTIME,
     DEFAULT_OPEN_DELAY,
     DEFAULT_CLOSE_DELAY,
-    DEFAULT_OFFSET_MAX,
-    DEFAULT_REGULATION_MIN_PERIOD,
-    DEFAULT_REGULATION_THRESHOLD,
     DEFAULT_SMOOTHING_SAMPLES,
     REGULATION_PI,
 )
-from .capability_defaults import add_stage_capabilities
+from .zone_merge import canonical_stages, edit_baseline
 
 
 class ZoneHelpersMixin:
@@ -174,9 +168,11 @@ class ZoneHelpersMixin:
             "threshold": opportunistic_conf.get("threshold", 0.5),
         }
 
-        # Parse stages (preserving allow_command flags)
-        heat_stages = self._parse_stages_for_edit(zone_conf.get("heat_stages", []))
-        cool_stages = self._parse_stages_for_edit(zone_conf.get("cool_stages", []))
+        # Canonical stages (UI or YAML source, allow_command kept) are both the pages'
+        # starting point and the save's merge baseline (zone_merge.py).
+        baseline = edit_baseline(zone_conf, self._get_yaml_config().get(CONF_DEVICES, {}))
+        heat_stages = deepcopy(baseline["heat_stages"])
+        cool_stages = deepcopy(baseline["cool_stages"])
 
         # Parse regulation
         regulation = zone_conf.get("regulation", {})
@@ -210,239 +206,12 @@ class ZoneHelpersMixin:
             CONF_TOU: tou_config,
             # Preserve full setpoints dict for save
             "_original_setpoints": setpoints,
+            "_edit_baseline": baseline,
         }
 
     def _parse_stages_for_edit(self, stages: list) -> list[dict]:
-        """Parse stage config for editing.
-
-        Converts device refs to entity IDs while PRESERVING allow_command flags.
-        """
-        result = []
-        yaml_devices = self._get_yaml_config().get(CONF_DEVICES, {})
-
-        for stage in stages:
-            stage_data = {
-                "stage": stage.get("stage", 1),
-                "threshold": stage.get("threshold", 1.0),
-            }
-
-            # Handle devices - preserve allow_command for each
-            devices = stage.get("devices", [])
-            parsed_devices = []
-
-            for d in devices:
-                if isinstance(d, dict):
-                    # Already in object format - could have device_id or entity_id
-                    device_ref = d.get("device") or d.get("device_id") or d.get("entity_id", "")
-                    allow_command = d.get("allow_command", False)
-
-                    # Convert device_id to entity_id if needed
-                    if device_ref in yaml_devices:
-                        entity_id = yaml_devices[device_ref].get("entity_id", device_ref)
-                    else:
-                        entity_id = device_ref
-
-                    parsed_devices.append({
-                        "entity_id": entity_id,
-                        "allow_command": allow_command,
-                    })
-                else:
-                    # String device ID - resolve to entity_id
-                    entity_id = yaml_devices.get(d, {}).get("entity_id", d)
-                    parsed_devices.append({
-                        "entity_id": entity_id,
-                        "allow_command": False,
-                    })
-
-            stage_data["devices"] = parsed_devices
-
-            if stage.get("time_escalation"):
-                stage_data["time_escalation"] = stage["time_escalation"]
-
-            conditions = stage.get("conditions") or {}
-            for key in ("outdoor_temp_min", "outdoor_temp_max"):
-                value = conditions.get(key, stage.get(key))
-                if value is not None:
-                    stage_data[key] = value
-
-            result.append(stage_data)
-        return result
-
-    def _save_zone_config(self) -> FlowResult:
-        """Save zone configuration to options storage.
-
-        IMPORTANT: Preserves original setpoints when editing a zone.
-        """
-        wip = self._zone_wip or {}
-        zone_id = wip.get("zone_id")
-
-        if not zone_id:
-            return self.async_abort(reason="no_zone_id")
-
-        # Start with original setpoints if editing, otherwise use defaults
-        original_setpoints = wip.get("_original_setpoints", {})
-        setpoints = dict(original_setpoints) if original_setpoints else {"default": 72}
-
-        # Update occupancy settings if enabled
-        if wip.get("occupancy_enabled"):
-            # Save that occupancy is enabled (even without entity selected yet)
-            setpoints["occupancy_enabled"] = True
-            setpoints[CONF_OCCUPANCY_OFF_DELAY] = wip.get(CONF_OCCUPANCY_OFF_DELAY, DEFAULT_OCCUPANCY_OFF_DELAY)
-            if wip.get(CONF_OCCUPANCY_ENTITY):
-                setpoints[CONF_OCCUPANCY_ENTITY] = wip[CONF_OCCUPANCY_ENTITY]
-                default_temp = setpoints.get("default", 72)
-                setpoints["occupied"] = default_temp + wip.get("occupied_offset", 2)
-                setpoints["unoccupied"] = default_temp + wip.get("unoccupied_offset", -2)
-        else:
-            # Remove occupancy settings if disabled
-            setpoints.pop("occupancy_enabled", None)
-            setpoints.pop(CONF_OCCUPANCY_ENTITY, None)
-            setpoints.pop(CONF_OCCUPANCY_OFF_DELAY, None)
-            setpoints.pop("occupied", None)
-            setpoints.pop("unoccupied", None)
-
-        # Build settings with optional outdoor_reset
-        settings_config = {
-            CONF_HYSTERESIS: wip.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS),
-            CONF_MIN_RUNTIME: wip.get(CONF_MIN_RUNTIME, DEFAULT_MIN_RUNTIME),
-        }
-
-        # Add outdoor_reset if configured (must include *_override_set flags)
-        outdoor_reset = wip.get("outdoor_reset", {})
-        if outdoor_reset:
-            settings_config["outdoor_reset"] = {
-                "override_enabled": outdoor_reset.get("override_enabled", True),
-                "never_heat_above": outdoor_reset.get("never_heat_above"),
-                "never_cool_below": outdoor_reset.get("never_cool_below"),
-                "heat_override_set": outdoor_reset.get("heat_override_set", False),
-                "cool_override_set": outdoor_reset.get("cool_override_set", False),
-            }
-
-        # Build zone config structure matching the expected format
-        zone_config = {
-            CONF_NAME: wip.get(CONF_NAME, zone_id),
-            CONF_SENSORS: {
-                "indoor": wip.get(CONF_SENSORS, []),
-                CONF_AGGREGATION: wip.get(CONF_AGGREGATION, AGGREGATION_AVERAGE),
-                CONF_SMOOTHING_SAMPLES: wip.get(CONF_SMOOTHING_SAMPLES, DEFAULT_SMOOTHING_SAMPLES),
-            },
-            "setpoints": setpoints,
-            "heat_stages": self._build_stages_config(wip.get("heat_stages", [])),
-            "cool_stages": self._build_stages_config(wip.get("cool_stages", [])),
-            "settings": settings_config,
-        }
-        # Keep weights for any method, but only for sensors still selected.
-        selected_sensors = set(wip.get(CONF_SENSORS, []))
-        weights = {
-            entity_id: weight for entity_id, weight in wip.get(CONF_WEIGHTS, {}).items()
-            if entity_id in selected_sensors
-        }
-        if weights:
-            zone_config[CONF_SENSORS][CONF_WEIGHTS] = weights
-        opening_entities = wip.get(CONF_OPENING_ENTITIES, [])
-        if opening_entities:
-            zone_config[CONF_OPENINGS] = {
-                CONF_OPENING_ENTITIES: opening_entities,
-                CONF_OPEN_DELAY: wip.get(CONF_OPEN_DELAY, DEFAULT_OPEN_DELAY),
-                CONF_CLOSE_DELAY: wip.get(CONF_CLOSE_DELAY, DEFAULT_CLOSE_DELAY),
-            }
-
-        # Add opportunistic heating if configured
-        opportunistic = wip.get("opportunistic", {})
-        if opportunistic.get("enabled", False):
-            zone_config["opportunistic"] = {
-                "enabled": True,
-                "threshold": opportunistic.get("threshold", 0.5),
-            }
-
-        # Add PI regulation if configured
-        if wip.get("regulation_type") == REGULATION_PI and wip.get("pi_config"):
-            pi = wip["pi_config"]
-            zone_config["regulation"] = {
-                "type": REGULATION_PI,
-                "devices": pi.get("devices", []),
-                "kp": pi.get("kp", DEFAULT_KP),
-                "ki": pi.get("ki", DEFAULT_KI),
-                "k_ext": pi.get("k_ext", DEFAULT_K_EXT),
-                "offset_max": pi.get("offset_max", DEFAULT_OFFSET_MAX),
-                "regulation_threshold": pi.get("regulation_threshold", DEFAULT_REGULATION_THRESHOLD),
-                "regulation_min_period": pi.get("regulation_min_period", DEFAULT_REGULATION_MIN_PERIOD),
-                "balance_point": pi.get("balance_point", DEFAULT_BALANCE_POINT),
-            }
-
-        # Add TOU config if enabled
-        tou_config = wip.get(CONF_TOU, {})
-        if tou_config.get("enabled", False):
-            zone_config[CONF_TOU] = tou_config
-
-        # Update UI config
-        stored_config = dict(self._get_ui_config())
-        stored_config[CONF_UI_VERSION] = 1
-        zones = stored_config.get(CONF_ZONES, {})
-        if not isinstance(zones, dict):
-            zones = {}
-        zones[zone_id] = zone_config
-        stored_config[CONF_ZONES] = zones
-        add_stage_capabilities(self.hass, stored_config, zone_config)
-
-        # Clear WIP state
-        self._zone_wip = None
-        self._zone_edit_id = None
-
-        return self._save_ui_config(stored_config)
-
-    def _build_stages_config(self, stages: list[dict]) -> list[dict]:
-        """Build stage config in the format expected by config_loader.
-
-        PRESERVES allow_command flags from the parsed devices.
-        """
-        result = []
-        for stage in stages:
-            devices = stage.get("devices", [])
-            if not devices:
-                continue
-
-            # Build device list preserving allow_command
-            device_configs = []
-            for d in devices:
-                if isinstance(d, dict):
-                    # Already parsed with allow_command
-                    device_configs.append({
-                        "entity_id": d.get("entity_id", ""),
-                        "allow_command": d.get("allow_command", False),
-                    })
-                else:
-                    # String entity_id (shouldn't happen after _parse_stages_for_edit)
-                    device_configs.append({
-                        "entity_id": str(d),
-                        "allow_command": False,
-                    })
-
-            # Filter out empty entity_ids
-            device_configs = [d for d in device_configs if d["entity_id"]]
-            if not device_configs:
-                continue
-
-            stage_config = {
-                "stage": stage.get("stage", len(result) + 1),
-                "devices": device_configs,
-                "threshold": stage.get("threshold", 1.0),
-            }
-
-            if stage.get("time_escalation"):
-                stage_config["time_escalation"] = stage["time_escalation"]
-
-            # Add conditions if present
-            conditions = {}
-            if stage.get("outdoor_temp_min") is not None:
-                conditions["outdoor_temp_min"] = stage["outdoor_temp_min"]
-            if stage.get("outdoor_temp_max") is not None:
-                conditions["outdoor_temp_max"] = stage["outdoor_temp_max"]
-            if conditions:
-                stage_config["conditions"] = conditions
-
-            result.append(stage_config)
-        return result
+        """Parse stage config for editing: canonical UI stages, allow_command flags preserved."""
+        return canonical_stages(stages, self._get_yaml_config().get(CONF_DEVICES, {}))
 
     def _delete_zone(self, zone_id: str) -> FlowResult:
         """Delete a zone from UI config."""

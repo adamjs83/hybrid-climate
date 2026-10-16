@@ -1,6 +1,11 @@
-"""Device mutex conflict configuration flow for Hybrid Climate options."""
+"""Purpose: Device mutex conflict configuration flow steps for Hybrid Climate options.
+
+Key dependencies: options_flow/base.py (OptionsFlowBase), const.py, HA selectors.
+Used by: options_flow/handler.py (the options flow handler inherits ConflictFlowMixin).
+"""
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -25,6 +30,8 @@ from ..const import (
     CONF_ZONES,
 )
 from .base import OptionsFlowBase
+
+_LOGGER = logging.getLogger(__name__)
 
 # New fields for blocking other devices (shared condenser support)
 CONF_BLOCKED_DEVICES_HEAT = "blocked_devices_heat"
@@ -350,9 +357,7 @@ class ConflictFlowMixin(OptionsFlowBase):
 
         stored_config[CONF_DEVICE_MUTEX] = rules
 
-        import logging
-        _LOGGER = logging.getLogger(__name__)
-        _LOGGER.warning("Saving %d mutex rules: %s", len(rules), rules)
+        _LOGGER.debug("Saving %d mutex rules: %s", len(rules), rules)
 
         # Clear edit state
         self._conflict_edit_index = None

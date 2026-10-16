@@ -1,4 +1,8 @@
-"""Base class and utilities for options flow handlers."""
+"""Purpose: Options-flow base class, storage helpers, and seconds/minutes form conversions.
+
+Key dependencies: const.py, Home Assistant config entries.
+Used by: every options_flow mixin and handler.py; zone_steps.py (minutes_to_seconds, seconds_to_minutes).
+"""
 # pyright: reportMissingImports=false
 from __future__ import annotations
 
@@ -34,9 +38,24 @@ from ..const import (
     CONF_UI_VERSION,
     CONF_ZONES,
     DOMAIN,
+    SECONDS_PER_MINUTE,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def seconds_to_minutes(seconds: float | None) -> float | None:
+    """Convert a stored seconds value to the minutes a form shows (None stays None)."""
+    if seconds is None:
+        return None
+    return seconds / SECONDS_PER_MINUTE
+
+
+def minutes_to_seconds(minutes: float | None, default_seconds: int) -> int:
+    """Convert a submitted minutes value to stored whole seconds, or the default when blank."""
+    if minutes is None:
+        return default_seconds
+    return int(round(minutes * SECONDS_PER_MINUTE))
 
 
 def replace_changed_subtrees(
@@ -60,8 +79,8 @@ def replace_changed_subtrees(
 
 
 # Defaults for outdoor reset
-DEFAULT_NEVER_HEAT_ABOVE = 75.0
-DEFAULT_NEVER_COOL_BELOW = 55.0
+DEFAULT_NEVER_HEAT_ABOVE = 55.0
+DEFAULT_NEVER_COOL_BELOW = 63.0
 
 
 class OptionsFlowBase(OptionsFlowWithReload):
