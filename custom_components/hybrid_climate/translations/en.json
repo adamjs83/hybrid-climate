@@ -221,9 +221,9 @@
               "cool_regulation_min_period": "Minimum time between cooling correction changes"
             },
             "data_description": {
-              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading lowers the zone target by how far the unit reads below the room (never raises it); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
               "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
-              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_max": "Largest correction in °F, subtracted from the zone target.",
               "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
               "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
               "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
@@ -240,9 +240,9 @@
               "cool_regulation_min_period": "Minimum time between cooling correction changes"
             },
             "data_description": {
-              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading lowers the zone target by how far the unit reads below the room (never raises it); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
               "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
-              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_max": "Largest correction in °F, subtracted from the zone target.",
               "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
               "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
               "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
@@ -259,9 +259,9 @@
               "cool_regulation_min_period": "Minimum time between cooling correction changes"
             },
             "data_description": {
-              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading lowers the zone target by how far the unit reads below the room (never raises it); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
               "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
-              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_max": "Largest correction in °F, subtracted from the zone target.",
               "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
               "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
               "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
@@ -278,9 +278,9 @@
               "cool_regulation_min_period": "Minimum time between cooling correction changes"
             },
             "data_description": {
-              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading lowers the zone target by how far the unit reads below the room (never raises it); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
               "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
-              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_max": "Largest correction in °F, subtracted from the zone target.",
               "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
               "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
               "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
@@ -297,9 +297,9 @@
               "cool_regulation_min_period": "Minimum time between cooling correction changes"
             },
             "data_description": {
-              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading lowers the zone target by how far the unit reads below the room (never raises it); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
               "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
-              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_max": "Largest correction in °F, subtracted from the zone target.",
               "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
               "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
               "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
@@ -316,9 +316,9 @@
               "cool_regulation_min_period": "Minimum time between cooling correction changes"
             },
             "data_description": {
-              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading lowers the zone target by how far the unit reads below the room (never raises it); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
               "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
-              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_max": "Largest correction in °F, subtracted from the zone target.",
               "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
               "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
               "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."

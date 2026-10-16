@@ -1,7 +1,7 @@
 """Purpose: Resolve, rate-limit and record the per-device cooling regulation offset.
 
 The signed offset (°F) is added to the resolved zone cool target of an owned
-cooling command: off 0, overdrive -cool_overdrive, compensation unit - room
+cooling command: off 0, overdrive -cool_overdrive, compensation min(0, unit - room)
 (clamped), pi the owner zone's cooling PI offset (cool_pi.py). Compensation and
 pi pass a per-device limiter that mirrors regulation_limits for heating.
 
@@ -82,7 +82,9 @@ def resolve_cool_offset(device: Device, zone_state: ZoneState | None, now: datet
         limit = device.cool_compensation_max
         # Plus sign: the unit stops when its own sensor reads what it reads
         # while the room sits at target; never push harder than the maximum.
-        return max(-limit, min(limit, unit - room))
+        # Push only (v0.17.2 owner ruling, as Versatile Thermostat uses it "to force"):
+        # a unit reading above the room already works hard, so the target is never raised.
+        return max(-limit, min(0.0, unit - room))
     if mode == COOL_REGULATION_PI:
         # The zone's cooling PI step (cool_pi.py) already holds -push <= 0.
         return zone_state.cool_regulation_offset if zone_state is not None else 0.0

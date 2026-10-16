@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.2] - 2026-10-16
+
+### Changed
+- "Correct the unit's temperature reading" now only pushes: when the unit reads lower than the room it lowers the cooling target by the difference, as before, but when the unit reads at or above the room it sends the zone target unchanged instead of raising it.
+
 ## [0.17.1] - 2026-10-16
 
 ### Fixed
