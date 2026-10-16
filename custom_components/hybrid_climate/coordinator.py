@@ -14,6 +14,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from .coil_dry_out import CoilDryOut
 from .conflict_resolver import ConflictResolver
 from .const import (
     DEFAULT_UPDATE_INTERVAL,
@@ -72,6 +73,7 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
         self.pi_controller = PIController()
         self.device_manager = DeviceManager(hass, config.devices)
         self.startup_takeover = StartupTakeover()
+        self.coil_dry_out = CoilDryOut()
         self.control_restore = ControlRestore(self)
         self.manual_overrides = ManualOverrideTracker()
         self.conflict_resolver = ConflictResolver(
@@ -146,6 +148,9 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
             # 7. Apply opportunistic heating (after normal zone updates)
             await apply_opportunistic_heating(self, outdoor_temp)
 
+            # Before the failed-command cleanup, so a failed dry-out completion
+            # retries its own idle action instead of a plain off.
+            await self.coil_dry_out.queue(self)
             # A failed partial command cannot leave external sync suppressed forever.
             # If no zone still owns or requests the device, return it to OFF.
             for device_id in self.device_manager.failed_commands.copy():
@@ -162,7 +167,7 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
             await self.startup_takeover.queue(self)
             await queue_mutex_releases(self)
             command_results = await self.device_manager.dispatch_cycle(
-                self.config.conflicts.device_mutex
+                self.config.conflicts.device_mutex, self.zone_states,
             )
             reconcile_dispatch(self, previous_states, command_results)
 

@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ..const import (
-    CONF_ALLOW_COMMAND, CONF_CAPABILITIES, CONF_DEVICE, CONF_DEVICES, CONF_ENTITY_ID, CONF_IDLE_ACTION,
+    CONF_ALLOW_COMMAND, CONF_CAPABILITIES, CONF_COOL_COMPENSATION_SENSOR, CONF_DEVICE, CONF_DEVICES, CONF_ENTITY_ID, CONF_IDLE_ACTION,
     CONF_IDLE_SETBACK, CONF_NEVER_COOL_BELOW, CONF_NEVER_HEAT_ABOVE, CONF_OUTDOOR_RESET,
     CONF_OUTDOOR_SENSOR, CONF_OUTDOOR_SENSORS, CONF_REGULATION, CONF_SENSORS, CONF_SETTINGS,
     CONF_UI_CONFIG, CONF_WEIGHTS, IDLE_ACTIONS, CONF_UI_GLOBAL, CONF_ZONES,
@@ -151,6 +151,11 @@ def readonly_device(
         "idle": idle, CONF_ALLOW_COMMAND: permission,
         CONF_CAPABILITIES: _entry([item.value for item in device.capabilities], source, "list", CONF_CAPABILITIES),
         "capabilities_source": _entry(source, source, "enum", "capabilities_source"),
+        CONF_COOL_COMPENSATION_SENSOR: _entry(
+            device.cool_compensation_sensor,
+            SOURCE_UI_CONFIG if CONF_COOL_COMPENSATION_SENSOR in storage else SOURCE_DEFAULT,
+            "entity_id", CONF_COOL_COMPENSATION_SENSOR,
+        ),
     }
 
 

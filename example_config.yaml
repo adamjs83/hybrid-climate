@@ -63,6 +63,13 @@ devices:
     entity_id: climate.basement_family_heatpump
     capabilities: [heat, cool]
     cool_overdrive: 0  # °F below zone cool target while cooling; 0 disables
+    cool_regulation: off  # off | overdrive | compensation | pi; pi sends offset 0 until v0.17.0; omit to infer from cool_overdrive
+    cool_compensation_max: 3  # °F; compensation sends target + (unit - room), clamped to this either way
+    # cool_compensation_sensor: sensor.basement_family_hp_temp  # optional sensor.*, must report °F (no conversion); default is the unit's current_temperature
+    cool_regulation_threshold: 0.5  # °F the compensation offset must move before a re-send
+    cool_regulation_min_period: 10  # minutes between compensation re-sends
+    cool_dry_out: false  # run fan_only after a cooling run to dry the coil
+    cool_dry_out_minutes: 10  # 1-30 minutes of fan_only, then the normal idle action
 
   # Main floor devices
   main_radiant_1:

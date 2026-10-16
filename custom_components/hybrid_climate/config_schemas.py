@@ -43,6 +43,29 @@ from .const import (
     DEFAULT_COOL_OVERDRIVE,
     MIN_COOL_OVERDRIVE,
     MAX_COOL_OVERDRIVE,
+    CONF_COOL_REGULATION,
+    COOL_REGULATION_MODES,
+    COOL_REGULATION_OFF,
+    CONF_COOL_COMPENSATION_MAX,
+    DEFAULT_COOL_COMPENSATION_MAX,
+    MIN_COOL_COMPENSATION_MAX,
+    MAX_COOL_COMPENSATION_MAX,
+    CONF_COOL_COMPENSATION_SENSOR,
+    COOL_COMPENSATION_SENSOR_DOMAIN,
+    CONF_COOL_REGULATION_THRESHOLD,
+    DEFAULT_COOL_REGULATION_THRESHOLD,
+    MIN_COOL_REGULATION_THRESHOLD,
+    MAX_COOL_REGULATION_THRESHOLD,
+    CONF_COOL_REGULATION_MIN_PERIOD,
+    DEFAULT_COOL_REGULATION_MIN_PERIOD,
+    MIN_COOL_REGULATION_MIN_PERIOD,
+    MAX_COOL_REGULATION_MIN_PERIOD,
+    CONF_COOL_DRY_OUT,
+    DEFAULT_COOL_DRY_OUT,
+    CONF_COOL_DRY_OUT_MINUTES,
+    DEFAULT_COOL_DRY_OUT_MINUTES,
+    MIN_COOL_DRY_OUT_MINUTES,
+    MAX_COOL_DRY_OUT_MINUTES,
     CONF_OPENINGS,
     CONF_OPENING_ENTITIES,
     CONF_OPEN_DELAY,
@@ -359,6 +382,44 @@ def _cool_overdrive(value: Any) -> float:
     return offset
 
 
+def _bounded_number(name: str, minimum: float, maximum: float, coerce: type) -> Any:
+    """Build a validator for a finite, non-bool number within [minimum, maximum]."""
+    def validate(value: Any) -> Any:
+        """Reject bools, non-finite values and values outside the bounds."""
+        if type(value) is bool:
+            raise vol.Invalid(f"{name} must be a number")
+        number = vol.Coerce(float)(value)
+        if not isfinite(number) or not minimum <= number <= maximum:
+            raise vol.Invalid(f"{name} must be finite and between {minimum} and {maximum}")
+        if coerce is int and number != int(number):
+            raise vol.Invalid(f"{name} must be a whole number")
+        return coerce(number)
+    return validate
+
+
+def _compensation_sensor(entity: str) -> str:
+    """Require the compensation reading to come from a sensor.* entity."""
+    if entity.split(".", 1)[0] != COOL_COMPENSATION_SENSOR_DOMAIN:
+        raise vol.Invalid(f"{CONF_COOL_COMPENSATION_SENSOR} must be a {COOL_COMPENSATION_SENSOR_DOMAIN}.* entity")
+    return entity
+
+
+def _strict_bool(value: Any) -> bool:
+    """Accept only a real boolean (no "yes"/1 coercion)."""
+    if type(value) is not bool:
+        raise vol.Invalid("value must be true or false")
+    return value
+
+
+def _cool_regulation_mode(value: Any) -> str:
+    """Accept a cooling regulation mode; bare YAML off arrives as boolean false."""
+    # YAML 1.1 reads an unquoted off as False. Only exactly False maps to off;
+    # True and every other non-string still fail the enum check below.
+    if type(value) is bool and value is False:
+        value = COOL_REGULATION_OFF
+    return vol.In(COOL_REGULATION_MODES)(value)
+
+
 DEVICE_SCHEMA = vol.Schema({
     vol.Required(CONF_ENTITY_ID): cv.entity_id,
     vol.Required(CONF_CAPABILITIES): vol.All(
@@ -370,6 +431,18 @@ DEVICE_SCHEMA = vol.Schema({
     vol.Optional(CONF_MIN_COMPRESSOR_RUNTIME, default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
     vol.Optional(CONF_MIN_COMPRESSOR_OFF_TIME, default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
     vol.Optional(CONF_COOL_OVERDRIVE, default=DEFAULT_COOL_OVERDRIVE): _cool_overdrive,
+    # No default: parse_device infers the mode from cool_overdrive when absent.
+    vol.Optional(CONF_COOL_REGULATION): _cool_regulation_mode,
+    vol.Optional(CONF_COOL_COMPENSATION_MAX, default=DEFAULT_COOL_COMPENSATION_MAX): _bounded_number(
+        CONF_COOL_COMPENSATION_MAX, MIN_COOL_COMPENSATION_MAX, MAX_COOL_COMPENSATION_MAX, float),
+    vol.Optional(CONF_COOL_COMPENSATION_SENSOR): vol.All(cv.entity_id, _compensation_sensor),
+    vol.Optional(CONF_COOL_REGULATION_THRESHOLD, default=DEFAULT_COOL_REGULATION_THRESHOLD): _bounded_number(
+        CONF_COOL_REGULATION_THRESHOLD, MIN_COOL_REGULATION_THRESHOLD, MAX_COOL_REGULATION_THRESHOLD, float),
+    vol.Optional(CONF_COOL_REGULATION_MIN_PERIOD, default=DEFAULT_COOL_REGULATION_MIN_PERIOD): _bounded_number(
+        CONF_COOL_REGULATION_MIN_PERIOD, MIN_COOL_REGULATION_MIN_PERIOD, MAX_COOL_REGULATION_MIN_PERIOD, int),
+    vol.Optional(CONF_COOL_DRY_OUT, default=DEFAULT_COOL_DRY_OUT): _strict_bool,
+    vol.Optional(CONF_COOL_DRY_OUT_MINUTES, default=DEFAULT_COOL_DRY_OUT_MINUTES): _bounded_number(
+        CONF_COOL_DRY_OUT_MINUTES, MIN_COOL_DRY_OUT_MINUTES, MAX_COOL_DRY_OUT_MINUTES, int),
     # Note: allow_command moved to stage device config (per-zone, not per-device)
 })
 

@@ -10,7 +10,7 @@ from datetime import datetime
 
 from homeassistant.util import dt as dt_util
 
-from .const import HVAC_MODE_COOL, HVAC_MODE_HEAT, HVAC_MODE_OFF
+from .const import HVAC_MODE_COOL, HVAC_MODE_FAN_ONLY, HVAC_MODE_HEAT, HVAC_MODE_OFF
 from .models import Device
 
 
@@ -71,7 +71,8 @@ class CompressorProtection:
             self.devices[member_id].min_compressor_off_time
             for member_id in self.groups[group_id]
         )
-        if mode == HVAC_MODE_OFF and active and len(state.active_devices) == 1:
+        # fan_only (coil dry-out) stops the compressor exactly like off.
+        if mode in (HVAC_MODE_OFF, HVAC_MODE_FAN_ONLY) and active and len(state.active_devices) == 1:
             if not force_off and elapsed < min_run:
                 self.blocked_reasons[device.device_id] = "minimum compressor runtime"
                 return False
@@ -89,7 +90,7 @@ class CompressorProtection:
             return
         state = self.states[group_id]
         was_active = bool(state.active_devices)
-        if mode == HVAC_MODE_OFF:
+        if mode in (HVAC_MODE_OFF, HVAC_MODE_FAN_ONLY):
             state.active_devices.discard(device.device_id)
         elif mode in (HVAC_MODE_HEAT, HVAC_MODE_COOL):
             state.active_devices.add(device.device_id)

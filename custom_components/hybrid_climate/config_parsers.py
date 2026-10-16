@@ -34,6 +34,13 @@ from .const import (
     CONF_MIN_COMPRESSOR_RUNTIME,
     CONF_MIN_COMPRESSOR_OFF_TIME,
     CONF_COOL_OVERDRIVE,
+    CONF_COOL_REGULATION,
+    CONF_COOL_COMPENSATION_MAX,
+    CONF_COOL_COMPENSATION_SENSOR,
+    CONF_COOL_REGULATION_THRESHOLD,
+    CONF_COOL_REGULATION_MIN_PERIOD,
+    CONF_COOL_DRY_OUT,
+    CONF_COOL_DRY_OUT_MINUTES,
     CONF_OPENINGS,
     CONF_OPENING_ENTITIES,
     CONF_OPEN_DELAY,
@@ -91,6 +98,11 @@ from .const import (
     DEFAULT_ACCUMULATED_ERROR_THRESHOLD,
     DEFAULT_ALLOW_COMMAND,
     DEFAULT_COOL_OVERDRIVE,
+    DEFAULT_COOL_COMPENSATION_MAX,
+    DEFAULT_COOL_REGULATION_THRESHOLD,
+    DEFAULT_COOL_REGULATION_MIN_PERIOD,
+    DEFAULT_COOL_DRY_OUT,
+    DEFAULT_COOL_DRY_OUT_MINUTES,
     DEFAULT_BALANCE_POINT,
     DEFAULT_HYSTERESIS,
     DEFAULT_IDLE_ACTION,
@@ -129,6 +141,7 @@ from .models import (
     OpeningConfig,
     OutdoorResetConfig,
     RegulationConfig,
+    resolve_cool_regulation,
     Stage,
     StageCondition,
     StageDevice,
@@ -197,6 +210,8 @@ def parse_device(device_id: str, data: dict[str, Any]) -> Device:
         for c in data[CONF_CAPABILITIES]
     ]
 
+    overdrive = data.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE)
+
     return Device(
         device_id=device_id,
         entity_id=data[CONF_ENTITY_ID],
@@ -205,7 +220,14 @@ def parse_device(device_id: str, data: dict[str, Any]) -> Device:
         compressor_group=data.get(CONF_COMPRESSOR_GROUP),
         min_compressor_runtime=data.get(CONF_MIN_COMPRESSOR_RUNTIME, 0),
         min_compressor_off_time=data.get(CONF_MIN_COMPRESSOR_OFF_TIME, 0),
-        cool_overdrive=data.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE),
+        cool_overdrive=overdrive,
+        cool_regulation=resolve_cool_regulation(data.get(CONF_COOL_REGULATION), overdrive),
+        cool_compensation_max=data.get(CONF_COOL_COMPENSATION_MAX, DEFAULT_COOL_COMPENSATION_MAX),
+        cool_compensation_sensor=data.get(CONF_COOL_COMPENSATION_SENSOR) or None,
+        cool_regulation_threshold=data.get(CONF_COOL_REGULATION_THRESHOLD, DEFAULT_COOL_REGULATION_THRESHOLD),
+        cool_regulation_min_period=data.get(CONF_COOL_REGULATION_MIN_PERIOD, DEFAULT_COOL_REGULATION_MIN_PERIOD),
+        cool_dry_out=data.get(CONF_COOL_DRY_OUT, DEFAULT_COOL_DRY_OUT),
+        cool_dry_out_minutes=data.get(CONF_COOL_DRY_OUT_MINUTES, DEFAULT_COOL_DRY_OUT_MINUTES),
     )
 
 

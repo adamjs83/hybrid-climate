@@ -10,7 +10,11 @@ from datetime import datetime
 from enum import Enum
 
 from homeassistant.util import dt as dt_util
-from .const import DEFAULT_COOL_OVERDRIVE, DEFAULT_DEVICE_UNAVAILABLE_GRACE, DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_REGULATION_MIN_PERIOD, DEFAULT_REGULATION_THRESHOLD, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F
+from .const import (
+    COOL_REGULATION_OFF, COOL_REGULATION_OVERDRIVE, DEFAULT_COOL_COMPENSATION_MAX, DEFAULT_COOL_DRY_OUT, DEFAULT_COOL_DRY_OUT_MINUTES,
+    DEFAULT_COOL_REGULATION_MIN_PERIOD, DEFAULT_COOL_REGULATION_THRESHOLD,
+    DEFAULT_COOL_OVERDRIVE, DEFAULT_DEVICE_UNAVAILABLE_GRACE, DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_REGULATION_MIN_PERIOD, DEFAULT_REGULATION_THRESHOLD, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F,
+)
 
 
 class DeviceCapability(Enum):
@@ -122,6 +126,15 @@ class DeviceIdleConfig:
     setback: float = 5.0  # degrees to setback from zone target when idle
 
 
+def resolve_cool_regulation(mode: str | None, overdrive: float) -> str:
+    """Return the effective cooling regulation mode, inferring it when none is stored."""
+    # Migration rule: devices configured before v0.16.0 have no mode; a positive
+    # overdrive keeps them on overdrive, anything else is off. An explicit mode wins.
+    if mode is None:
+        return COOL_REGULATION_OVERDRIVE if overdrive > 0 else COOL_REGULATION_OFF
+    return mode
+
+
 @dataclass
 class Device:
     """A climate device in the pool."""
@@ -133,11 +146,27 @@ class Device:
     min_compressor_runtime: int = 0
     min_compressor_off_time: int = 0
     cool_overdrive: float = DEFAULT_COOL_OVERDRIVE
+    # None infers the mode in __post_init__ via resolve_cool_regulation.
+    cool_regulation: str | None = None
+    cool_compensation_max: float = DEFAULT_COOL_COMPENSATION_MAX
+    cool_compensation_sensor: str | None = None
+    cool_regulation_threshold: float = DEFAULT_COOL_REGULATION_THRESHOLD
+    cool_regulation_min_period: int = DEFAULT_COOL_REGULATION_MIN_PERIOD  # minutes
+    cool_dry_out: bool = DEFAULT_COOL_DRY_OUT
+    cool_dry_out_minutes: int = DEFAULT_COOL_DRY_OUT_MINUTES
 
     # Runtime state
     current_mode: str | None = None  # heat, cool, off
     current_target_temp: float | None = None
     is_available: bool = True
+    # Cooling regulation runtime state (not config; never parsed)
+    current_temperature: float | None = None  # unit's own reading
+    cool_offset_sent: float = 0.0
+    last_sent_cool_offset: float | None = None
+    last_cool_offset_time: datetime | None = None
+    last_cool_offset_target: float | None = None
+    cool_regulation_fallback: bool = False
+    dry_out_until: datetime | None = None
 
     # Command state machine (for allow_command devices)
     command_state: DeviceCommandState = DeviceCommandState.LISTENING
@@ -148,6 +177,11 @@ class Device:
     # never cleared by ack/timeout. Read-only observability; control never reads it.
     last_command_at: datetime | None = None
     idle_setpoint_basis: str | None = None
+
+    def __post_init__(self) -> None:
+        """Infer an unset cooling regulation mode: overdrive when cool_overdrive > 0, else off."""
+        if self.cool_regulation is None:
+            self.cool_regulation = resolve_cool_regulation(None, self.cool_overdrive)
 
     def can_heat(self) -> bool:
         """Check if device supports heating."""

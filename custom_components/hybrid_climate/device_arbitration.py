@@ -10,8 +10,14 @@ from typing import TYPE_CHECKING
 
 from homeassistant.util import dt as dt_util
 
-from .const import HVAC_MODE_COOL, HVAC_MODE_HEAT, HVAC_MODE_OFF
-from .models import Device, DeviceMutexRule, HvacAction, ZoneState
+from .const import HVAC_MODE_COOL, HVAC_MODE_FAN_ONLY, HVAC_MODE_HEAT, HVAC_MODE_OFF
+from .cool_regulation import (
+    cool_dispatch_target,
+    record_cool_dispatch,
+    select_owner_state,
+    warn_pi_inert,
+)
+from .models import DeviceMutexRule, HvacAction, ZoneState
 
 if TYPE_CHECKING:
     from .coordinator import HybridClimateCoordinator
@@ -20,11 +26,6 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 DeviceRequest = tuple[str, float | None, str | None]
-
-
-def cool_dispatch_target(device: Device, target: float) -> float:
-    """Return the physical target for an owned cooling request."""
-    return target - device.cool_overdrive if device.cool_overdrive > 0 else target
 
 
 def resolve_requests(requests: list[DeviceRequest]) -> tuple[str, float | None, set[str]]:
@@ -38,6 +39,9 @@ def resolve_requests(requests: list[DeviceRequest]) -> tuple[str, float | None, 
             return mode, aggregate(targets) if targets else None, {
                 zone_id for _, _, zone_id in matching if zone_id is not None
             }
+    # A coil dry-out outranks a plain off; any heat or cool request above wins.
+    if any(request[0] == HVAC_MODE_FAN_ONLY for request in selected):
+        return HVAC_MODE_FAN_ONLY, None, set()
     return HVAC_MODE_OFF, None, set()
 
 
@@ -64,7 +68,7 @@ async def queue_retained_demand(coordinator: HybridClimateCoordinator) -> None:
                 mode, target = device.current_mode, device.current_target_temp
                 if mode == HVAC_MODE_COOL and target is not None:
                     # The held physical target was already offset and clamped.
-                    target += device.cool_overdrive
+                    target -= device.cool_offset_sent
             if mode in (HVAC_MODE_HEAT, HVAC_MODE_COOL):
                 await manager.set_device_mode(device, mode, target, zone_id=zone_id)
 
@@ -165,6 +169,7 @@ def reconcile_dispatch(
 
 async def dispatch_requests(
     manager: DeviceManager, rules: list[DeviceMutexRule],
+    zone_states: dict[str, ZoneState] | None = None,
 ) -> dict[str, bool]:
     """Dispatch aggregate commands after incompatible equipment is stopped."""
     results: dict[str, bool] = {}
@@ -172,9 +177,11 @@ async def dispatch_requests(
         device_id: resolve_requests(requests)
         for device_id, requests in manager._pending_commands.items()
     }
-    # OFF commands run first so a new priority direction cannot start before
-    # its incompatible equipment has successfully stopped.
-    for device_id in sorted(commands, key=lambda key: commands[key][0] != HVAC_MODE_OFF):
+    # OFF and fan_only (dry-out) commands run first so a new priority direction
+    # cannot start before its incompatible equipment has successfully stopped.
+    for device_id in sorted(
+        commands, key=lambda key: commands[key][0] not in (HVAC_MODE_OFF, HVAC_MODE_FAN_ONLY),
+    ):
         mode, target, owners = commands[device_id]
         manager.accepted_zone_requests[device_id] = owners
         requests = manager._pending_commands[device_id]
@@ -193,20 +200,29 @@ async def dispatch_requests(
                 ) for other_id in ids
             ) for rule in rules or []
         )
+        device = manager.devices[device_id]
+        # Only an owned cooling command carries the regulation offset.
+        owned_cool = mode == HVAC_MODE_COOL and bool(owners) and target is not None
         if blocked:
             _LOGGER.warning("Device %s: waiting for mutex equipment to release", device_id)
             results[device_id] = False
+            record_cool_dispatch(device, owned_cool, 0.0, False)
             continue
-        device = manager.devices[device_id]
-        dispatch_target = (
-            cool_dispatch_target(device, target)
-            if mode == HVAC_MODE_COOL and owners and target is not None else target
-        )
+        dispatch_target, offset = target, 0.0
+        if owned_cool:
+            warn_pi_inert(device, manager.cool_pi_warned)
+            owner_state = select_owner_state(zone_states, requests, target, owners)
+            dispatch_target, offset = cool_dispatch_target(device, owner_state, target, dt_util.utcnow())
         before_send = manager.idle_basis.sent_serial
         results[device_id] = await manager._dispatch_device_mode(
             device, mode, dispatch_target,
             force_off=device_id in manager._forced_off_devices,
         )
+        record_cool_dispatch(device, owned_cool, offset, results[device_id])
+        if results[device_id] and mode != HVAC_MODE_FAN_ONLY:
+            # Any other successful command (heat, cool, off, the completion's
+            # idle action) ends a coil dry-out; a failed one leaves it to retry.
+            device.dry_out_until = None
         manager.idle_basis.attach_dispatched(
             manager.devices[device_id], mode, target, owners, requests,
             before_send, results[device_id],

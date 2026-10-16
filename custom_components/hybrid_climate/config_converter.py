@@ -13,6 +13,17 @@ import logging
 from typing import Any
 
 from .const import (
+    CONF_COMPRESSOR_GROUP,
+    CONF_COOL_COMPENSATION_MAX,
+    CONF_COOL_COMPENSATION_SENSOR,
+    CONF_COOL_DRY_OUT,
+    CONF_COOL_DRY_OUT_MINUTES,
+    CONF_COOL_OVERDRIVE,
+    CONF_COOL_REGULATION,
+    CONF_COOL_REGULATION_MIN_PERIOD,
+    CONF_COOL_REGULATION_THRESHOLD,
+    CONF_MIN_COMPRESSOR_OFF_TIME,
+    CONF_MIN_COMPRESSOR_RUNTIME,
     CONF_DEVICES,
     CONF_ENTITY_ID,
     CONF_IDLE,
@@ -37,6 +48,14 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Flat per-device keys copied unchanged in both directions (UI <-> YAML).
+DEVICE_PASSTHROUGH_KEYS = (
+    CONF_COMPRESSOR_GROUP, CONF_MIN_COMPRESSOR_RUNTIME, CONF_MIN_COMPRESSOR_OFF_TIME, CONF_COOL_OVERDRIVE,
+    CONF_COOL_REGULATION, CONF_COOL_COMPENSATION_MAX, CONF_COOL_COMPENSATION_SENSOR,
+    CONF_COOL_REGULATION_THRESHOLD, CONF_COOL_REGULATION_MIN_PERIOD, CONF_COOL_DRY_OUT,
+    CONF_COOL_DRY_OUT_MINUTES,
+)
+
 
 def build_config_from_ui(ui_config: dict[str, Any]) -> dict[str, Any]:
     """Build a config dict from UI config that can be passed to load_config().
@@ -59,7 +78,7 @@ def build_config_from_ui(ui_config: dict[str, Any]) -> dict[str, Any]:
             CONF_ENTITY_ID: entity_id,
             "capabilities": dev_conf.get("capabilities", ["heat"]),
         }
-        for key in ("compressor_group", "min_compressor_runtime", "min_compressor_off_time", "cool_overdrive"):
+        for key in DEVICE_PASSTHROUGH_KEYS:
             if dev_conf.get(key) is not None and dev_conf.get(key) != "":
                 devices[device_id][key] = dev_conf[key]
         # Add idle config if present
@@ -279,7 +298,7 @@ def import_yaml_to_ui_config(yaml_config: dict[str, Any]) -> dict[str, Any]:
             CONF_ENTITY_ID: entity_id,
             "capabilities": dev_conf.get("capabilities", ["heat"]),
         }
-        for key in ("compressor_group", "min_compressor_runtime", "min_compressor_off_time", "cool_overdrive"):
+        for key in DEVICE_PASSTHROUGH_KEYS:
             if key in dev_conf:
                 ui_devices[entity_id][key] = dev_conf[key]
         # Add idle config

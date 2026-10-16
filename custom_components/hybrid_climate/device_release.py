@@ -1,6 +1,6 @@
 """Purpose: Reconcile zone device ownership and apply capability-safe idle actions.
 
-Key dependencies: models.py, device_manager.py, const.py.
+Key dependencies: models.py, device_manager.py, const.py, coil_dry_out.py.
 Used by: zone_control.py for staging, shutdown, and PI equilibrium holds.
 """
 from __future__ import annotations
@@ -12,6 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import HEAT_COOL_REVERSAL_SECONDS, HVAC_MODE_COOL, HVAC_MODE_HEAT, REGULATION_PI
 from .models import HvacAction, HvacMode, HybridClimateConfig, MasterMode, ZoneConfig, ZoneState
+from .coil_dry_out import start_dry_out
 from .idle_floor import idle_heat_floor
 from .regulation_limits import reset_regulation_limits
 
@@ -99,7 +100,16 @@ async def reconcile_devices(
         target = state.target_temperature if was_heating else state.target_temperature_cool
         if was_heating and target is None:
             target = config.setpoints.default
-        if forced_off or target is None or not (device.can_heat() or device.can_cool()):
+        # Coil dry-out replaces the idle action of a normal cooling release only.
+        dry_out = (
+            not forced_off and not was_heating and device.cool_dry_out
+            and device.current_mode == HVAC_MODE_COOL
+            and coordinator.device_manager.supports_fan_only(device)
+            and await start_dry_out(coordinator, device, dt_util.utcnow())
+        )
+        if dry_out:
+            success = True
+        elif forced_off or target is None or not (device.can_heat() or device.can_cool()):
             success = await coordinator.device_manager.turn_off_device(device, force_off=forced_off)
         else:
             success = await coordinator.device_manager.set_device_idle(

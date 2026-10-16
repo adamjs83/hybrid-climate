@@ -12,8 +12,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ATTR_HVAC_MODES,
     COMMAND_TIMEOUT_SECONDS,
     HVAC_MODE_COOL,
+    HVAC_MODE_FAN_ONLY,
     HVAC_MODE_HEAT,
     HVAC_MODE_OFF,
     IDLE_ACTION_OFF,
@@ -21,10 +23,11 @@ from .const import (
     SERVICE_CLIMATE,
     SERVICE_SET_HVAC_MODE,
 )
-from .models import Device, DeviceMutexRule
+from .models import Device, DeviceMutexRule, ZoneState
 from .capability_check import warn_runtime_capability_skip
 from .device_arbitration import DeviceRequest, dispatch_requests, resolve_requests
 from .compressor_protection import CompressorProtection
+from .cool_regulation import read_unit_temperature
 from .idle_floor import IdleBasisTracker, apply_idle_setback
 from .setpoint_limits import clamp_target, send_temperature
 
@@ -50,6 +53,10 @@ class DeviceManager:
         self.accepted_zone_requests: dict[str, set[str]] = {}
         self._collecting = False
         self._forced_off_devices: set[str] = set()
+        # Devices already warned that cooling PI is inert; resets with a reload.
+        self.cool_pi_warned: set[str] = set()
+        # Devices already warned that coil dry-out lacks fan_only; resets with a reload.
+        self._fan_only_warned: set[str] = set()
         # Secondary index: entity_id → Device for O(1) fallback lookups
         self._entity_id_index: dict[str, Device] = {
             dev.entity_id: dev for dev in devices.values() if dev.entity_id
@@ -109,10 +116,28 @@ class DeviceManager:
 
         return available
 
+    def supports_fan_only(self, device: Device) -> bool:
+        """Return whether the climate entity lists fan_only, warning once when it does not."""
+        state = self.hass.states.get(device.entity_id)
+        modes = state.attributes.get(ATTR_HVAC_MODES) if state is not None else None
+        if modes and HVAC_MODE_FAN_ONLY in modes:
+            return True
+        if device.device_id not in self._fan_only_warned:
+            self._fan_only_warned.add(device.device_id)
+            _LOGGER.warning(
+                "Device %s has coil dry-out on but %s does not offer fan_only; "
+                "using its normal idle action", device.device_id, device.entity_id,
+            )
+        return False
+
     async def update_device_states(self) -> None:
         """Update device states from Home Assistant."""
         for device_id, device in self.devices.items():
             state = self.hass.states.get(device.entity_id)
+            sensor = device.cool_compensation_sensor
+            device.current_temperature = read_unit_temperature(
+                device, state, self.hass.states.get(sensor) if sensor else None,
+            )
 
             if state is None:
                 _LOGGER.warning(
@@ -201,10 +226,13 @@ class DeviceManager:
         self.idle_basis.clear()
         self._forced_off_devices.clear()
 
-    async def dispatch_cycle(self, rules: list[DeviceMutexRule] | None = None) -> dict[str, bool]:
+    async def dispatch_cycle(
+        self, rules: list[DeviceMutexRule] | None = None,
+        zone_states: dict[str, ZoneState] | None = None,
+    ) -> dict[str, bool]:
         """Resolve one command per device, releasing mutex conflicts before starts."""
         self._collecting = False
-        return await dispatch_requests(self, rules or [])
+        return await dispatch_requests(self, rules or [], zone_states)
 
     async def _dispatch_device_mode(
         self, device: Device, mode: str, target_temp: float | None,

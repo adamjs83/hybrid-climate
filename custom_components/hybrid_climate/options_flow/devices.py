@@ -41,6 +41,9 @@ from ..const import (
 )
 from .base import OptionsFlowBase
 from .capability_defaults import device_form_capabilities, submitted_capabilities
+from .device_cooling import (
+    cooling_form_fields, cooling_settings_from_input, cooling_settings_from_yaml, merge_cooling_settings,
+)
 
 
 # Device action constants
@@ -184,6 +187,7 @@ class DeviceFlowMixin(OptionsFlowBase):
                 min_compressor_runtime=int(user_input.get("min_compressor_runtime", 0)),
                 min_compressor_off_time=int(user_input.get("min_compressor_off_time", 0)),
                 cool_overdrive=float(user_input.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE)),
+                **cooling_settings_from_input(user_input),
             )
 
         current = self._load_device_config(device_id)
@@ -261,6 +265,7 @@ class DeviceFlowMixin(OptionsFlowBase):
                     unit_of_measurement="°F",
                     mode=NumberSelectorMode.BOX,
                 )),
+                **cooling_form_fields(current),
             }),
             errors=errors,
             description_placeholders={
@@ -297,6 +302,7 @@ class DeviceFlowMixin(OptionsFlowBase):
             "min_compressor_runtime": device_conf.get("min_compressor_runtime", 0),
             "min_compressor_off_time": device_conf.get("min_compressor_off_time", 0),
             CONF_COOL_OVERDRIVE: device_conf.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE),
+            **cooling_settings_from_yaml(device_conf),
         }
 
     # Backwards compat alias
@@ -308,6 +314,7 @@ class DeviceFlowMixin(OptionsFlowBase):
         self, device_id: str, capabilities: list[str], action: str, setback: float,
         *, compressor_group: str = "", min_compressor_runtime: int = 0,
         min_compressor_off_time: int = 0, cool_overdrive: float = DEFAULT_COOL_OVERDRIVE,
+        **cooling_settings: Any,
     ) -> FlowResult:
         """Save device configuration to options storage."""
         stored_config = dict(self._get_ui_config())
@@ -327,6 +334,7 @@ class DeviceFlowMixin(OptionsFlowBase):
             "min_compressor_runtime": min_compressor_runtime,
             "min_compressor_off_time": min_compressor_off_time,
             CONF_COOL_OVERDRIVE: cool_overdrive,
+            **merge_cooling_settings(cooling_settings),
         }
         stored_config["devices"] = devices
 

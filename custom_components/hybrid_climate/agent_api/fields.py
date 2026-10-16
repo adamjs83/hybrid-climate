@@ -8,7 +8,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from ..const import CONF_COOL_OVERDRIVE, CONF_DEVICE_UNAVAILABLE_GRACE, CONF_LOCKOUT_HEAT_FLOOR, CONF_OCCUPANCY_OFF_DELAY, MIN_COOL_OVERDRIVE, MAX_COOL_OVERDRIVE, MIN_DEVICE_UNAVAILABLE_GRACE, MAX_DEVICE_UNAVAILABLE_GRACE, MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR, MAX_OCCUPANCY_OFF_DELAY
+from ..const import (
+    CONF_COOL_OVERDRIVE, CONF_DEVICE_UNAVAILABLE_GRACE, CONF_LOCKOUT_HEAT_FLOOR, CONF_OCCUPANCY_OFF_DELAY,
+    MIN_COOL_OVERDRIVE, MAX_COOL_OVERDRIVE, MIN_DEVICE_UNAVAILABLE_GRACE, MAX_DEVICE_UNAVAILABLE_GRACE,
+    MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR, MAX_OCCUPANCY_OFF_DELAY,
+    CONF_COOL_COMPENSATION_MAX, CONF_COOL_DRY_OUT, CONF_COOL_DRY_OUT_MINUTES, CONF_COOL_REGULATION,
+    CONF_COOL_REGULATION_MIN_PERIOD, CONF_COOL_REGULATION_THRESHOLD, COOL_REGULATION_MODES,
+    MAX_COOL_COMPENSATION_MAX, MAX_COOL_DRY_OUT_MINUTES, MAX_COOL_REGULATION_MIN_PERIOD,
+    MAX_COOL_REGULATION_THRESHOLD, MIN_COOL_COMPENSATION_MAX, MIN_COOL_DRY_OUT_MINUTES,
+    MIN_COOL_REGULATION_MIN_PERIOD, MIN_COOL_REGULATION_THRESHOLD,
+)
 
 
 @dataclass(frozen=True)
@@ -48,6 +57,12 @@ FIELD_ROWS = (
     Field("devices", "min_compressor_runtime", "int", 0, 3600, "s", "Minimum compressor runtime"),
     Field("devices", "min_compressor_off_time", "int", 0, 3600, "s", "Minimum compressor off interval"),
     Field("devices", CONF_COOL_OVERDRIVE, "float", MIN_COOL_OVERDRIVE, MAX_COOL_OVERDRIVE, "°F", "Cooling device setpoint offset during owned demand"),
+    Field("devices", CONF_COOL_REGULATION, "enum", description="Cooling regulation mode", enum=COOL_REGULATION_MODES),
+    Field("devices", CONF_COOL_COMPENSATION_MAX, "float", MIN_COOL_COMPENSATION_MAX, MAX_COOL_COMPENSATION_MAX, "°F", "Maximum absolute compensation offset from the zone cool target"),
+    Field("devices", CONF_COOL_REGULATION_THRESHOLD, "float", MIN_COOL_REGULATION_THRESHOLD, MAX_COOL_REGULATION_THRESHOLD, "°F", "Minimum cooling offset change before a resend"),
+    Field("devices", CONF_COOL_REGULATION_MIN_PERIOD, "int", MIN_COOL_REGULATION_MIN_PERIOD, MAX_COOL_REGULATION_MIN_PERIOD, "min", "Minimum interval between cooling offset resends"),
+    Field("devices", CONF_COOL_DRY_OUT, "bool", description="Run the fan to dry the coil after cooling"),
+    Field("devices", CONF_COOL_DRY_OUT_MINUTES, "int", MIN_COOL_DRY_OUT_MINUTES, MAX_COOL_DRY_OUT_MINUTES, "min", "Coil dry-out fan duration"),
 )
 FIELDS = {(row.scope, row.key): row for row in FIELD_ROWS}
 OUTDOOR_VALUE_FIELDS = {

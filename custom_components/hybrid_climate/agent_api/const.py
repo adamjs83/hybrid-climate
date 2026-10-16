@@ -10,7 +10,7 @@ INTEGER_KEYS = frozenset({
     "_version", "stage", "min_runtime", "smoothing_samples", "time_escalation",
     "open_delay", "close_delay", "min_compressor_runtime",
     "min_compressor_off_time", "pre_condition_minutes", "occupancy_off_delay",
-    "device_unavailable_grace",
+    "device_unavailable_grace", "cool_regulation_min_period", "cool_dry_out_minutes",
 })
 COMPAT_KEYS = ("never_heat_above", "never_cool_below")
 API_DATA = "hybrid_climate_agent_api"
@@ -44,6 +44,7 @@ READ_ONLY_FIELDS = frozenset({
     ("devices", "allow_command"),
     ("devices", "capabilities"),
     ("devices", "capabilities_source"),
+    ("devices", "cool_compensation_sensor"),
     ("zones", "regulation"),
     ("zones", "setpoints.occupancy_entity"),
 })
@@ -65,6 +66,7 @@ READ_ONLY_DESCRIPTIONS = {
     "allow_command": "Allow external device changes to update zones",
     "capabilities": "Loaded heat and cool capabilities",
     "capabilities_source": "Origin of loaded device capabilities",
+    "cool_compensation_sensor": "Temperature sensor for cooling compensation",
     "regulation": "Zone regulation method and devices",
     "setpoints.occupancy_entity": "Zone occupancy sensor entity",
     SENSORS_WEIGHTS_FIELD: "Effective per-sensor weight used for weighted aggregation",
@@ -160,7 +162,7 @@ TOU_MODE_PRE_CONDITIONING = "pre_conditioning"
 
 # get_status.devices.<id>.control.reason values (spec §7.6, v0.13.2 §1 amendments
 # A4/A16, §3 amendment A10). First match wins, in this order: not_referenced ->
-# manual_override -> owned_active -> awaiting_startup_takeover |
+# manual_override -> owned_active -> drying_coil (v0.16.0) -> awaiting_startup_takeover |
 # awaiting_control_restore -> taken_over_at_startup -> control_restored ->
 # released_idle -> referenced_without_capability -> never_owned_since_start.
 # The awaiting_* reason depends on the current pass's source (StartupTakeover.source);
@@ -177,12 +179,13 @@ CONTROL_REASON_CONTROL_RESTORED = "control_restored"
 CONTROL_REASON_RELEASED_IDLE = "released_idle"
 CONTROL_REASON_NEVER_OWNED_SINCE_START = "never_owned_since_start"
 CONTROL_REASON_MISSING_STAGE_CAPABILITY = "referenced_without_capability"
+CONTROL_REASON_DRYING_COIL = "drying_coil"
 CONTROL_REASON_CODES = frozenset({
     CONTROL_REASON_NOT_REFERENCED, CONTROL_REASON_MANUAL_OVERRIDE, CONTROL_REASON_OWNED_ACTIVE,
     CONTROL_REASON_AWAITING_STARTUP_TAKEOVER, CONTROL_REASON_AWAITING_CONTROL_RESTORE,
     CONTROL_REASON_TAKEN_OVER_AT_STARTUP, CONTROL_REASON_CONTROL_RESTORED,
     CONTROL_REASON_RELEASED_IDLE, CONTROL_REASON_MISSING_STAGE_CAPABILITY,
-    CONTROL_REASON_NEVER_OWNED_SINCE_START,
+    CONTROL_REASON_NEVER_OWNED_SINCE_START, CONTROL_REASON_DRYING_COIL,
 })
 
 # Cached status projection keys shared with history-friendly entities

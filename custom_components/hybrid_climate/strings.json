@@ -245,13 +245,31 @@
           "compressor_group": "Compressor group",
           "min_compressor_runtime": "Minimum compressor run time",
           "min_compressor_off_time": "Minimum compressor off time",
-          "cool_overdrive": "Cooling overdrive"
+          "cool_overdrive": "Cooling overdrive",
+          "cool_regulation": "Cooling regulation",
+          "cool_compensation_max": "Maximum compensation",
+          "cool_compensation_sensor": "Unit temperature sensor",
+          "cool_regulation_threshold": "Resend threshold",
+          "cool_regulation_min_period": "Minimum time between resends",
+          "cool_dry_out": "Coil dry-out",
+          "cool_dry_out_minutes": "Dry-out time"
         },
         "data_description": {
+          "can_heat": "Device can be used for heating",
+          "can_cool": "Device can be used for cooling",
+          "action": "Turn off or maintain a setback temperature",
+          "setback": "Degrees below (heat) or above (cool) target when idle",
           "compressor_group": "Devices with the same group share compressor timing; leave empty to disable",
           "min_compressor_runtime": "Seconds the shared compressor must run before a normal stop",
           "min_compressor_off_time": "Seconds the shared compressor must remain off before restarting",
-          "cool_overdrive": "Send the device this many °F below the zone's cooling target while a zone calls for cooling; the zone still stops at its own target. 0 = off."
+          "cool_overdrive": "Send the device this many °F below the zone's cooling target while a zone calls for cooling; the zone still stops at its own target. 0 = off.",
+          "cool_regulation": "How this device's cooling setpoint is chosen: off sends the zone target, fixed overdrive sends the target minus the overdrive below, compensate sends the zone target plus (unit reading − room reading), and cooling PI arrives in the next release.",
+          "cool_compensation_max": "Largest compensation in °F, in either direction, added to the zone target.",
+          "cool_compensation_sensor": "Optional sensor that reports the unit's own temperature reading in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature.",
+          "cool_regulation_threshold": "Limits changes in the compensation offset: a new offset is sent only when it differs from the last one sent by at least this many °F. A changed cool target is sent at once.",
+          "cool_regulation_min_period": "Minutes to wait after sending a compensated setpoint before sending another one.",
+          "cool_dry_out": "When cooling ends, the unit runs fan-only for a while to dry the coil, then applies its normal idle behavior.",
+          "cool_dry_out_minutes": "Minutes the unit runs fan-only to dry the coil when coil dry-out is on."
         }
       },
       "heat_sources": {

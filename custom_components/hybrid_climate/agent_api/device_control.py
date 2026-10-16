@@ -17,6 +17,7 @@ from .const import (
     CONTROL_REASON_AWAITING_CONTROL_RESTORE,
     CONTROL_REASON_AWAITING_STARTUP_TAKEOVER,
     CONTROL_REASON_CONTROL_RESTORED,
+    CONTROL_REASON_DRYING_COIL,
     CONTROL_REASON_MANUAL_OVERRIDE,
     CONTROL_REASON_NEVER_OWNED_SINCE_START,
     CONTROL_REASON_MISSING_STAGE_CAPABILITY,
@@ -48,6 +49,8 @@ def _control_reason(
         return CONTROL_REASON_MANUAL_OVERRIDE
     if owners:
         return CONTROL_REASON_OWNED_ACTIVE
+    if device.dry_out_until is not None:
+        return CONTROL_REASON_DRYING_COIL
     # The candidate set is only materialized at arm()/rearm(); before arming,
     # mirror what arm() would compute: every control-referenced device is a
     # candidate unless it belongs to a PI-regulated zone (PI devices are
@@ -102,6 +105,9 @@ def device_control(
         "owner_zones": owners,
         "commanded": device.desired_mode is not None,
         "idle_setpoint_basis": device.idle_setpoint_basis,
+        "cool_regulation": device.cool_regulation,
+        "cool_offset": device.cool_offset_sent,
+        "cool_regulation_fallback": device.cool_regulation_fallback,
         "uncontrolled_active_mode": uncontrolled,
         "detail": UNCONTROLLED_MODE_DETAIL.format(reported_mode=reported_mode)
         if uncontrolled else None,

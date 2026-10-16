@@ -163,7 +163,16 @@ Configure what each device does when its zone is satisfied (idle):
 | Setback amount | Degrees below (heat) or above (cool) target |
 | Compressor group | Shared outdoor compressor identifier; use the same value on all members |
 | Minimum compressor runtime/off time | Seconds to hold the shared group on or off |
-| Cooling overdrive | °F (0–10, step 0.5; default 0) subtracted from the device's cool setpoint while a zone actively calls for cooling. The zone still stops at its own target. |
+| Cooling overdrive | °F (0–10, step 0.5; default 0) subtracted from the device's cool setpoint while a zone actively calls for cooling (mode `overdrive`). The zone still stops at its own target. |
+| Cooling regulation mode | `off` (send the zone target), `overdrive` (fixed overdrive above), `compensation` (correct for the unit's own sensor), or `pi` (accepted, sends the zone target until v0.17.0). Unset: `overdrive` when cooling overdrive > 0, else `off`; an explicit `off` wins. |
+| Compensation maximum | °F (0–10, step 0.5; default 3): the largest compensation offset either way |
+| Compensation sensor | Optional `sensor.*` read as the unit's own temperature; must report °F (its number is used as-is, with no unit check or conversion, so a °C sensor miscompensates, usually pinned at the maximum). Blank uses the climate entity's `current_temperature` |
+| Compensation change threshold | °F (0–5; default 0.5) the offset must move before it is re-sent |
+| Compensation minimum period | Minutes (0–60; default 10) between offset re-sends |
+| Dry coil after cooling | Tick box (default off): run `fan_only` after a cooling run instead of the idle action |
+| Dry-out minutes | 1–30 (default 10): how long `fan_only` runs before the normal idle action |
+
+Compensation sends the zone cool target plus (unit reading − room temperature), clamped to the maximum: a unit that reads 1°F below the room gets 71 for a 72 target, one that reads 1°F above gets 73. The new offset goes out only when it has moved by the threshold and the minimum period has passed; a first send or a changed cool target goes out at once. If the unit reading is missing or not a number, the raw offset is 0 and one warning is logged; the limiter still applies, so a previously sent offset stays in place until the change passes the threshold and the minimum period. `control.cool_offset` shows the offset actually applied; `control.cool_regulation_fallback` only says the unit reading is missing. With coil dry-out on, a device released from `cool` runs `fan_only` for the set minutes, then gets its normal idle action (off, or the setback from the highest cool target of its enabled zones); any new heat, cool or off command ends the window early. A unit without `fan_only` logs one warning and gets the idle action as before. `fan_only` counts as a compressor stop.
 
 Compressor protection is optional. For a shared group, the longest configured interval among its members applies. It uses each climate entity's reported HVAC mode as a proxy for compressor activity; a thermostat that cycles its compressor while remaining in `heat` or `cool` cannot be timed precisely. On startup, the previous transition is unknown, so the first observed state begins a full interval. Explicit shutdowns, including door/window lockouts, bypass the minimum runtime.
 
@@ -295,6 +304,13 @@ devices:
     min_compressor_runtime: 300          # seconds
     min_compressor_off_time: 180         # seconds
     cool_overdrive: 5                    # °F below zone cool target during active cooling; 0 disables
+    cool_regulation: overdrive           # off | overdrive | compensation | pi; pi sends offset 0 until v0.17.0; unset infers from cool_overdrive
+    cool_compensation_max: 3             # °F; compensation offset limit either way
+    # cool_compensation_sensor: sensor.basement_hp_return_temp  # optional; must report °F (no conversion); default is the unit's current_temperature
+    cool_regulation_threshold: 0.5       # °F the compensation offset must move before a re-send
+    cool_regulation_min_period: 10       # minutes between compensation re-sends
+    cool_dry_out: false                  # run fan_only after a cooling run to dry the coil
+    cool_dry_out_minutes: 10             # 1-30; then the normal idle action
     idle:
       action: setback  # or "off"
       setback: 5
@@ -1071,7 +1087,7 @@ For REST calls, POST to `/api/services/hybrid_climate/{get_status|get_config|set
 
 `get_status` also reports active global conflicts, per-device control ownership (including devices that report heat or cool with no owner and no matching command, most often after a restart), per-sensor readings, and each zone's temperature aggregation with spread and outlier hints. `get_config` also exposes read-only reference fields — the active outdoor sensor, each device's idle behavior and command permission, each zone's regulation settings, and compressor groups; these can only be changed in the integration's options, and a `set_config` patch naming one of them is rejected.
 
-`get_config` exposes each device's writable `cool_overdrive` (0–10°F, default 0). Set it through `set_config` under the discovered device ID, for example `{"devices":{"hp":{"cool_overdrive":5}}}`. `get_status.devices.<id>.desired_target_temperature` shows the actual commanded target after overdrive and device clamping.
+`get_config` exposes seven writable cooling fields per device: `cool_regulation` (`off`/`overdrive`/`compensation`/`pi`), `cool_overdrive` (0–10°F, default 0), `cool_compensation_max` (0–10°F, default 3), `cool_regulation_threshold` (0–5°F, default 0.5), `cool_regulation_min_period` (0–60 min, default 10), `cool_dry_out` (true/false, default false) and `cool_dry_out_minutes` (1–30, default 10). `cool_compensation_sensor` is read-only there; set it in YAML or the options UI. Set a field through `set_config` under the discovered device ID, for example `{"devices":{"hp":{"cool_regulation":"compensation"}}}`. `get_status.devices.<id>.desired_target_temperature` shows the actual commanded target after the cooling offset and device clamping.
 
 ### Restoring control (v0.13.2)
 
@@ -1119,8 +1135,9 @@ These `get_status`/`get_config` fields are read-only projections of cached state
 - `last_command_at`: ISO timestamp of the last time this device actually received a service call, or `null` if none since start. Unlike `command_sent_at` (documented next), this is never cleared.
 - `command_state` / `command_sent_at`: `command_state` is `"listening"` (device matches our last command) or `"commanding"` (a command was just sent, in flight). `command_sent_at` is the time of the *most recent* send and is only cleared on a command timeout — it is **not** cleared when a command is acknowledged, so a non-`null` `command_sent_at` on a `"listening"` device means "last sent at this time," not "currently in flight." Use `last_command_at` to answer "when was this device last commanded."
 - `control.idle_setpoint_basis`: `"lockout_floor"` or `"setback"` after a matching successful idle heat command, `null` otherwise — tells you whether the last idle heat setpoint was capped by the outdoor lockout floor.
-- `control.reason`: one code explaining the device's current control state, first match wins: `not_referenced` (no zone stage references it) → `manual_override` (v0.13.2 — its mode or setpoint was changed outside Hybrid Climate; see `control.override` below) → `owned_active` (a zone currently owns it) → `awaiting_startup_takeover` (the one-time startup takeover hasn't reached it yet) or `awaiting_control_restore` (v0.13.2 — a mode-change or manual restore pass hasn't reached it yet) → `taken_over_at_startup` (its last command was the startup takeover's) or `control_restored` (v0.13.2 — its last command was a mode-change or manual restore pass's) → `released_idle` (commanded since start, but not owned) → `referenced_without_capability` (v0.13.1 — the device is staged in a direction it doesn't support, and owns no stage direction it does support) → `never_owned_since_start`.
+- `control.reason`: one code explaining the device's current control state, first match wins: `not_referenced` (no zone stage references it) → `manual_override` (v0.13.2 — its mode or setpoint was changed outside Hybrid Climate; see `control.override` below) → `owned_active` (a zone currently owns it) → `drying_coil` (v0.16.0 — released from cooling and running `fan_only` for coil dry-out) → `awaiting_startup_takeover` (the one-time startup takeover hasn't reached it yet) or `awaiting_control_restore` (v0.13.2 — a mode-change or manual restore pass hasn't reached it yet) → `taken_over_at_startup` (its last command was the startup takeover's) or `control_restored` (v0.13.2 — its last command was a mode-change or manual restore pass's) → `released_idle` (commanded since start, but not owned) → `referenced_without_capability` (v0.13.1 — the device is staged in a direction it doesn't support, and owns no stage direction it does support) → `never_owned_since_start`.
 - `control.override` (v0.13.2): `{"commanded": {"mode", "target"}, "reported": {"mode", "target"}, "since": iso}` or `null` — populated when the device's reported mode/setpoint differs from what Hybrid Climate last commanded, outside the brief in-flight command window. Clears once the device matches the commanded values (e.g. after a restore sends them); a device turned off by hand stays flagged, because restore never turns equipment on. `allow_command` devices are never flagged — their changes are adopted into the owning zone's target instead.
+- `control.cool_regulation`, `control.cool_offset`, `control.cool_regulation_fallback` (v0.16.0): the effective cooling mode; the signed °F actually added to the zone cool target in the last owned cool send (0 when none); `true` while compensation has no usable unit reading. In fallback the raw offset is 0 but the limiter can keep the last sent offset applied until the change passes the threshold and minimum period, so read `cool_offset` for what is applied.
 - `control.missing_capabilities` (v0.13.1): `[{"zone", "stage", "capability"}]` for every stage that references this device in a direction it lacks; empty otherwise.
 
 **`get_status.outdoor`**

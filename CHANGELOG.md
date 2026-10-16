@@ -3,6 +3,18 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-10-15
+
+### Added
+- New per-device **Cooling regulation** mode in Device Behaviors: **Off** (send the zone's cooling target, the previous behavior), **Fixed overdrive** (the existing Cooling overdrive setting), **Compensate the unit's own sensor**, and **Cooling PI** (accepted now, active in a later release). A device that already has a cooling overdrive keeps behaving exactly as before; everything else defaults to Off.
+- **Compensation** sends the zone's cooling target plus the difference between the unit's own temperature reading and the room temperature, limited by **Compensation maximum** (0–10 °F, default 3). The unit then stops when the room, not its own sensor, reaches the target. The reading comes from the climate entity, or from an optional **Compensation sensor** (a `sensor.*` entity that reports °F, used as-is). If the reading is missing, the offset falls back to 0 and a warning is logged once.
+- Two per-device limits for compensation: **Cooling regulation threshold** (0–5 °F, default 0.5) and **Minimum cooling regulation period** (0–60 minutes, default 10). A changed offset is only re-sent once both pass; a changed cooling target is sent at once.
+- Optional **Coil dry-out**: tick it and set **Dry-out minutes** (1–30, default 10) to run the unit's fan only for that long after it stops cooling, before its normal idle behavior, so the coil dries instead of sitting wet. Units without a fan-only mode get their idle behavior as before, with one warning.
+- Agent API: `get_config`/`set_config` can read and change `cool_regulation`, `cool_compensation_max`, `cool_regulation_threshold`, `cool_regulation_min_period`, `cool_dry_out` and `cool_dry_out_minutes`; the compensation sensor is read-only. `get_status` shows each device's `cool_regulation`, the cooling offset actually applied (`cool_offset`), whether the unit reading is missing (`cool_regulation_fallback`), and a `drying_coil` control reason while a dry-out runs.
+
+### Changed
+- In YAML, `cool_regulation: off` can be written without quotes.
+
 ## [0.15.0] - 2026-10-15
 
 ### Added

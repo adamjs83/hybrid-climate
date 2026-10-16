@@ -25,7 +25,6 @@ from .const import (
     TEMP_MAX_VALID,
     TEMP_MIN_VALID,
 )
-from .device_arbitration import cool_dispatch_target
 from .models import MasterMode, MasterModeConfig, ZoneConfig
 from .regulation_limits import limit_regulated_setpoint, reset_regulation_limits
 from homeassistant.util import dt as dt_util
@@ -411,5 +410,6 @@ async def _immediate_device_update(
         else:
             device_target = target_temp
             if direction == HVAC_MODE_COOL:
-                device_target = cool_dispatch_target(device, device_target)
+                # Reuse the offset already sent; the next cycle recomputes it.
+                device_target += device.cool_offset_sent
         await coordinator.device_manager.set_device_mode(device, direction, device_target)
