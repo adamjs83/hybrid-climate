@@ -1,6 +1,6 @@
 """Purpose: Zone climate entity; its friendly name is the zone device name.
 
-Key dependencies: coordinator.py, models.py, const.py.
+Key dependencies: coordinator.py, models.py, const.py, cool_pi.py (cooling PI attributes/restore).
 Used by: climate.py (platform setup creates one per zone).
 """
 from __future__ import annotations
@@ -44,6 +44,7 @@ from .const import (
     TEMP_MAX_VALID,
     TEMP_MIN_VALID,
 )
+from .cool_pi import cool_pi_attributes, restore_cool_pi_state
 from .coordinator import HybridClimateCoordinator
 from .models import HvacAction as ModelHvacAction, HvacMode as ModelHvacMode, ZoneConfig
 from .regulation_limits import reset_regulation_limits
@@ -161,6 +162,8 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
                         )
                 except (ValueError, TypeError):
                     pass
+            if cool_state := self.coordinator.get_zone_state(self.zone_id):
+                restore_cool_pi_state(cool_state, last_state.attributes)
 
             # Restore last known current temperature (prevents graph spikes)
             if last_state.attributes.get("current_temperature") is not None:
@@ -347,6 +350,7 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
                 ATTR_ACCUMULATED_ERROR: round(zone_state.accumulated_error, 2),
                 ATTR_REGULATED_SETPOINT: round(zone_state.regulated_setpoint, 1) if zone_state.regulated_setpoint is not None else None,
             })
+            attrs.update(cool_pi_attributes(zone_state))
 
         return attrs
 

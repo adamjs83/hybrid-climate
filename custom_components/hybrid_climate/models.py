@@ -15,6 +15,8 @@ from .const import (
     DEFAULT_COOL_REGULATION_MIN_PERIOD, DEFAULT_COOL_REGULATION_THRESHOLD,
     DEFAULT_COOL_OVERDRIVE, DEFAULT_DEVICE_UNAVAILABLE_GRACE, DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_REGULATION_MIN_PERIOD, DEFAULT_REGULATION_THRESHOLD, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F,
 )
+from .cool_regulation_config import CoolRegulationConfig
+from .tou_models import TouGlobalConfig, ZoneTouConfig, ZoneTouModeConfig  # noqa: F401 — re-exported
 
 
 class DeviceCapability(Enum):
@@ -395,30 +397,6 @@ class OpportunisticConfig:
 
 
 @dataclass
-class ZoneTouModeConfig:
-    """TOU config for a single mode (heat or cool) within a zone."""
-    pre_condition_minutes: int = 60
-    relaxation_amount: float = 2.0  # °F
-
-
-@dataclass
-class ZoneTouConfig:
-    """Per-zone TOU optimization configuration.
-
-    Each zone can independently configure TOU behavior for heat and cool.
-    If heat or cool is None, TOU does not apply for that mode.
-    """
-    heat: ZoneTouModeConfig | None = None
-    cool: ZoneTouModeConfig | None = None
-
-
-@dataclass
-class TouGlobalConfig:
-    """Global TOU configuration."""
-    rate_sensor: str | None = None  # Entity ID of rate period sensor
-
-
-@dataclass
 class ZoneConfig:
     """Configuration for a zone."""
     zone_id: str
@@ -432,6 +410,7 @@ class ZoneConfig:
     opportunistic: OpportunisticConfig | None = None  # Optional opportunistic heating
     tou: ZoneTouConfig | None = None  # Optional TOU optimization
     openings: OpeningConfig | None = None
+    cool_regulation: CoolRegulationConfig = field(default_factory=CoolRegulationConfig)
 
     def get_all_device_ids(self) -> list[str]:
         """Get all device IDs from all stages."""
@@ -495,6 +474,11 @@ class ZoneState:
     last_regulated_send_time: datetime | None = None
     last_regulated_heat_target: float | None = None
     last_pi_update_time: datetime | None = None  # For dt-scaled integral
+    # Cooling PI regulation state (v0.17.0)
+    cool_accumulated_error: float = 0.0
+    cool_regulation_offset: float = 0.0  # signed, <= 0: minus the push
+    cool_regulated_setpoint: float | None = None  # cool target + cool_regulation_offset
+    cool_last_pi_update_time: datetime | None = None
 
     # TOU state
     tou_state: str = "normal"  # "normal", "pre_conditioning", "peak_relaxed"

@@ -25,6 +25,7 @@ from .const import (
     TEMP_MAX_VALID,
     TEMP_MIN_VALID,
 )
+from .cool_pi import cool_target_changed
 from .models import MasterMode, MasterModeConfig, ZoneConfig
 from .regulation_limits import limit_regulated_setpoint, reset_regulation_limits
 from homeassistant.util import dt as dt_util
@@ -361,6 +362,10 @@ async def set_zone_target_temp_cool(coordinator: HybridClimateCoordinator, zone_
         return
 
     zone_state = coordinator.zone_states.get(zone_id)
+    # A big change partially resets the cooling integral (a zero integral has nothing to scale).
+    if zone_state and zone_state.cool_accumulated_error:
+        cool_target_changed(coordinator.config.zones[zone_id], zone_state,
+                            zone_state.target_temperature_cool, temperature)
 
     coordinator._zone_target_temps_cool[zone_id] = temperature
     if zone_state:

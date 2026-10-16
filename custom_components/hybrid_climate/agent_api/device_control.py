@@ -25,6 +25,7 @@ from .const import (
     CONTROL_REASON_OWNED_ACTIVE,
     CONTROL_REASON_RELEASED_IDLE,
     CONTROL_REASON_TAKEN_OVER_AT_STARTUP,
+    CONTROL_REASON_TAKEOVER_SKIPPED,
     UNCONTROLLED_MODE_DETAIL,
 )
 
@@ -75,6 +76,10 @@ def _control_reason(
         return CONTROL_REASON_RELEASED_IDLE
     if missing_capabilities:
         return CONTROL_REASON_MISSING_STAGE_CAPABILITY
+    # A reload after a non-structural save skipped the startup pass (spec v0.17.0 §3);
+    # PI devices are never takeover candidates, so they keep never_owned_since_start.
+    if takeover.skipped_reload and not pi_regulated:
+        return CONTROL_REASON_TAKEOVER_SKIPPED
     return CONTROL_REASON_NEVER_OWNED_SINCE_START
 
 

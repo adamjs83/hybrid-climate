@@ -32,6 +32,7 @@ from .const import (
 from .coordinator import HybridClimateCoordinator
 from .dashboard_api import async_setup_dashboard
 from .device_release import release_removed_config_devices
+from .takeover_skip import should_skip_takeover, skip_startup_pass
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -127,6 +128,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Activate the prepared config only after platforms and first refresh succeed.
     coordinator = HybridClimateCoordinator(hass, config, entry)
+    # A reload right after a non-structural options save skips the takeover (spec §3).
+    if should_skip_takeover(hass, entry):
+        skip_startup_pass(coordinator.startup_takeover)
 
     # Cancel a pending mode-change restore debounce timer on unload/reload (A8),
     # registered before platform forwarding so it is never skipped on early exit.

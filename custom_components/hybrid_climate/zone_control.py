@@ -6,7 +6,7 @@ Handles:
 - Device activation/deactivation for zones
 - Opportunistic heating (piggybacking on active heat sources)
 
-Key dependencies: models.py, device_manager.py, pi_controller.py, zone_helpers.py, sensor_manager.py
+Key dependencies: models.py, device_manager.py, regulation_cycle.py (PI steps), zone_helpers.py, sensor_manager.py
 Used by: coordinator.py (_async_update_data calls update_zone each cycle)
 """
 from __future__ import annotations
@@ -38,7 +38,8 @@ from .models import (
 from .sensor_manager import get_zone_temperature
 from .opening_lockout import update_opening_lockout
 from .outage_hold import should_hold_outage
-from .regulation_limits import limit_regulated_setpoint, reset_regulation_limits
+from .regulation_cycle import idle_regulation, prepare_regulation, rollback_regulation
+from .regulation_limits import reset_regulation_limits
 from .zone_helpers import (
     get_active_heat_sources,
     zone_has_device_in_heat_source,
@@ -555,16 +556,8 @@ async def _apply_zone_staging(
         forced_off = True
     if needed_mode == HVAC_MODE_OFF:
         # Run PI in idle mode (no integral accumulation) before deactivating
-        if not forced_off and zone_config.regulation and zone_config.regulation.type == REGULATION_PI:
-            pi_offset = coordinator._calculate_pi_offset(
-                zone_config, zone_state, outdoor_temp, is_actively_heating=False
-            )
-            zone_state.regulation_offset = pi_offset
-            target_temp = zone_state.target_temperature
-            raw = target_temp + pi_offset if target_temp is not None else None
-            zone_state.regulated_setpoint = limit_regulated_setpoint(
-                zone_state, zone_config.regulation, raw, dt_util.utcnow()
-            )
+        if not forced_off:
+            idle_regulation(coordinator, zone_config, zone_state, outdoor_temp, needed_mode)
         await _deactivate_zone(
             coordinator, zone_id, zone_config, zone_state,
             forced_off=forced_off,
@@ -615,18 +608,7 @@ async def _apply_zone_staging(
     if target_stage is None:
         # Below the entry threshold, PI must still refresh the equilibrium
         # setpoint and timestamp without integrating an inactive demand.
-        if zone_config.regulation and zone_config.regulation.type == REGULATION_PI:
-            zone_state.regulation_offset = coordinator._calculate_pi_offset(
-                zone_config, zone_state, outdoor_temp, is_actively_heating=False
-            )
-            target_temp = zone_state.target_temperature
-            raw = target_temp + zone_state.regulation_offset if target_temp is not None else None
-            if needed_mode == HVAC_MODE_HEAT:
-                zone_state.regulated_setpoint = limit_regulated_setpoint(
-                    zone_state, zone_config.regulation, raw, dt_util.utcnow()
-                )
-            else:
-                zone_state.regulated_setpoint = raw
+        idle_regulation(coordinator, zone_config, zone_state, outdoor_temp, needed_mode)
         await _deactivate_zone(
             coordinator, zone_id, zone_config, zone_state,
             forced_off=(
@@ -661,39 +643,10 @@ async def _apply_zone_staging(
     ):
         return
 
-    # Calculate the command with a prospective integral; commit accumulation
-    # only if at least one regulated heating command succeeds below.
-    heating_regulated = False
-    previous_integral = zone_state.accumulated_error
-    previous_pi_time = zone_state.last_pi_update_time
-    previous_limit = (
-        zone_state.last_sent_regulated_setpoint,
-        zone_state.last_regulated_send_time,
-        zone_state.last_regulated_heat_target,
+    # Prospective heating and cooling PI steps; rolled back below if no regulated command succeeds.
+    snapshot = prepare_regulation(
+        coordinator, zone_config, zone_state, devices, needed_mode, new_action, outdoor_temp
     )
-    if zone_config.regulation and zone_config.regulation.type == REGULATION_PI:
-        if devices and zone_state.last_active_action is not None and zone_state.last_active_action != new_action:
-            zone_state.accumulated_error = 0.0
-            zone_state.last_pi_update_time = None
-            reset_regulation_limits(zone_state)
-        previous_integral = zone_state.accumulated_error
-        previous_pi_time = zone_state.last_pi_update_time
-        regulated_ids = set(zone_config.regulation.devices)
-        heating_regulated = needed_mode == HVAC_MODE_HEAT and any(
-            device.device_id in regulated_ids for device in devices
-        )
-        pi_offset = coordinator._calculate_pi_offset(
-            zone_config, zone_state, outdoor_temp, is_actively_heating=heating_regulated
-        )
-        zone_state.regulation_offset = pi_offset
-        target_temp = zone_state.target_temperature
-        raw = target_temp + pi_offset if target_temp is not None else None
-        if heating_regulated:
-            zone_state.regulated_setpoint = limit_regulated_setpoint(
-                zone_state, zone_config.regulation, raw, dt_util.utcnow()
-            )
-        else:
-            zone_state.regulated_setpoint = raw
 
     if not devices:
         _LOGGER.warning(
@@ -714,7 +667,7 @@ async def _apply_zone_staging(
     # Use appropriate setpoint based on mode
     if needed_mode == HVAC_MODE_COOL:
         target_temp = zone_state.target_temperature_cool
-        # PI regulation doesn't apply to cooling (regulated devices are heat-only)
+        # Heating PI doesn't apply to cooling; cooling PI is added per device at dispatch
         regulated_setpoint = target_temp
     else:
         target_temp = zone_state.target_temperature
@@ -747,28 +700,7 @@ async def _apply_zone_staging(
         if success:
             activated.append(device.device_id)
 
-    if heating_regulated and not regulated_device_ids.intersection(activated):
-        # Failed regulated commands must not wind up PI while backup heat runs.
-        zone_state.accumulated_error = previous_integral
-        zone_state.last_pi_update_time = previous_pi_time
-        zone_state.regulation_offset = coordinator._calculate_pi_offset(
-            zone_config, zone_state, outdoor_temp, is_actively_heating=False
-        )
-        (zone_state.last_sent_regulated_setpoint,
-         zone_state.last_regulated_send_time,
-         zone_state.last_regulated_heat_target) = previous_limit
-        # A prior command is reusable only for the same heat target, and only
-        # when a limit is configured (0/0 keeps the recomputed value).
-        limits_set = (zone_config.regulation.regulation_threshold > 0
-                      or zone_config.regulation.regulation_min_period > 0)
-        if (limits_set and zone_state.last_sent_regulated_setpoint is not None
-                and zone_state.last_regulated_heat_target == zone_state.target_temperature):
-            zone_state.regulated_setpoint = zone_state.last_sent_regulated_setpoint
-        else:
-            target_temp = zone_state.target_temperature
-            zone_state.regulated_setpoint = (
-                target_temp + zone_state.regulation_offset if target_temp is not None else None
-            )
+    rollback_regulation(coordinator, zone_config, zone_state, snapshot, activated, outdoor_temp)
 
     # Release using the previous direction before recording the new action.
     await reconcile_devices(

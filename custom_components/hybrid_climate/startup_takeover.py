@@ -65,6 +65,7 @@ class StartupTakeover:
         """Initialize with no armed pass and no pending rearm request."""
         self.armed = False
         self.finished = False
+        self.skipped_reload = False
         self.done: set[str] = set()
         self.applied_at: dict[str, datetime | None] = {}
         self.applied_source: dict[str, str] = {}

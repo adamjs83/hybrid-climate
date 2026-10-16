@@ -1,4 +1,8 @@
-"""Main options flow handler for Hybrid Climate integration."""
+"""Purpose: Main options flow handler for Hybrid Climate: composes the page mixins and shows the top menu.
+
+Key dependencies: every options_flow mixin, options_flow/page_const.py.
+Used by: config_flow.py (async_get_options_flow) via options_flow/__init__.py.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -10,23 +14,54 @@ from .conflicts import ConflictFlowMixin
 from .devices import DeviceFlowMixin
 from .global_settings import GlobalSettingsMixin
 from .heat_sources import HeatSourceFlowMixin
+from .page_const import (
+    STEP_DEVICES,
+    STEP_GLOBAL_SETTINGS,
+    STEP_MENU,
+    STEP_PRESETS,
+    STEP_SHARED_EQUIPMENT,
+    STEP_ZONES,
+)
 from .presets import PresetFlowMixin
+from .shared_equipment import SharedEquipmentMixin
+from .zone_pages.basics import BasicsPageMixin
+from .zone_pages.behaviour import BehaviourPageMixin
+from .zone_pages.cooling_stages import CoolStagesPageMixin
+from .zone_pages.delete_confirm import DeleteConfirmMixin
+from .zone_pages.heating_stages import HeatStagesPageMixin
+from .zone_pages.menu import ZoneMenuMixin
+from .zone_pages.page_save import ZonePageSaveMixin
+from .zone_pages.regulation import RegulationPageMixin
+from .zone_pages.setpoints_occupancy import SetpointsPageMixin
+from .zone_pages.time_of_use import TimeOfUsePageMixin
 from .zones import ZoneFlowMixin
 
-
-# Menu action constants
-MENU_GLOBAL_SETTINGS = "global_settings"
-MENU_ZONES = "zones"
-MENU_DEVICES = "devices"
-MENU_HEAT_SOURCES = "heat_sources"
-MENU_PRESETS = "presets"
-MENU_CONFLICTS = "conflicts"
+# Top menu (spec v0.17.0 §1): Global settings · Zones · Devices · Presets · Shared equipment.
+# HA routes a menu choice straight to async_step_<option>.
+TOP_MENU_OPTIONS: list[str] = [
+    STEP_GLOBAL_SETTINGS,
+    STEP_ZONES,
+    STEP_DEVICES,
+    STEP_PRESETS,
+    STEP_SHARED_EQUIPMENT,
+]
 
 
 class HybridClimateOptionsFlowHandler(
     GlobalSettingsMixin,
+    ZoneMenuMixin,
+    BasicsPageMixin,
+    SetpointsPageMixin,
+    HeatStagesPageMixin,
+    CoolStagesPageMixin,
+    BehaviourPageMixin,
+    RegulationPageMixin,
+    TimeOfUsePageMixin,
+    ZonePageSaveMixin,
+    DeleteConfirmMixin,
     ZoneFlowMixin,
     DeviceFlowMixin,
+    SharedEquipmentMixin,
     HeatSourceFlowMixin,
     PresetFlowMixin,
     ConflictFlowMixin,
@@ -48,30 +83,8 @@ class HybridClimateOptionsFlowHandler(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Show main configuration menu."""
-        if user_input is not None:
-            next_step = user_input.get("next_step")
-            if next_step == MENU_GLOBAL_SETTINGS:
-                return await self.async_step_global_settings()
-            elif next_step == MENU_ZONES:
-                return await self.async_step_zones()
-            elif next_step == MENU_DEVICES:
-                return await self.async_step_devices()
-            elif next_step == MENU_HEAT_SOURCES:
-                return await self.async_step_heat_sources()
-            elif next_step == MENU_PRESETS:
-                return await self.async_step_presets()
-            elif next_step == MENU_CONFLICTS:
-                return await self.async_step_conflicts()
-
         return self.async_show_menu(
-            step_id="menu",
-            menu_options=[
-                MENU_GLOBAL_SETTINGS,
-                MENU_ZONES,
-                MENU_HEAT_SOURCES,
-                MENU_PRESETS,
-                MENU_CONFLICTS,
-                MENU_DEVICES,
-            ],
+            step_id=STEP_MENU,
+            menu_options=list(TOP_MENU_OPTIONS),
             description_placeholders=self._build_summary_placeholders(),
         )

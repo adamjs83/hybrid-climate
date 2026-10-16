@@ -3,6 +3,24 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-10-16
+
+Cooling PI arrives, and the options pages are rebuilt so that editing one setting means opening one page and saving it.
+
+### Added
+- **Cooling PI** is a working cooling regulation mode. A device set to Cooling PI gets a push below the zone's cooling target that grows while the room stays warm and fades once it is at target, limited by a maximum push. Each zone with cooling stages gets three number entities to tune it: **Cooling PI proportional gain**, **Cooling PI integral gain** and **Cooling PI maximum push** (0–10 °F, default 5). Thresholds can be set in YAML under the zone's `cool_regulation` block. The zone climate, `get_status` and the dashboard show the cooling offset and setpoint.
+- **A menu for each zone.** Zones opens a list, and each zone opens its own menu: Basics & sensors, Setpoints & occupancy, Heating stages, Cooling stages, Behaviour, Regulation and Time-of-use. Each page saves on its own. Adding a zone takes three pages: basics, heating stages and cooling stages.
+- **Regulation page** per zone. It holds heating regulation (Direct or PI, which thermostats, how often) and one section per cooling device (mode, correction amounts, the unit's own sensor, minimum change and period). A device used by several zones shows the same settings on each and says so. The PI gains stay on their number entities, which the page lists with their current values.
+- **Shared equipment** menu for Heat source groups and Equipment that cannot run together.
+- Deleting a zone, heat source group or conflict rule now asks first and lists what refers to it.
+- The dashboard card names every zone reason in plain words.
+
+### Changed
+- **Saving a page no longer makes every thermostat jump.** A save that does not change structure (zones, sensors, stage equipment, device capabilities, conflict rules or heat source groups) skips the startup takeover on the reload that follows. Home Assistant restarts, structural saves, Agent API changes and later reloads still run it.
+- Cooling regulation settings moved from the device page to each zone's Regulation page. The device page keeps capabilities, idle action, compressor protection and coil dry-out, and shows which zones set its cooling mode.
+- Thermostat sync is on the Behaviour page as "Wall thermostats that follow hand changes". Outdoor limits there are "Use house limit", "No limit" or a value for each direction.
+- The top menu is Global settings · Zones · Devices · Presets · Shared equipment. Global settings lists the outdoor limits last, and Presets explains how a mode reuses another mode's setpoints.
+
 ## [0.16.1] - 2026-10-16
 
 Quick wins from a full review of the setup experience. Nothing changes in how zones and devices are controlled; stored settings, the Agent API and the entity ids of existing installs are untouched.

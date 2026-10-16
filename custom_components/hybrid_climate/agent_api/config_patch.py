@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 
 from ..const import DOMAIN
+from ..options_flow.page_const import CONF_LAST_SAVE
 from .audit import audit_saved
 from .const import (
     COMPAT_KEYS, DRY_RUN_KEY, ERROR_ENTRY_REMOVED, ERROR_PENDING, FAILED_UNLOAD_STATE,
@@ -75,6 +76,8 @@ async def async_set_config(
             candidate["ui_config"]["number_values"] = deepcopy(latest_ui["number_values"])
         else:
             candidate["ui_config"].pop("number_values", None)
+        # No save marker: the reload after an Agent API apply always arms the takeover.
+        candidate["ui_config"].pop(CONF_LAST_SAVE, None)
         saved_options = deepcopy(dict(latest.options))
         saved_options["ui_config"] = candidate["ui_config"]
         for key in COMPAT_KEYS:

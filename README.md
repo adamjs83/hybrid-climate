@@ -44,131 +44,131 @@ Hybrid Climate stores its active configuration in the integration's UI options. 
 
 ### UI Configuration (v0.7.0+)
 
-After adding the integration, click **Configure** to access the options menu. The UI is the source of truth after setup, including after a YAML import.
+After adding the integration, click **Configure** to open the options menu. The UI is the source of truth after setup, including after a YAML import. Since v0.17.0 every area is a menu of short pages, and each page saves on its own (see "What happens when I press Save" below).
 
-#### Main Menu
+#### Main menu
 
-The configuration menu shows:
-- Current master entity name
-- Number of zones and devices configured
+The menu header reads "**<master name>** is managing N zones with M devices." The five entries:
 
-Available sections:
+| Entry | Purpose |
+|-------|---------|
+| **Global settings** | Master name, outdoor sensors, presence, TOU rate sensor, device outage grace, outdoor limits |
+| **Zones** | The zone list: open a zone's menu, add a zone, or delete one (you confirm first) |
+| **Devices** | Per-device heating/cooling support, idle action, compressor protection and coil dry-out |
+| **Presets** | Behavior of each master mode |
+| **Shared equipment** | Heat source groups, and equipment that cannot run together (mutex rules) |
 
-| Section | Purpose |
-|---------|---------|
-| **Global Settings** | Master entity name, sensors, outdoor reset limits |
-| **Zones** | Create/edit/delete zones with multi-step wizard |
-| **Heat Source Groups** | Group devices sharing a heat source for opportunistic heating |
-| **Preset Modes** | Configure behavior for each master mode |
-| **Device Conflicts** | Set up mutex rules for shared equipment |
-| **Devices** | Per-device heating/cooling support, idle action, compressor protection and cooling regulation |
-
-#### Global Settings
-
-Configure integration-wide settings:
+#### Global settings
 
 | Setting | Description |
 |---------|-------------|
 | Master name | Display name for the master climate entity |
-| Outdoor sensors | Ordered list of `sensor.*` and/or `weather.*` entities for outdoor temperature. Each cycle uses the first entity in the list with a valid reading; later entries are backups, read in priority order |
+| Outdoor temperature entities (in priority order) | Ordered list of `sensor.*` and/or `weather.*` entities. Each cycle uses the first entity in the list with a valid reading; later entries are backups, read in priority order |
 | Presence entity (home/away) | `binary_sensor.*` or `input_boolean.*`; switches the master between Home and Away |
-| Never heat above | Disable heating when outdoor temp exceeds this value |
+| TOU rate period sensor | The `sensor.*` the zones' Time-of-use pages use |
+| Device outage grace period | Keep a running stage through a brief device outage (default 300 seconds, 0–1800; 0 disables) |
+| Never heat above (outdoor temp) | Disable heating when outdoor temp exceeds this value |
+| Never cool below (outdoor temp) | Disable cooling when outdoor temp is below this value |
 | Maximum idle heat target during outdoor lockout | Maximum idle heat setpoint (default 55°F, 40–60°F) while the "never heat above" lockout is active; a device's setback is never raised above this floor while heating is locked out |
-| Device unavailable grace | Keep a running stage through a brief device outage (default 300 seconds, 0–1800; 0 disables) |
-| Never cool below | Disable cooling when outdoor temp is below this value |
 
-#### Zone wizard (up to 8 steps)
+The outdoor limits come last on the page, in that order.
 
-Creating or editing a zone walks through these pages:
+#### Zones
 
-**1. Basics** ("Zone: <name> - Basics", "New zone - Basics" when adding)
-- Zone ID (unique identifier, lowercase, no spaces; adding only), display name
-- Temperature sensors (or leave empty to use device's built-in sensor)
-- Sensor aggregation method (average/min/max/median/weighted) and smoothing samples (moving average window)
+The zone list labels each zone with its stages and regulation, for example `Basement — heat 2 stages, cool 1 — heating PI, cooling: compensation` (the cooling part names the mode of each cool-stage device; different modes are joined with `/`). Choosing a zone opens its **zone menu**; "+ Add New Zone" starts the add path; "🗑️ Delete <name>" opens a confirmation that lists what still refers to the zone (mutex rules naming it), with Cancel preselected. Zones that exist only in YAML cannot be deleted here.
 
-**2. Sensor weights** (weighted aggregation only): a weight per selected sensor (0.1–10.0)
+The zone menu has seven pages and "← Back to zones". Each page opens on its saved values, shows **← Cancel / Save** first (Cancel returns to the zone menu), and Save stores that page only.
 
-**3. Occupancy**
-- Enable occupancy, occupancy sensor (binary_sensor), off delay in minutes
-- Occupied/unoccupied offsets (heating; cooling uses the Occupied/Unoccupied Cool numbers). "Disable occupancy for this zone" clears it
+| Page | Fields |
+|------|--------|
+| **Basics & sensors** | Display name; temperature sensors (empty = use each device's own sensor); sensor aggregation (average/min/max/median/weighted); smoothing samples (moving-average window). With Weighted, each selected sensor gets a weight field (0.1–10.0, labelled by its entity ID) on the same page; choosing Weighted in the same save that adds sensors shows the page again with "set them in the fields below" rather than saving default weights |
+| **Setpoints & occupancy** | The description names the zone's setpoint number entities (change setpoints there or on a dashboard; "created when the zone is saved" for a new zone). Fields: enable occupancy override, occupancy sensor, off delay (minutes), occupied/unoccupied offsets (heating; cooling uses the Occupied/Unoccupied Cool numbers). Clearing the sensor while enabled removes it |
+| **Heating stages** | Enable heating; stage 1 devices and threshold ("start heating when the room is this far below target"); stage 2 devices, threshold, "Add backup equipment after" (minutes) and stage 2 minimum outdoor temperature. Stages 3 and up (YAML or Agent API) are kept as saved |
+| **Cooling stages** | The same for cooling (no outdoor minimum) |
+| **Behaviour** | Start/stop temperature buffer (hysteresis), minimum runtime, door/window contacts with open and close delays, "Use an already-running shared heat source" with its threshold (opportunistic heating), an outdoor limit per direction (Use house limit / No limit / This zone's value, plus the value), and "Wall thermostats that follow hand changes" (`allow_command`, set on every stage that uses the device) |
+| **Regulation** | A **Heating** section and one **Cooling device N** section per cooling device (below) |
+| **Time-of-use** | Per direction: enable, pre-condition minutes, relaxation amount. A note at the top says when no TOU rate sensor is set under Global settings (the adjustments then have no effect) |
 
-**4. Heat stages** / **5. Cool stages**
-- Enable heating/cooling for this zone
-- Stage 1: devices; "Start heating when the room is this far below target" (cooling: above)
-- Stage 2: devices, threshold, "Add backup equipment after" (minutes), and for heating the outdoor minimum
-- Stages 3 and up (YAML or Agent API) are kept as saved
+**Regulation page.** Heat-only zones show only the Heating section; cool-only zones only the cooling sections.
+- **Heating:** Heating regulation, Direct (send the zone target) or PI (adjust the thermostat setpoint from the room error); the heating thermostats PI adjusts (only heat-capable devices from the zone's stages, stages 3+ included, so a cool-only device such as a shared AC is excluded); minimum heating command change; minimum time between changes (minutes). The gains are the zone's five PI number entities, listed read-only with their current values in the page description ("these appear when PI is chosen and saved" for a Direct zone). Choosing Direct removes the stored PI block.
+- **Cooling device N** (one section per device in the zone's cool stages, up to six; more are listed and kept as saved): the device's cooling regulation settings, stored on the device. A device that other zones also cool with is marked "Shared with <zones>; the setting applies to both". The description also lists the zone's three Cooling PI numbers with their values.
 
-**6. Settings**
-- "Start/stop temperature buffer" (hysteresis), minimum runtime (s), door/window contacts and delays
-- Opportunistic heating, zone outdoor reset override
-- "Heating regulation": Direct (send the zone target) or PI (adjust the thermostat setpoint from the room error); cooling regulation is set per device under Devices
-- "Wall thermostats allowed to change this zone's target" (`allow_command`)
+| Cooling setting | Description |
+|---------|-------------|
+| Cooling regulation (`cool_regulation`) | Use room target (`off`), Fixed cooling correction (`overdrive`), Correct the unit's temperature reading (`compensation`), Cooling PI (`pi`: pushes the zone cool target down by the zone's cooling PI, tuned by the zone's three Cooling PI numbers). Unset: `overdrive` when cooling overdrive > 0, else `off`; an explicit `off` wins |
+| Lower equipment cooling target by (`cool_overdrive`) | °F (0–10, step 0.5; default 0) subtracted from the device's cool setpoint while a zone actively calls for cooling (mode `overdrive`). The zone still stops at its own target |
+| Maximum sensor correction (`cool_compensation_max`) | °F (0–10, step 0.5; default 3): the largest compensation offset either way |
+| Unit's own temperature sensor (`cool_compensation_sensor`) | Optional `sensor.*` read as the unit's own temperature; must report °F (its number is used as-is, with no unit check or conversion, so a °C sensor miscompensates, usually pinned at the maximum). Blank uses the climate entity's `current_temperature` |
+| Minimum cooling correction change (`cool_regulation_threshold`) | °F (0–5; default 0.5) the offset must move before it is re-sent |
+| Minimum time between cooling correction changes (`cool_regulation_min_period`) | Minutes (0–60; default 10) between offset re-sends |
 
-**7. Heating regulation (PI)** (PI only)
-- Heating thermostats to adjust (only heat-capable devices from this zone's stages are offered, so a cool-only device such as a shared AC is excluded)
-- Minimum heating command change and minimum time between changes
-- The gains (Kp, Ki, K_ext, maximum offset, balance point) are the zone's PI number entities, not wizard fields
+**Adding a zone** takes three pages: Basics & sensors (with the zone ID: unique, lowercase, no spaces) → Heating stages → Cooling stages, with Back / Next between them; Save on the last page stores the new zone. Open it from Zones afterwards for the other pages.
 
-**8. Electricity price adjustments** (TOU): needs the TOU rate sensor from Global Settings
+A page saved for a zone that so far exists only in YAML first copies the whole zone into the UI configuration, then applies the page.
 
-#### Heat Source Groups
+#### Devices
 
-Group devices that share a physical heat source (e.g., boiler, heat pump):
+The list shows each device as `<id> (heat+cool, setback 5°F, cooling: compensation)`. The device page:
 
-- **Group ID**: Unique identifier
-- **Display name**: Human-readable name
-- **Devices**: Climate entities in this group
+| Setting | Description |
+|---------|-------------|
+| Can Heat / Can Cool | Default from the entity's supported HVAC modes until a choice is saved |
+| When idle: Turn Off | Device turns off completely when idle |
+| When idle: Setback from target | Device maintains a setback temperature (target ± offset) |
+| Setback amount | Degrees below (heat) or above (cool) target |
+| Compressor group | Shared outdoor compressor identifier; use the same value on all members |
+| Minimum compressor run time/off time | Seconds to hold the shared group on or off |
+| Run fan after cooling (`cool_dry_out`) | Cool-capable devices (shows on the next open after ticking Can Cool). Tick box (default off): run `fan_only` after a cooling run instead of the idle action |
+| Fan run time after cooling (`cool_dry_out_minutes`) | 1–30 (default 10): how long `fan_only` runs before the normal idle action |
 
-When one zone in a group is heating, other zones can activate "opportunistically" to piggyback on the shared heat source cycle.
+Cooling regulation is no longer on the device page: the page shows it read-only ("Cooling regulation: <mode> (set under Zones → <zones> → Regulation).", or that no zone's cooling stages use the device yet), and saving the device page keeps it.
 
-#### Preset Modes
+#### Presets
 
-Configure behavior for each master mode (Home, Away, Sleep, Vacation, Boost, Off):
+Configure behavior for each master mode (Home, Away, Sleep, Vacation, Boost, Off). The page names the setpoints a mode uses, for example "Away uses the Sleep setpoints."
 
 | Setting | Description |
 |---------|-------------|
 | Use zone setpoint | Which named setpoint to use (default/away/sleep/vacation) |
 | Setpoint offset | Additional temperature offset to apply |
 | Skip time escalation | Activate all stages immediately (for Boost) |
-| Disable all | Turn off all zones (for Off mode) |
+| Disable all zones | Turn off all zones (for Off mode) |
 
-#### Device Conflicts (Mutex Rules)
+#### Shared equipment
 
-Create rules to prevent conflicting HVAC operations:
+**Heat source groups** group devices that share a physical heat source (e.g., boiler, heat pump): Group ID, display name and the devices in the group. When one zone in a group is heating, other zones can activate "opportunistically" to piggyback on the shared heat source cycle.
 
-- **Device**: The climate device this rule applies to
-- **Mode**: Heating or cooling
-- **In zone**: The zone that triggers the block
-- **Block heating in**: Zones that cannot heat while rule is active
-- **Block cooling in**: Zones that cannot cool while rule is active
+**Equipment that cannot run together** holds the mutex rules that prevent conflicting HVAC operations:
 
-Example: When the shared heat pump is cooling the basement, block heating in the main floor.
+- **Device** / **When device is** (heating or cooling) / **In zone**: the device, mode and zone that trigger the block
+- **Block heating in zones** / **Block cooling in zones**: zones that cannot heat or cool while the rule is active
+- **Prevent these devices heating** / **cooling**: devices blocked directly (for example indoor units on a shared condenser)
 
-#### Devices
+Example: when the shared heat pump is cooling the basement, block heating in the main floor. Editing a rule that comes from YAML saves a UI rule alongside it; the YAML rule stays until you remove it from the file. Deleting a group or a rule goes through the same confirmation as a zone, listing what refers to it (zones whose stage 1 heat devices are in the group; the rule's device and blocked devices). A rule delete aborts with nothing deleted if another session changed the rules in the meantime.
 
-Each device's heating/cooling support, idle action, compressor protection and, for cool-capable devices, cooling regulation (the cooling block shows on the next open after ticking Can cool). The list shows `<id> (heat+cool, setback 5°F, cooling: compensation)`:
-
-| Setting | Description |
-|---------|-------------|
-| Turn Off | Device turns off completely when idle |
-| Setback | Device maintains a setback temperature (target ± offset) |
-| Setback amount | Degrees below (heat) or above (cool) target |
-| Compressor group | Shared outdoor compressor identifier; use the same value on all members |
-| Minimum compressor runtime/off time | Seconds to hold the shared group on or off |
-| Lower equipment cooling target by (`cool_overdrive`) | °F (0–10, step 0.5; default 0) subtracted from the device's cool setpoint while a zone actively calls for cooling (mode `overdrive`). The zone still stops at its own target. |
-| Cooling regulation (`cool_regulation`) | Use room target (`off`), Fixed cooling correction (`overdrive`), Correct the unit's temperature reading (`compensation`); `pi` is accepted in YAML and the Agent API and sends the zone target until v0.17.0. Unset: `overdrive` when cooling overdrive > 0, else `off`; an explicit `off` wins. |
-| Maximum sensor correction (`cool_compensation_max`) | °F (0–10, step 0.5; default 3): the largest compensation offset either way |
-| Unit's own temperature sensor (`cool_compensation_sensor`) | Optional `sensor.*` read as the unit's own temperature; must report °F (its number is used as-is, with no unit check or conversion, so a °C sensor miscompensates, usually pinned at the maximum). Blank uses the climate entity's `current_temperature` |
-| Minimum cooling correction change (`cool_regulation_threshold`) | °F (0–5; default 0.5) the offset must move before it is re-sent |
-| Minimum time between cooling correction changes (`cool_regulation_min_period`) | Minutes (0–60; default 10) between offset re-sends |
-| Run fan after cooling (`cool_dry_out`) | Tick box (default off): run `fan_only` after a cooling run instead of the idle action |
-| Fan run time after cooling (`cool_dry_out_minutes`) | 1–30 (default 10): how long `fan_only` runs before the normal idle action |
+#### Cooling regulation, compressor protection and door contacts
 
 Compensation sends the zone cool target plus (unit reading − room temperature), clamped to the maximum: a unit that reads 1°F below the room gets 71 for a 72 target, one that reads 1°F above gets 73. The new offset goes out only when it has moved by the threshold and the minimum period has passed; a first send or a changed cool target goes out at once. If the unit reading is missing or not a number, the raw offset is 0 and one warning is logged; the limiter still applies, so a previously sent offset stays in place until the change passes the threshold and the minimum period. `control.cool_offset` shows the offset actually applied; `control.cool_regulation_fallback` only says the unit reading is missing. With coil dry-out on, a device released from `cool` runs `fan_only` for the set minutes, then gets its normal idle action (off, or the setback from the highest cool target of its enabled zones); any new heat, cool or off command ends the window early. A unit without `fan_only` logs one warning and gets the idle action as before. `fan_only` counts as a compressor stop.
 
 Compressor protection is optional. For a shared group, the longest configured interval among its members applies. It uses each climate entity's reported HVAC mode as a proxy for compressor activity; a thermostat that cycles its compressor while remaining in `heat` or `cool` cannot be timed precisely. On startup, the previous transition is unknown, so the first observed state begins a full interval. Explicit shutdowns, including door/window lockouts, bypass the minimum runtime.
 
 An opening contact uses `on` for open and `off` for closed. An already-open contact at startup, or a missing or unavailable contact, locks the zone immediately. After a later open event, the configured open delay applies; all contacts must stay closed for the close delay before control resumes. A lockout sends equipment to `off` even if its normal idle action is setback.
+
+#### What happens when I press Save
+
+Each page saves on its own and closes the options flow; Home Assistant then reloads the integration with the new settings. A page whose values match what is stored writes nothing for that zone.
+
+Every save is classed as **structural** or **non-structural**:
+
+| Structural | Non-structural |
+|------------|----------------|
+| Adding or removing a zone (including a YAML-only zone's first UI save) | Names, setpoints, occupancy |
+| A zone's temperature sensors | Thresholds, escalation times, hysteresis, minimum runtime |
+| The devices in a heating or cooling stage | Wall thermostats that follow hand changes (`allow_command`) |
+| A new device entry (the first save of a device with no stored entry, from the device page or the Regulation page), or a device's Can Heat / Can Cool (a stage save that adds a missing capability counts) | Heating and cooling regulation, idle action, compressor and dry-out settings |
+| Mutex rules and heat source groups | Time-of-use, presets, global settings |
+
+The reload right after a **non-structural** save skips the startup takeover (see "Startup Takeover"), so tuning a setpoint or a regulation setting no longer sends every thermostat its idle action. After a structural save, and on any later reload, restart or `set_config` apply, the takeover runs as usual.
 
 ### UI and YAML Configuration
 
@@ -210,6 +210,7 @@ The integration automatically creates `number.*` entities for each zone, allowin
 - Heating: Default Heat, Away Heat, Sleep Heat, Vacation Heat
 - Cooling: Default Cool, Away Cool, Occupied Cool, Unoccupied Cool, Sleep Cool, Vacation Cool
 - PI regulation: PI Kp (0.1-5.0), PI Ki (0.001-0.5), PI K_ext (0.0-1.0), PI Max Offset (1-20°F), PI Balance Point (30-80°F)
+- Cooling PI gains (zones with cool stages): Cooling PI proportional gain (0.1-5.0), Cooling PI integral gain (0.001-0.5), Cooling PI maximum push (0-10°F); defaults come from the zone's `cool_regulation` block
 
 Entity ids are generated by Home Assistant from the entity's name when it is first registered, so they follow the zone's display name and can differ between installs; existing installs keep the ids they already have. Find a zone's ids in the entity registry by unique id (`hybrid_climate_<zone_id>_<key>`, for example `hybrid_climate_basement_pi_kp`) or in `get_config` → `entity_controlled`; never build an entity id from the zone name or the key.
 
@@ -282,7 +283,7 @@ devices:
     min_compressor_runtime: 300          # seconds
     min_compressor_off_time: 180         # seconds
     cool_overdrive: 5                    # °F below zone cool target during active cooling; 0 disables
-    cool_regulation: overdrive           # off | overdrive | compensation | pi; pi sends offset 0 until v0.17.0; unset infers from cool_overdrive
+    cool_regulation: overdrive           # off | overdrive | compensation | pi; pi pushes below the cool target by the zone cooling PI; unset infers from cool_overdrive
     cool_compensation_max: 3             # °F; compensation offset limit either way
     # cool_compensation_sensor: sensor.basement_hp_return_temp  # optional; must report °F (no conversion); default is the unit's current_temperature
     cool_regulation_threshold: 0.5       # °F the compensation offset must move before a re-send
@@ -422,6 +423,8 @@ Once, after each startup or reload, every such device (any device referenced by 
 
 After that one command succeeds, the takeover never touches the device again until the next restart or reload, or the next settled master mode change or restore — any manual change you make afterward sticks until then. A device that can't be commanded yet (unavailable, blocked by compressor protection, waiting on a device mutex, or a zone whose sensors haven't reported) is retried on the following cycles.
 
+Exception (v0.17.0; see "What happens when I press Save"): the reload right after an options save that changes nothing structural (zones added or removed, zone sensors, stage device lists, device capabilities, mutex rules, heat source groups) skips the takeover, so renaming a zone or editing a setpoint, threshold, regulation or global setting no longer sends every thermostat its idle action; `get_status` reports such devices as `skipped_non_structural_reload`, and any later reload, restart or `set_config` apply takes over as usual.
+
 **Restore on mode change (v0.13.2)**: the same one-time-per-device pass also runs whenever the master mode settles after a change — switching between Home, Away, Sleep, Vacation, Boost, or Off (including the automatic home/away occupancy switch), about 10 seconds after the change stops flapping. It restores any device no zone currently owns using the same rules above (never turns equipment on, skips devices another zone is using, applies its idle action once), so a device nudged by hand outside the integration is brought back in line the next time the whole-home mode changes — not just at the next restart. You can also trigger this restore on demand: the `hybrid_climate.restore_control` service (see Services) or each zone's "Restore control" button (see Entities Created).
 
 ### Sensor Aggregation
@@ -436,7 +439,7 @@ Each zone combines its configured indoor sensors with one of five methods:
 | `median` | Middle value; ignores a single outlier without needing per-sensor weights |
 | `weighted` | Weighted average using each sensor's configured weight (default 1.0) |
 
-`weighted` is useful when one sensor reads consistently high or low relative to the others (for example, a sensor placed near a heat source) — give it a lower weight instead of excluding it. Configure weights per sensor in the zone wizard (Sensor weights page); weights outside 0.1–10.0 are rejected. A weighted zone with no stored weights behaves exactly like `average`. A stale/unavailable sensor simply drops out of whichever method is configured.
+`weighted` is useful when one sensor reads consistently high or low relative to the others (for example, a sensor placed near a heat source) — give it a lower weight instead of excluding it. Configure weights per sensor on the zone's Basics & sensors page (a weight field per sensor appears when Weighted is chosen); weights outside 0.1–10.0 are rejected. A weighted zone with no stored weights behaves exactly like `average`. A stale/unavailable sensor simply drops out of whichever method is configured.
 
 ### Outdoor Sensor Fallback
 
@@ -471,10 +474,10 @@ zones:
 | `null` | Disable this restriction entirely for this zone |
 | Numeric value | Use this zone-specific limit instead of global |
 
-**UI Configuration:** In the zone wizard (Settings page), check "Override global outdoor reset limits" and then either:
-- Check "Disable cooling temperature limit" to allow cooling regardless of outdoor temp
-- Enter a zone-specific "Never cool below" value
-- Same options available for heating limits
+**UI Configuration:** On the zone's Behaviour page, set "Outdoor limit for heating" and "Outdoor limit for cooling" each to:
+- **Use house limit**: the global limit applies (both directions on this setting remove the zone's `outdoor_reset` block)
+- **No limit**: stored as `null`, so the zone heats or cools regardless of outdoor temp
+- **This zone's value (below)**: the "Zone never heat above" / "Zone never cool below" value applies
 
 ### Opportunistic Heating
 
@@ -494,7 +497,7 @@ When opportunistic heating activates:
 2. This zone's temperature must be below setpoint by at least `threshold`
 3. Only Stage 1 devices activate (opportunistic doesn't trigger Stage 2)
 
-**UI Configuration:** In the zone wizard (Settings page), toggle "Use an already-running shared heat source (see Heat Source Groups)" and set the threshold.
+**UI Configuration:** On the zone's Behaviour page, tick "Use an already-running shared heat source (see Shared equipment → Heat source groups)" and set the threshold.
 
 ## Complete Control Flow
 
@@ -801,6 +804,7 @@ The existing **Temperature** sensor on each zone is the zone's control temperatu
 - `regulation_offset`: PI controller offset (if enabled)
 - `accumulated_error`: PI integral term
 - `regulated_setpoint`: Actual setpoint sent to regulated devices
+- `cool_regulation_offset`, `cool_accumulated_error`, `cool_regulated_setpoint`: the same for cooling PI (offset ≤ 0; 0 / 0 / none until a `pi` cooling device runs)
 
 ## Staging, Thresholds, and Hysteresis
 
@@ -946,7 +950,7 @@ Radiant floor heating has significant thermal lag - it can take 30-60 minutes to
 
 PI control solves this by dynamically adjusting the floor setpoint based on how far the room is from target and how long it's been off target.
 
-PI regulation only ever applies to heating, so only heat-capable devices can be regulated. The wizard's device list already excludes cool-only devices (for example a shared AC); if a zone's stored configuration still lists one — from an older version, or a hand-edited YAML file — it is dropped at load with a warning logged, and reported under `get_config`'s `regulation.ignored_devices` so it stays visible. This fixes a repeating background "turn the AC off" command that could override a manually-started cool-only device sharing a PI zone's stages.
+This heating PI (the zone `regulation` block) only ever applies to heating, so only heat-capable devices can be regulated; cooling has its own PI (see "Cooling PI" below). The Regulation page's heating thermostat list already excludes cool-only devices (for example a shared AC); if a zone's stored configuration still lists one — from an older version, or a hand-edited YAML file — it is dropped at load with a warning logged, and reported under `get_config`'s `regulation.ignored_devices` so it stays visible. This fixes a repeating background "turn the AC off" command that could override a manually-started cool-only device sharing a PI zone's stages.
 
 ### Configuration
 
@@ -1040,6 +1044,30 @@ When a PI-regulated zone goes idle (room at target), the floor is held at the **
 - Prevents the room from cooling and triggering another heat cycle
 - Acts like a learned "maintenance" temperature
 
+### Cooling PI (v0.17.0)
+
+A cooling device whose `cool_regulation` is `pi` (Regulation page → its Cooling device section, YAML or `set_config`) is driven by the cooling PI of the zone that owns the cooling request. It is a separate controller from the heating PI, on the same PI maths:
+
+- **Error** = room − cool target (positive = needs more cooling); there is no outdoor term.
+- **Push** = clamp(P + I, 0, `offset_max`); the device is sent cool target − push (`cool_regulated_setpoint`), stored as the signed offset `cool_regulation_offset` = −push. The PI never warms the setpoint above the cool target.
+- **Gains:** the zone's three Cooling PI numbers (proportional gain, integral gain, maximum push; an unregistered, unavailable or non-numeric number uses the zone block's value, and an infinite or NaN one does too, with a warning). `stabilization_threshold`, `accumulated_error_threshold` and `integral_decay_halflife` come from the zone `cool_regulation` block in YAML (defaults 0.1°F, 240, 120 minutes); `get_config` shows the block read-only.
+- **Limiter:** the device's own `cool_regulation_threshold` / `cool_regulation_min_period` still decide when a changed offset is re-sent, as for compensation.
+- **Integral:** accumulates only while the zone needs cooling and one of its selected devices is in mode `pi`; decays while idle; a direction reversal zeroes it; a big cool target change scales it down by the heating rule (`integral_reset_threshold` / `integral_reset_factor`, defaults without a heating block). `cool_accumulated_error` is restored after a restart.
+- **No equilibrium hold:** at target the device gets its idle action or coil dry-out, unlike heating PI.
+- If no `pi` device is activated, or all of them fail or lose arbitration in a cycle, the cooling fields go back to their previous values. Zones without a `pi` cool-stage device never run cooling PI.
+
+```yaml
+zones:
+  basement:
+    cool_regulation:          # optional; omit for the defaults shown
+      kp: 1.0
+      ki: 0.01
+      offset_max: 5           # °F, 0-10
+      stabilization_threshold: 0.1
+      accumulated_error_threshold: 240
+      integral_decay_halflife: 120
+```
+
 ### Monitoring PI State
 
 Zone entity attributes show PI controller state:
@@ -1049,6 +1077,9 @@ Zone entity attributes show PI controller state:
 | `regulation_offset` | Current PI offset being applied |
 | `accumulated_error` | Integral term accumulation |
 | `regulated_setpoint` | Actual setpoint sent to regulated devices |
+| `cool_regulation_offset` | Cooling PI push as a signed offset (≤ 0) on the cool target |
+| `cool_accumulated_error` | Cooling integral term (restored across restarts) |
+| `cool_regulated_setpoint` | Cool target minus the push, before the per-device limiter |
 
 ## Services
 
@@ -1103,6 +1134,7 @@ These `get_status`/`get_config` fields are read-only projections of cached state
 
 **`get_status.zones.<id>`**
 - `tou`: `{"active": bool, "period": str|null, "mode": "peak_relaxation"|"pre_conditioning"|null, "relaxation_applied_heat": float, "relaxation_applied_cool": float}`. `active` is whether the zone has time-of-use configured; `period` is the rate sensor's current cached state (`null` if unconfigured/unavailable); `mode` and the two deltas describe the last adjustment actually applied, and are `0.0`/`null` before the first one.
+- `cool_regulation_offset` / `cool_accumulated_error` / `cool_regulated_setpoint` (v0.17.0): the cooling PI state next to the heating `regulation_offset` / `accumulated_error` / `regulated_setpoint`. The offset is ≤ 0 (the push below the cool target); the setpoint is `null` until cooling PI has run. A device's applied value is still `devices.<id>.control.cool_offset`.
 - `stage_since` / `hvac_action_since`: ISO timestamps of when the zone's current stage / current `hvac_action` last changed, or `null` (always `null` for `hvac_action_since` until the first real transition after a restart).
 - `temperature_aggregation.control_value`: the cached temperature control actually used this cycle (`value` is kept as an alias). `temperature_aggregation.weights`: the effective weight (default 1.0) for every configured indoor sensor, present regardless of aggregation method. `temperature_aggregation.method` can now be `median`/`weighted`. `outlier_action` is always the constant `"flagged_only"` — outliers are a hint, never used for control.
 - `reasons` gains `heating_demand`/`cooling_demand` entries (`{"code", "detail", "stage", "error"}`) for a zone that is simply heating or cooling on demand, reported from the cached `hvac_action` alone. `error` is the signed distance from target, rounded to 2 decimals, and is `null` only when the current temperature or target isn't a usable number — the reason itself is still reported.
@@ -1113,7 +1145,7 @@ These `get_status`/`get_config` fields are read-only projections of cached state
 - `last_command_at`: ISO timestamp of the last time this device actually received a service call, or `null` if none since start. Unlike `command_sent_at` (documented next), this is never cleared.
 - `command_state` / `command_sent_at`: `command_state` is `"listening"` (device matches our last command) or `"commanding"` (a command was just sent, in flight). `command_sent_at` is the time of the *most recent* send and is only cleared on a command timeout — it is **not** cleared when a command is acknowledged, so a non-`null` `command_sent_at` on a `"listening"` device means "last sent at this time," not "currently in flight." Use `last_command_at` to answer "when was this device last commanded."
 - `control.idle_setpoint_basis`: `"lockout_floor"` or `"setback"` after a matching successful idle heat command, `null` otherwise — tells you whether the last idle heat setpoint was capped by the outdoor lockout floor.
-- `control.reason`: one code explaining the device's current control state, first match wins: `not_referenced` (no zone stage references it) → `manual_override` (v0.13.2 — its mode or setpoint was changed outside Hybrid Climate; see `control.override` below) → `owned_active` (a zone currently owns it) → `drying_coil` (v0.16.0 — released from cooling and running `fan_only` for coil dry-out) → `awaiting_startup_takeover` (the one-time startup takeover hasn't reached it yet) or `awaiting_control_restore` (v0.13.2 — a mode-change or manual restore pass hasn't reached it yet) → `taken_over_at_startup` (its last command was the startup takeover's) or `control_restored` (v0.13.2 — its last command was a mode-change or manual restore pass's) → `released_idle` (commanded since start, but not owned) → `referenced_without_capability` (v0.13.1 — the device is staged in a direction it doesn't support, and owns no stage direction it does support) → `never_owned_since_start`.
+- `control.reason`: one code explaining the device's current control state, first match wins: `not_referenced` (no zone stage references it) → `manual_override` (v0.13.2 — its mode or setpoint was changed outside Hybrid Climate; see `control.override` below) → `owned_active` (a zone currently owns it) → `drying_coil` (v0.16.0 — released from cooling and running `fan_only` for coil dry-out) → `awaiting_startup_takeover` (the one-time startup takeover hasn't reached it yet) or `awaiting_control_restore` (v0.13.2 — a mode-change or manual restore pass hasn't reached it yet) → `taken_over_at_startup` (its last command was the startup takeover's) or `control_restored` (v0.13.2 — its last command was a mode-change or manual restore pass's) → `released_idle` (commanded since start, but not owned) → `referenced_without_capability` (v0.13.1 — the device is staged in a direction it doesn't support, and owns no stage direction it does support) → `skipped_non_structural_reload` (v0.17.0 — the reload right after a non-structural options save skipped the startup takeover; never for a PI device) → `never_owned_since_start`.
 - `control.override` (v0.13.2): `{"commanded": {"mode", "target"}, "reported": {"mode", "target"}, "since": iso}` or `null` — populated when the device's reported mode/setpoint differs from what Hybrid Climate last commanded, outside the brief in-flight command window. Clears once the device matches the commanded values (e.g. after a restore sends them); a device turned off by hand stays flagged, because restore never turns equipment on. `allow_command` devices are never flagged — their changes are adopted into the owning zone's target instead.
 - `control.cool_regulation`, `control.cool_offset`, `control.cool_regulation_fallback` (v0.16.0): the effective cooling mode; the signed °F actually added to the zone cool target in the last owned cool send (0 when none); `true` while compensation has no usable unit reading. In fallback the raw offset is 0 but the limiter can keep the last sent offset applied until the change passes the threshold and minimum period, so read `cool_offset` for what is applied.
 - `control.missing_capabilities` (v0.13.1): `[{"zone", "stage", "capability"}]` for every stage that references this device in a direction it lacks; empty otherwise.
@@ -1133,8 +1165,9 @@ These `get_status`/`get_config` fields are read-only projections of cached state
 
 **`get_config.zones.<id>`**
 - `setpoints.occupancy_entity` (read-only): the zone's occupancy sensor; `setpoints.occupancy_off_delay` (writable): whole seconds, 0–7200, measured from the last time this integration saw the zone occupied. After a restart, an off sensor selects unoccupied setpoints immediately.
-- `sensors.weights` (read-only): effective weight (default 1.0) for every configured indoor sensor. Weights themselves are only set through the zone wizard, not `set_config`.
+- `sensors.weights` (read-only): effective weight (default 1.0) for every configured indoor sensor. Weights themselves are only set on the zone's Basics & sensors page (or YAML), not `set_config`.
 - `outdoor_thresholds` (read-only): same shape as the global one, using this zone's effective (override-or-global) limits.
+- `cool_regulation` (read-only, v0.17.0): the zone's cooling PI block `{"kp", "ki", "offset_max", "stabilization_threshold", "accumulated_error_threshold", "integral_decay_halflife"}`, source `ui_config` when stored, else `default`. Tune the gains through the zone's cooling PI number entities; `set_config` returns `read_only`.
 - `regulation.devices` / `regulation.ignored_devices` (read-only): `devices` is the effective PI regulation list actually used by control (heat-capable only); `ignored_devices` lists any stored device IDs that were dropped because they can't heat, without rewriting your saved options.
 
 **`get_config.devices.<id>`** (v0.13.1)

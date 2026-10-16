@@ -46,6 +46,7 @@ READ_ONLY_FIELDS = frozenset({
     ("devices", "capabilities_source"),
     ("devices", "cool_compensation_sensor"),
     ("zones", "regulation"),
+    ("zones", "cool_regulation"),
     ("zones", "setpoints.occupancy_entity"),
 })
 READ_ONLY_MESSAGE = "Read-only field; change it in the integration options UI"
@@ -68,6 +69,7 @@ READ_ONLY_DESCRIPTIONS = {
     "capabilities_source": "Origin of loaded device capabilities",
     "cool_compensation_sensor": "Temperature sensor for cooling compensation",
     "regulation": "Zone regulation method and devices",
+    "cool_regulation": "Zone cooling PI gains and limits",
     "setpoints.occupancy_entity": "Zone occupancy sensor entity",
     SENSORS_WEIGHTS_FIELD: "Effective per-sensor weight used for weighted aggregation",
     OUTDOOR_THRESHOLDS_FIELD: "Effective outdoor lockout limits, release points, and hysteresis",
@@ -164,7 +166,8 @@ TOU_MODE_PRE_CONDITIONING = "pre_conditioning"
 # A4/A16, §3 amendment A10). First match wins, in this order: not_referenced ->
 # manual_override -> owned_active -> drying_coil (v0.16.0) -> awaiting_startup_takeover |
 # awaiting_control_restore -> taken_over_at_startup -> control_restored ->
-# released_idle -> referenced_without_capability -> never_owned_since_start.
+# released_idle -> referenced_without_capability -> skipped_non_structural_reload
+# (v0.17.0, not for PI devices) -> never_owned_since_start.
 # The awaiting_* reason depends on the current pass's source (StartupTakeover.source);
 # the applied_* reason depends on which pass last applied the command
 # (StartupTakeover.applied_source), not the current pass's source. manual_override
@@ -180,12 +183,14 @@ CONTROL_REASON_RELEASED_IDLE = "released_idle"
 CONTROL_REASON_NEVER_OWNED_SINCE_START = "never_owned_since_start"
 CONTROL_REASON_MISSING_STAGE_CAPABILITY = "referenced_without_capability"
 CONTROL_REASON_DRYING_COIL = "drying_coil"
+CONTROL_REASON_TAKEOVER_SKIPPED = "skipped_non_structural_reload"
 CONTROL_REASON_CODES = frozenset({
     CONTROL_REASON_NOT_REFERENCED, CONTROL_REASON_MANUAL_OVERRIDE, CONTROL_REASON_OWNED_ACTIVE,
     CONTROL_REASON_AWAITING_STARTUP_TAKEOVER, CONTROL_REASON_AWAITING_CONTROL_RESTORE,
     CONTROL_REASON_TAKEN_OVER_AT_STARTUP, CONTROL_REASON_CONTROL_RESTORED,
     CONTROL_REASON_RELEASED_IDLE, CONTROL_REASON_MISSING_STAGE_CAPABILITY,
     CONTROL_REASON_NEVER_OWNED_SINCE_START, CONTROL_REASON_DRYING_COIL,
+    CONTROL_REASON_TAKEOVER_SKIPPED,
 })
 
 # Cached status projection keys shared with history-friendly entities

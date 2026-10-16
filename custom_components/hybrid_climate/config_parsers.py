@@ -1,6 +1,6 @@
 """Config parsing functions that convert validated dicts to model objects.
 
-Key dependencies: models.py (all dataclasses), const.py
+Key dependencies: models.py (all dataclasses), const.py, cool_regulation_config.py
 Used by: config_loader.py (load_config calls parse_* functions)
 """
 from __future__ import annotations
@@ -126,6 +126,8 @@ from .const import (
     DEFAULT_TOU_RELAXATION_AMOUNT,
     REGULATION_PI,
 )
+from .cool_pi_const import CONF_ZONE_COOL_REGULATION
+from .cool_regulation_config import parse_cool_regulation
 from .models import (
     AggregationMethod,
     ConflictConfig,
@@ -393,6 +395,7 @@ def parse_zone(zone_id: str, data: dict[str, Any]) -> ZoneConfig:
         regulation=parse_regulation(data.get(CONF_REGULATION)),
         opportunistic=parse_opportunistic(data.get(CONF_OPPORTUNISTIC)),
         tou=tou,
+        cool_regulation=parse_cool_regulation(data.get(CONF_ZONE_COOL_REGULATION)),
         openings=OpeningConfig(
             entities=data[CONF_OPENINGS][CONF_OPENING_ENTITIES],
             open_delay=data[CONF_OPENINGS].get(CONF_OPEN_DELAY, DEFAULT_OPEN_DELAY),

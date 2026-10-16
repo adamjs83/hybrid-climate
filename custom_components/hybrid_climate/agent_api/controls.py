@@ -18,7 +18,8 @@ from homeassistant.helpers import entity_registry as er
 from ..const import CONF_NUMBER_VALUES, CONF_UI_CONFIG, DOMAIN
 from ..dashboard_api import _number_controls
 from ..models import ZoneConfig
-from ..number_definitions import PI_NUMBERS, SETPOINT_NUMBERS
+from ..cool_pi_const import PARAM_TYPE_COOL_PI
+from ..number_definitions import COOL_PI_NUMBERS, PI_NUMBERS, SETPOINT_NUMBERS
 from .const import SOURCE_DEFAULT, SOURCE_NUMBER_ENTITY
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,7 +48,9 @@ def zone_controls(
             setpoints[mode] = found
     pi = {key: entity_id for key, entity_id in numbers["pi"].items()
           if owned(entity_id)}
-    return {"climate": climate, "setpoints": setpoints, "pi": pi}
+    cool_pi = {key: entity_id for key, entity_id in numbers.get("cool_pi", {}).items()
+               if owned(entity_id)}
+    return {"climate": climate, "setpoints": setpoints, "pi": pi, "cool_pi": cool_pi}
 
 
 def entity_values(
@@ -59,9 +62,11 @@ def entity_values(
     stored = fresh.options.get(CONF_UI_CONFIG, {}).get(CONF_NUMBER_VALUES, {}).get(zone_id, {})
     result: dict[str, Any] = {}
     # Resolve each catalog entry through the already ownership-filtered control map.
-    for description in (*SETPOINT_NUMBERS, *PI_NUMBERS):
+    for description in (*SETPOINT_NUMBERS, *PI_NUMBERS, *COOL_PI_NUMBERS):
         if description.param_type == "pi":
             entity_id = controls["pi"].get(description.pi_param)
+        elif description.param_type == PARAM_TYPE_COOL_PI:
+            entity_id = controls.get("cool_pi", {}).get(description.pi_param)
         else:
             direction = "cool" if description.is_cooling else "heat"
             entity_id = controls["setpoints"].get(description.setpoint_mode, {}).get(direction)

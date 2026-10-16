@@ -3,6 +3,7 @@
 Creates number entities for live adjustment of:
 - Zone setpoints (default, away, sleep, vacation)
 - PI controller parameters (kp, ki, k_ext, offset_max, balance_point)
+- Cooling PI gains (kp, ki, offset_max) for zones with cool stages
 
 Values persist across restarts via config_entry.options.
 
@@ -22,6 +23,7 @@ from .coordinator import HybridClimateCoordinator
 from .number_definitions import (  # noqa: F401 — re-exported
     SETPOINT_NUMBERS,
     PI_NUMBERS,
+    COOL_PI_NUMBERS,
     HybridClimateNumberEntityDescription,
 )
 from .number_entities import (  # noqa: F401 — re-exported
@@ -68,19 +70,19 @@ async def async_setup_entry(
                 )
             )
 
-        # Add PI numbers if zone uses PI regulation
-        if has_pi:
-            for description in PI_NUMBERS:
-                entities.append(
-                    HybridClimateNumberEntity(
-                        hass=hass,
-                        entry=entry,
-                        coordinator=coordinator,
-                        zone_id=zone_id,
-                        zone_name=zone_config.name,
-                        description=description,
-                    )
+        # Heating PI numbers if the zone uses PI regulation; cooling gains if it can cool
+        gain_numbers = (*(PI_NUMBERS if has_pi else ()), *(COOL_PI_NUMBERS if has_cool else ()))
+        for description in gain_numbers:
+            entities.append(
+                HybridClimateNumberEntity(
+                    hass=hass,
+                    entry=entry,
+                    coordinator=coordinator,
+                    zone_id=zone_id,
+                    zone_name=zone_config.name,
+                    description=description,
                 )
+            )
 
     _LOGGER.info("Setting up %d number entities for Hybrid Climate", len(entities))
     async_add_entities(entities)

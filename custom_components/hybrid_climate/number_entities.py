@@ -2,7 +2,7 @@
 
 Handles value persistence, coordinator updates, and active setpoint detection.
 
-Key dependencies: number_definitions.py, coordinator.py, const.py
+Key dependencies: number_definitions.py, coordinator.py, const.py, cool_pi_const.py
 Used by: number.py (async_setup_entry instantiates this class)
 """
 from __future__ import annotations
@@ -25,6 +25,12 @@ from .const import (
     DEFAULT_KP,
     DEFAULT_OFFSET_MAX,
     DOMAIN,
+)
+from .cool_pi_const import (
+    DEFAULT_COOL_PI_KI,
+    DEFAULT_COOL_PI_KP,
+    DEFAULT_COOL_PI_OFFSET_MAX,
+    PARAM_TYPE_COOL_PI,
 )
 from .coordinator import HybridClimateCoordinator
 from .number_definitions import HybridClimateNumberEntityDescription
@@ -124,6 +130,10 @@ class HybridClimateNumberEntity(NumberEntity):
                 if value is not None:
                     return value
 
+        elif desc.param_type == PARAM_TYPE_COOL_PI:
+            # cool_regulation is always present (parser fills its defaults)
+            return getattr(zone_config.cool_regulation, desc.pi_param)
+
         return self._get_default_value()
 
     def _get_default_value(self) -> float:
@@ -139,6 +149,14 @@ class HybridClimateNumberEntity(NumberEntity):
                 "balance_point": DEFAULT_BALANCE_POINT,
             }
             return defaults.get(desc.pi_param, 1.0)
+
+        if desc.param_type == PARAM_TYPE_COOL_PI:
+            cool_defaults = {
+                "kp": DEFAULT_COOL_PI_KP,
+                "ki": DEFAULT_COOL_PI_KI,
+                "offset_max": DEFAULT_COOL_PI_OFFSET_MAX,
+            }
+            return cool_defaults[desc.pi_param]
 
         # Setpoint defaults
         if desc.is_cooling:
@@ -229,8 +247,8 @@ class HybridClimateNumberEntity(NumberEntity):
             )
             await self.coordinator.async_request_refresh()
 
-        elif desc.param_type == "pi":
-            # PI params are read dynamically, just refresh
+        elif desc.param_type in ("pi", PARAM_TYPE_COOL_PI):
+            # PI gains (heating and cooling) are read dynamically, just refresh
             await self.coordinator.async_request_refresh()
 
     @property

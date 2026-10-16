@@ -15,6 +15,7 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 
+from ..options_flow.page_const import CONF_LAST_SAVE
 from .const import API_DATA, COMPAT_KEYS, INTEGER_KEYS
 
 
@@ -41,6 +42,8 @@ def canonical_options(options: Mapping[str, Any]) -> str:
     """Serialize behavior options, explicitly preserving zone insertion order."""
     ui = deepcopy(dict(options.get("ui_config", {})))
     ui.pop("number_values", None)
+    # The options-page save marker records how a save was made; it is not configuration.
+    ui.pop(CONF_LAST_SAVE, None)
     payload = {"ui_config": ui}
     payload.update({key: options[key] for key in COMPAT_KEYS if key in options})
     envelope = {"options": payload, "zone_order": list(ui.get("zones", {}))}

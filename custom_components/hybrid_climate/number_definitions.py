@@ -1,9 +1,9 @@
 """Static entity descriptions for number platform.
 
-Defines the setpoint and PI parameter number entities, their ranges,
+Defines the setpoint, heating PI and cooling PI parameter number entities, their ranges,
 defaults, and display properties.
 
-Key dependencies: const.py
+Key dependencies: const.py, cool_pi_const.py
 Used by: number.py (async_setup_entry creates entities from these)
 """
 from __future__ import annotations
@@ -16,16 +16,31 @@ from homeassistant.components.number import (
 )
 from homeassistant.const import UnitOfTemperature
 from .const import COOL_SLIDER_MAX, COOL_SLIDER_MIN, COOL_SLIDER_STEP
+from .cool_pi_const import (
+    MAX_COOL_PI_KI,
+    MAX_COOL_PI_KP,
+    MAX_COOL_PI_OFFSET_MAX,
+    MIN_COOL_PI_KI,
+    MIN_COOL_PI_KP,
+    MIN_COOL_PI_OFFSET_MAX,
+    NUMBER_KEY_COOL_PI_KI,
+    NUMBER_KEY_COOL_PI_KP,
+    NUMBER_KEY_COOL_PI_OFFSET_MAX,
+    PARAM_TYPE_COOL_PI,
+    STEP_COOL_PI_KI,
+    STEP_COOL_PI_KP,
+    STEP_COOL_PI_OFFSET_MAX,
+)
 
 
 @dataclass(frozen=True)
 class HybridClimateNumberEntityDescription(NumberEntityDescription):
     """Describes a Hybrid Climate number entity."""
 
-    param_type: str = ""  # "setpoint" or "pi"
+    param_type: str = ""  # "setpoint", "pi" (heating) or "cool_pi" (cooling)
     setpoint_mode: str | None = None  # For setpoints: default, away, sleep, etc.
     is_cooling: bool = False  # For setpoints: heat vs cool
-    pi_param: str | None = None  # For PI: kp, ki, k_ext, offset_max, balance_point
+    pi_param: str | None = None  # For PI: kp, ki, k_ext, offset_max, balance_point (cooling: kp, ki, offset_max)
 
 
 # Setpoint number definitions
@@ -222,5 +237,43 @@ PI_NUMBERS: tuple[HybridClimateNumberEntityDescription, ...] = (
         mode=NumberMode.BOX,
         param_type="pi",
         pi_param="balance_point",
+    ),
+)
+
+# Cooling PI gain number definitions (created for zones with cool stages)
+COOL_PI_NUMBERS: tuple[HybridClimateNumberEntityDescription, ...] = (
+    HybridClimateNumberEntityDescription(
+        key=NUMBER_KEY_COOL_PI_KP,
+        name="Cooling PI proportional gain",
+        icon="mdi:chart-bell-curve",
+        native_min_value=MIN_COOL_PI_KP,
+        native_max_value=MAX_COOL_PI_KP,
+        native_step=STEP_COOL_PI_KP,
+        mode=NumberMode.BOX,
+        param_type=PARAM_TYPE_COOL_PI,
+        pi_param="kp",
+    ),
+    HybridClimateNumberEntityDescription(
+        key=NUMBER_KEY_COOL_PI_KI,
+        name="Cooling PI integral gain",
+        icon="mdi:sigma",
+        native_min_value=MIN_COOL_PI_KI,
+        native_max_value=MAX_COOL_PI_KI,
+        native_step=STEP_COOL_PI_KI,
+        mode=NumberMode.BOX,
+        param_type=PARAM_TYPE_COOL_PI,
+        pi_param="ki",
+    ),
+    HybridClimateNumberEntityDescription(
+        key=NUMBER_KEY_COOL_PI_OFFSET_MAX,
+        name="Cooling PI maximum push",
+        icon="mdi:snowflake-thermometer",
+        native_min_value=MIN_COOL_PI_OFFSET_MAX,
+        native_max_value=MAX_COOL_PI_OFFSET_MAX,
+        native_step=STEP_COOL_PI_OFFSET_MAX,
+        native_unit_of_measurement=UnitOfTemperature.FAHRENHEIT,
+        mode=NumberMode.BOX,
+        param_type=PARAM_TYPE_COOL_PI,
+        pi_param="offset_max",
     ),
 )

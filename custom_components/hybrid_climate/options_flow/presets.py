@@ -1,6 +1,6 @@
 """Purpose: Preset mode options steps (list and edit per master mode).
 
-Key dependencies: const.py, options_flow/base.py.
+Key dependencies: const.py, options_flow/base.py, options_flow/page_const.py (remap wording).
 Used by: options_flow/handler.py (PresetFlowMixin).
 """
 from __future__ import annotations
@@ -36,6 +36,7 @@ from ..const import (
     MODE_VACATION,
 )
 from .base import OptionsFlowBase
+from .page_const import PRESET_REMAP_TEXT, PRESET_SETPOINT_LABELS
 
 
 # Action constants
@@ -202,6 +203,11 @@ class PresetFlowMixin(OptionsFlowBase):
             errors=errors,
             description_placeholders={
                 "mode_name": mode_labels.get(mode, mode),
+                # Name the remap the page edits ("Away uses the Sleep setpoints."); Off has none.
+                "remap": "" if mode == MODE_OFF else PRESET_REMAP_TEXT.format(
+                    mode=mode_labels.get(mode, mode),
+                    setpoint=PRESET_SETPOINT_LABELS.get(current[CONF_USE_ZONE_SETPOINT], current[CONF_USE_ZONE_SETPOINT]),
+                ),
             },
         )
 

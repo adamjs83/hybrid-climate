@@ -1,7 +1,7 @@
 """Purpose: Device mutex conflict configuration flow steps for Hybrid Climate options.
 
 Key dependencies: options_flow/base.py (OptionsFlowBase), const.py, HA selectors.
-Used by: options_flow/handler.py (the options flow handler inherits ConflictFlowMixin).
+Used by: options_flow/handler.py (inherits ConflictFlowMixin), reached from shared_equipment.py; delete via zone_pages/delete_confirm.py.
 """
 from __future__ import annotations
 
@@ -30,12 +30,9 @@ from ..const import (
     CONF_ZONES,
 )
 from .base import OptionsFlowBase
+from .page_const import CONF_BLOCKED_DEVICES_COOL, CONF_BLOCKED_DEVICES_HEAT, YAML_RULE_NOTE
 
 _LOGGER = logging.getLogger(__name__)
-
-# New fields for blocking other devices (shared condenser support)
-CONF_BLOCKED_DEVICES_HEAT = "blocked_devices_heat"
-CONF_BLOCKED_DEVICES_COOL = "blocked_devices_cool"
 
 
 # Action constants
@@ -56,7 +53,7 @@ class ConflictFlowMixin(OptionsFlowBase):
         if user_input is not None:
             action = user_input.get("action")
             if action == CONFLICT_ACTION_BACK:
-                return await self.async_step_menu()
+                return await self.async_step_shared_equipment()
             elif action == CONFLICT_ACTION_ADD:
                 self._conflict_wip = {}
                 self._conflict_edit_index = None
@@ -68,7 +65,7 @@ class ConflictFlowMixin(OptionsFlowBase):
                 return await self.async_step_conflict_edit()
             elif action and action.startswith("delete_"):
                 idx = int(action[7:])
-                return self._delete_conflict(idx)
+                return await self._confirm_rule_delete(idx)
 
         # Get existing rules from YAML and UI
         yaml_rules = self._get_yaml_config().get(CONF_CONFLICTS, {}).get(CONF_DEVICE_MUTEX, [])
@@ -79,7 +76,7 @@ class ConflictFlowMixin(OptionsFlowBase):
 
         # Build options list
         rule_options = [
-            {"value": CONFLICT_ACTION_BACK, "label": "← Back to Menu"},
+            {"value": CONFLICT_ACTION_BACK, "label": "← Back to Shared equipment"},
             {"value": CONFLICT_ACTION_ADD, "label": "+ Add Mutex Rule"},
         ]
 
@@ -275,6 +272,9 @@ class ConflictFlowMixin(OptionsFlowBase):
             errors=errors,
             description_placeholders={
                 "edit_mode": "Edit" if self._conflict_edit_index is not None else "Add",
+                # Editing a YAML rule (they come first in the index) appends a UI rule; say so.
+                "yaml_note": YAML_RULE_NOTE if self._conflict_edit_index is not None and self._conflict_edit_index
+                < len(self._get_yaml_config().get(CONF_CONFLICTS, {}).get(CONF_DEVICE_MUTEX, [])) else "",
             },
         )
 

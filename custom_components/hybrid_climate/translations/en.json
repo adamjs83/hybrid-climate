@@ -22,12 +22,20 @@
         "title": "Hybrid Climate Configuration",
         "description": "**{master_name}** is managing {zone_count} zones with {device_count} devices.",
         "menu_options": {
-          "global_settings": "Global Settings",
+          "global_settings": "Global settings",
           "zones": "Zones",
-          "heat_sources": "Heat Source Groups",
-          "presets": "Preset Modes",
-          "conflicts": "Device Conflicts",
-          "devices": "Devices"
+          "devices": "Devices",
+          "presets": "Presets",
+          "shared_equipment": "Shared equipment"
+        }
+      },
+      "shared_equipment": {
+        "title": "Shared equipment",
+        "description": "Equipment that more than one zone depends on.",
+        "menu_options": {
+          "heat_sources": "Heat source groups",
+          "conflicts": "Equipment that cannot run together",
+          "menu": "← Back to main menu"
         }
       },
       "global_settings": {
@@ -55,14 +63,35 @@
       },
       "zones": {
         "title": "Zones ({zone_count})",
-        "description": "Select a zone to edit, or add a new zone.",
+        "description": "Each zone shows its stages and regulation. Choose a zone to open its menu, add a zone, or delete one (you confirm first).",
         "data": {
           "action": "Select action"
         }
       },
+      "zone_menu": {
+        "title": "Zone: {zone_name}",
+        "description": "Choose what to change in **{zone_name}**.",
+        "menu_options": {
+          "zone_basics": "Basics & sensors",
+          "zone_setpoints": "Setpoints & occupancy",
+          "zone_heat_stages": "Heating stages",
+          "zone_cool_stages": "Cooling stages",
+          "zone_behaviour": "Behaviour",
+          "zone_regulation": "Regulation",
+          "zone_tou": "Time-of-use",
+          "zones": "← Back to zones"
+        }
+      },
+      "delete_confirm": {
+        "title": "Delete {item}?",
+        "description": "{references}\n\nDeleting cannot be undone.",
+        "data": {
+          "nav_action": "Delete or keep"
+        }
+      },
       "zone_basics": {
         "title": "Zone: {zone_name} - Basics",
-        "description": "Configure zone identity and temperature sensors.",
+        "description": "Name and temperature sensors. With Weighted aggregation, each selected sensor gets a weight field below, labelled by its entity ID (1.0 is normal; higher gives it more influence). Save stores this page only; while adding a zone, Next goes on to the stage pages.",
         "data": {
           "zone_id": "Zone ID",
           "name": "Display name",
@@ -77,13 +106,9 @@
           "smoothing_samples": "Number of samples to average (1 = no smoothing)"
         }
       },
-      "zone_sensor_weights": {
-        "title": "Zone: {zone_name} - Sensor Weights",
-        "description": "Set a weight for each sensor shown below. Higher weights give a sensor more influence; 1.0 is normal. Each field is labeled by its sensor entity ID."
-      },
-      "zone_occupancy": {
-        "title": "Zone: {zone_name} - Occupancy",
-        "description": "Configure occupancy-based setpoint adjustments.",
+      "zone_setpoints": {
+        "title": "Zone: {zone_name} - Setpoints & occupancy",
+        "description": "This zone's setpoints are number entities; change them on the entity or a dashboard: {setpoint_numbers}. This page sets occupancy; Save stores this page only.",
         "data": {
           "occupancy_enabled": "Enable occupancy override",
           "occupancy_entity": "Occupancy sensor",
@@ -100,7 +125,7 @@
       },
       "zone_heat_stages": {
         "title": "Zone: {zone_name} - Heat Stages",
-        "description": "Configure heating stages. Stage 1 activates first; Stage 2 adds devices when Stage 1 can't keep up. Stages 3 and up are kept as saved.",
+        "description": "Configure heating stages. Stage 1 activates first; Stage 2 adds devices when Stage 1 can't keep up. Stages 3 and up are kept as saved. Save stores this page only.",
         "data": {
           "has_heat_stages": "Enable heating for this zone",
           "stage1_devices": "Stage 1 devices",
@@ -119,7 +144,7 @@
       },
       "zone_cool_stages": {
         "title": "Zone: {zone_name} - Cool Stages",
-        "description": "Configure cooling stages. Stages 3 and up are kept as saved.",
+        "description": "Configure cooling stages. Stages 3 and up are kept as saved. Save stores this page only; while adding a zone, Save stores the new zone.",
         "data": {
           "has_cool_stages": "Enable cooling for this zone",
           "stage1_devices": "Stage 1 devices",
@@ -134,24 +159,22 @@
           "stage2_time_escalation": "Or activate after Stage 1 runs this many minutes without satisfaction"
         }
       },
-      "zone_settings": {
-        "title": "Zone: {zone_name} - Settings",
-        "description": "Configure zone control behavior, opportunistic heating, and outdoor reset overrides.",
+      "zone_behaviour": {
+        "title": "Zone: {zone_name} - Behaviour",
+        "description": "How **{zone_name}** starts and stops, pauses for open doors and windows, shares a running heat source, limits by outdoor temperature, and which wall thermostats it follows. Save stores this page only.",
         "data": {
           "hysteresis": "Start/stop temperature buffer",
           "min_runtime": "Minimum runtime",
           "entities": "Door/window contacts",
           "open_delay": "Open delay",
           "close_delay": "Close delay",
-          "opportunistic_enabled": "Use an already-running shared heat source (see Heat Source Groups)",
+          "opportunistic_enabled": "Use an already-running shared heat source (see Shared equipment → Heat source groups)",
           "opportunistic_threshold": "Opportunistic threshold",
-          "override_outdoor_reset": "Override global outdoor reset limits",
-          "disable_cool_limit": "Disable cooling temperature limit",
-          "zone_never_cool_below": "Zone-specific never cool below",
-          "disable_heat_limit": "Disable heating temperature limit",
-          "zone_never_heat_above": "Zone-specific never heat above",
-          "regulation_type": "Heating regulation",
-          "allow_command_devices": "Wall thermostats allowed to change this zone's target"
+          "heat_limit_mode": "Outdoor limit for heating",
+          "zone_never_heat_above": "Zone never heat above",
+          "cool_limit_mode": "Outdoor limit for cooling",
+          "zone_never_cool_below": "Zone never cool below",
+          "allow_command_devices": "Wall thermostats that follow hand changes"
         },
         "data_description": {
           "hysteresis": "Temperature buffer to prevent short-cycling",
@@ -161,32 +184,151 @@
           "close_delay": "Seconds all contacts must remain closed before the zone resumes",
           "opportunistic_enabled": "Allow this zone to piggyback on boiler cycles from other zones",
           "opportunistic_threshold": "Activate opportunistic heating when this far below setpoint",
-          "override_outdoor_reset": "Use zone-specific outdoor reset limits instead of global",
-          "disable_cool_limit": "Allow cooling regardless of outdoor temperature (e.g., for basements)",
-          "zone_never_cool_below": "Only cool when outdoor temp is above this (leave empty to use global)",
-          "disable_heat_limit": "Allow heating regardless of outdoor temperature",
-          "zone_never_heat_above": "Only heat when outdoor temp is below this (leave empty to use global)",
-          "regulation_type": "How heating devices receive the zone target (cooling regulation is set per device under Devices)",
-          "allow_command_devices": "A manual edit can affect every zone sharing this thermostat with sync enabled."
+          "heat_limit_mode": "Use house limit follows Global settings; No limit allows heating at any outdoor temperature; This zone's value uses the field below.",
+          "zone_never_heat_above": "Only heat when outdoor temp is below this (used when the heating limit is set to this zone's value)",
+          "cool_limit_mode": "Use house limit follows Global settings; No limit allows cooling at any outdoor temperature (e.g., for basements); This zone's value uses the field below.",
+          "zone_never_cool_below": "Only cool when outdoor temp is above this (used when the cooling limit is set to this zone's value)",
+          "allow_command_devices": "When someone changes the temperature on one of these thermostats, the zone target follows. A manual edit can affect every zone sharing this thermostat with sync enabled."
         }
       },
-      "zone_pi_settings": {
-        "title": "Zone: {zone_name} - Heating regulation (PI)",
-        "description": "Choose which heating thermostats PI adjusts and how often a new setpoint is sent. The gains live on the zone's number entities: {pi_numbers}.",
-        "data": {
-          "pi_devices": "Heating thermostats to adjust",
-          "regulation_threshold": "Minimum heating command change",
-          "regulation_min_period": "Minimum time between changes"
-        },
-        "data_description": {
-          "pi_devices": "These receive a calculated equipment temperature, which may differ from the room target.",
-          "regulation_threshold": "Only send a new regulated setpoint when it moves at least this many °F. 0 = every change.",
-          "regulation_min_period": "Minimum minutes between regulated setpoint changes. Target changes are sent at once. 0 = no limit."
+      "zone_regulation": {
+        "title": "Zone: {zone_name} - Regulation",
+        "description": "Regulation for **{zone_name}**. Save stores this page only.\n\n{heating_note}{cooling_note}",
+        "sections": {
+          "heating": {
+            "name": "Heating",
+            "data": {
+              "regulation_type": "Heating regulation",
+              "pi_devices": "Heating thermostats to adjust",
+              "regulation_threshold": "Minimum heating command change",
+              "regulation_min_period": "Minimum time between changes"
+            },
+            "data_description": {
+              "regulation_type": "How heating devices receive the zone target. Cooling regulation is set per device in the cooling sections below.",
+              "pi_devices": "These receive a calculated equipment temperature, which may differ from the room target. Used only with PI.",
+              "regulation_threshold": "Only send a new regulated setpoint when it moves at least this many °F. 0 = every change.",
+              "regulation_min_period": "Minimum minutes between regulated setpoint changes. Target changes are sent at once. 0 = no limit."
+            }
+          },
+          "cool_device_1": {
+            "name": "Cooling device 1",
+            "data": {
+              "cool_regulation": "Cooling regulation",
+              "cool_overdrive": "Lower equipment cooling target by",
+              "cool_compensation_max": "Maximum sensor correction",
+              "cool_compensation_sensor": "Unit's own temperature sensor",
+              "cool_regulation_threshold": "Minimum cooling correction change",
+              "cool_regulation_min_period": "Minimum time between cooling correction changes"
+            },
+            "data_description": {
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
+              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
+              "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
+              "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
+            }
+          },
+          "cool_device_2": {
+            "name": "Cooling device 2",
+            "data": {
+              "cool_regulation": "Cooling regulation",
+              "cool_overdrive": "Lower equipment cooling target by",
+              "cool_compensation_max": "Maximum sensor correction",
+              "cool_compensation_sensor": "Unit's own temperature sensor",
+              "cool_regulation_threshold": "Minimum cooling correction change",
+              "cool_regulation_min_period": "Minimum time between cooling correction changes"
+            },
+            "data_description": {
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
+              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
+              "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
+              "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
+            }
+          },
+          "cool_device_3": {
+            "name": "Cooling device 3",
+            "data": {
+              "cool_regulation": "Cooling regulation",
+              "cool_overdrive": "Lower equipment cooling target by",
+              "cool_compensation_max": "Maximum sensor correction",
+              "cool_compensation_sensor": "Unit's own temperature sensor",
+              "cool_regulation_threshold": "Minimum cooling correction change",
+              "cool_regulation_min_period": "Minimum time between cooling correction changes"
+            },
+            "data_description": {
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
+              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
+              "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
+              "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
+            }
+          },
+          "cool_device_4": {
+            "name": "Cooling device 4",
+            "data": {
+              "cool_regulation": "Cooling regulation",
+              "cool_overdrive": "Lower equipment cooling target by",
+              "cool_compensation_max": "Maximum sensor correction",
+              "cool_compensation_sensor": "Unit's own temperature sensor",
+              "cool_regulation_threshold": "Minimum cooling correction change",
+              "cool_regulation_min_period": "Minimum time between cooling correction changes"
+            },
+            "data_description": {
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
+              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
+              "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
+              "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
+            }
+          },
+          "cool_device_5": {
+            "name": "Cooling device 5",
+            "data": {
+              "cool_regulation": "Cooling regulation",
+              "cool_overdrive": "Lower equipment cooling target by",
+              "cool_compensation_max": "Maximum sensor correction",
+              "cool_compensation_sensor": "Unit's own temperature sensor",
+              "cool_regulation_threshold": "Minimum cooling correction change",
+              "cool_regulation_min_period": "Minimum time between cooling correction changes"
+            },
+            "data_description": {
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
+              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
+              "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
+              "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
+            }
+          },
+          "cool_device_6": {
+            "name": "Cooling device 6",
+            "data": {
+              "cool_regulation": "Cooling regulation",
+              "cool_overdrive": "Lower equipment cooling target by",
+              "cool_compensation_max": "Maximum sensor correction",
+              "cool_compensation_sensor": "Unit's own temperature sensor",
+              "cool_regulation_threshold": "Minimum cooling correction change",
+              "cool_regulation_min_period": "Minimum time between cooling correction changes"
+            },
+            "data_description": {
+              "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading); Cooling PI lowers the target by a push the zone calculates from the room error (its gains are the zone's cooling PI number entities).",
+              "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
+              "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
+              "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
+              "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
+              "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
+            }
+          }
         }
       },
       "zone_tou": {
         "title": "Zone: {zone_name} - Electricity price adjustments",
-        "description": "Needs the TOU rate sensor from Global Settings. Configure Time-of-Use rate optimization. When a peak rate period is detected, the system pre-conditions before the peak and relaxes setpoints during the peak to reduce electric device runtime.",
+        "description": "{tou_note}Configure Time-of-Use rate optimization. When a peak rate period is detected, the system pre-conditions before the peak and relaxes setpoints during the peak to reduce electric device runtime. Save stores this page only.",
         "data": {
           "tou_heat_enabled": "Enable TOU for heating",
           "tou_heat_pre_condition_minutes": "Heat pre-condition minutes",
@@ -204,14 +346,14 @@
       },
       "devices": {
         "title": "Devices",
-        "description": "Choose a device to edit its heating/cooling support, idle action, compressor protection and cooling regulation.",
+        "description": "Choose a device to edit its heating/cooling support, idle action, compressor protection and coil dry-out. Cooling regulation is set on each zone's Regulation page.",
         "data": {
           "action": "Select device"
         }
       },
       "device_edit": {
         "title": "Device: {device_id}",
-        "description": "Edit this device's heating/cooling support, idle action, compressor protection and cooling regulation.",
+        "description": "Edit this device's heating/cooling support, idle action, compressor protection and coil dry-out.{cooling_regulation}",
         "data": {
           "can_heat": "Can Heat",
           "can_cool": "Can Cool",
@@ -220,35 +362,23 @@
           "compressor_group": "Compressor group",
           "min_compressor_runtime": "Minimum compressor run time",
           "min_compressor_off_time": "Minimum compressor off time",
-          "cool_overdrive": "Lower equipment cooling target by",
-          "cool_regulation": "Cooling regulation",
-          "cool_compensation_max": "Maximum sensor correction",
-          "cool_compensation_sensor": "Unit's own temperature sensor",
-          "cool_regulation_threshold": "Minimum cooling correction change",
-          "cool_regulation_min_period": "Minimum time between cooling correction changes",
           "cool_dry_out": "Run fan after cooling",
           "cool_dry_out_minutes": "Fan run time after cooling"
         },
         "data_description": {
           "can_heat": "Device can be used for heating",
-          "can_cool": "Turn on to show the cooling regulation settings on the next open.",
+          "can_cool": "Turn on to show the coil dry-out settings on the next open.",
           "action": "Turn off or maintain a setback temperature",
           "setback": "Degrees below (heat) or above (cool) target when idle",
           "compressor_group": "Devices with the same group share compressor timing; leave empty to disable",
           "min_compressor_runtime": "Seconds the shared compressor must run before a normal stop",
           "min_compressor_off_time": "Seconds the shared compressor must remain off before restarting",
-          "cool_overdrive": "Used only for Fixed cooling correction, while a zone calls for cooling; the zone still stops at its own target. Example: room target 72°F, correction 5°F → equipment target 67°F. 0 = off.",
-          "cool_regulation": "How this device's cooling target is chosen: Use room target sends the zone target; Fixed cooling correction sends the zone target minus the correction below; Correct the unit's temperature reading sends the zone target plus (unit reading − room reading). A device saved with cooling PI shows no selection; that mode is not available yet.",
-          "cool_compensation_max": "Largest correction in °F, in either direction, added to the zone target.",
-          "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
-          "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
-          "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once.",
           "cool_dry_out": "When cooling ends, the unit runs fan-only for a while to dry the coil.",
           "cool_dry_out_minutes": "Afterward, the idle action applies. New heating/cooling or Off can end this early."
         }
       },
       "heat_sources": {
-        "title": "Heat Source Groups ({source_count})",
+        "title": "Heat source groups ({source_count})",
         "description": "Group devices that share a heat source (e.g., boiler) for opportunistic heating.",
         "data": {
           "action": "Select action"
@@ -276,7 +406,7 @@
       },
       "preset_edit": {
         "title": "Preset: {mode_name}",
-        "description": "Configure how zones behave in this mode.",
+        "description": "Configure how zones behave in this mode. {remap}",
         "data": {
           "use_zone_setpoint": "Use zone setpoint",
           "setpoint_offset": "Setpoint offset",
@@ -284,14 +414,14 @@
           "disable_all": "Disable all zones"
         },
         "data_description": {
-          "use_zone_setpoint": "Which zone setpoint to use in this mode",
+          "use_zone_setpoint": "Which set of zone setpoints this mode uses; for example Away can use the Sleep setpoints",
           "setpoint_offset": "Additional offset to apply to zone setpoints",
           "skip_time_escalation": "Activate all stages immediately (boost behavior)",
           "disable_all": "Turn off all zones in this mode"
         }
       },
       "conflicts": {
-        "title": "Device Conflicts ({rule_count})",
+        "title": "Equipment that cannot run together ({rule_count})",
         "description": "Configure device mutex rules. When a device is heating/cooling one zone, it can block other zones.",
         "data": {
           "action": "Select action"
@@ -299,7 +429,7 @@
       },
       "conflict_edit": {
         "title": "Equipment that cannot run together",
-        "description": "When a device is active in a zone, it can prevent other zones from heating or cooling.",
+        "description": "When a device is active in a zone, it can prevent other zones from heating or cooling. {yaml_note}",
         "data": {
           "device": "Device",
           "mode": "When device is",
@@ -332,14 +462,17 @@
       "source_id_exists": "A group with this ID already exists.",
       "device_required": "Please select a device.",
       "zone_required": "Please select a zone.",
-      "no_blocks_specified": "Choose at least one zone or device to block."
+      "no_blocks_specified": "Choose at least one zone or device to block.",
+      "weights_needed": "Weighted aggregation needs a weight for each sensor: set them in the fields below, then save."
     },
     "abort": {
       "cannot_delete_yaml_zone": "Cannot delete zones defined in YAML. Remove from configuration.yaml instead.",
       "cannot_delete_yaml_source": "Cannot delete heat sources defined in YAML. Remove from configuration.yaml instead.",
       "cannot_delete_yaml_rule": "Cannot delete mutex rules defined in YAML. Remove from configuration.yaml instead.",
       "rule_not_found": "Rule not found.",
-      "no_zone_id": "No zone ID specified."
+      "no_zone_id": "No zone ID specified.",
+      "zone_not_found": "Zone not found. It may have been deleted in another session.",
+      "rule_changed": "The rules changed since you chose this one (another session edited them). Nothing was deleted; open the list again."
     }
   },
   "entity": {

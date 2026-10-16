@@ -323,10 +323,6 @@ DEFAULT_PI_GAINS: dict[str, float] = {
     "offset_max": DEFAULT_OFFSET_MAX,
     "balance_point": DEFAULT_BALANCE_POINT,
 }
-# Number entity description keys of a zone's PI gains (number_definitions.py), named on the PI page.
-PI_NUMBER_KEYS = ("pi_kp", "pi_ki", "pi_k_ext", "pi_offset_max", "pi_balance_point")
-# PI page placeholder for a zone that has no number entities yet.
-PI_NUMBERS_NEW_ZONE_TEXT = "created when the zone is saved; tune them there"
 
 # Heat source config (for opportunistic heating)
 CONF_HEAT_SOURCES = "heat_sources"

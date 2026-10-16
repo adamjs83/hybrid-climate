@@ -16,8 +16,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
+from .cool_pi_const import (
+    ATTR_COOL_ACCUMULATED_ERROR, ATTR_COOL_REGULATED_SETPOINT, ATTR_COOL_REGULATION_OFFSET,
+)
 from .diagnostics import _zone_snapshot
-from .number_definitions import PI_NUMBERS, SETPOINT_NUMBERS
+from .number_definitions import COOL_PI_NUMBERS, PI_NUMBERS, SETPOINT_NUMBERS
 
 
 DASHBOARD_COMMAND = f"{DOMAIN}/dashboard_info"
@@ -55,7 +58,16 @@ def _number_controls(
             if entity_id is not None:
                 pi[description.pi_param] = entity_id
 
-    return {"setpoints": setpoints, "pi": pi}
+    controls: dict[str, Any] = {"setpoints": setpoints, "pi": pi}
+    # Cooling gains exist only for cool-capable zones; heat-only zones keep the old shape.
+    if has_cool:
+        cool_pi: dict[str, str] = {}
+        for description in COOL_PI_NUMBERS:
+            entity_id = _entity_id(registry, "number", f"{DOMAIN}_{zone_id}_{description.key}")
+            if entity_id is not None:
+                cool_pi[description.pi_param] = entity_id
+        controls["cool_pi"] = cool_pi
+    return controls
 
 
 def _zone_devices(hass: HomeAssistant, zone: Any, config: Any) -> list[dict[str, str]]:
@@ -107,6 +119,9 @@ async def async_dashboard_info(hass: HomeAssistant) -> dict[str, Any]:
                     "regulation_offset": state.regulation_offset,
                     "accumulated_error": state.accumulated_error,
                     "regulated_setpoint": state.regulated_setpoint,
+                    ATTR_COOL_REGULATION_OFFSET: state.cool_regulation_offset,
+                    ATTR_COOL_ACCUMULATED_ERROR: state.cool_accumulated_error,
+                    ATTR_COOL_REGULATED_SETPOINT: state.cool_regulated_setpoint,
                 }
 
             zones.append({

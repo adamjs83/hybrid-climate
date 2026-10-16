@@ -1,7 +1,7 @@
 """Purpose: Options-flow base class, storage helpers, and seconds/minutes form conversions.
 
 Key dependencies: const.py, Home Assistant config entries.
-Used by: every options_flow mixin and handler.py; zone_steps.py (minutes_to_seconds, seconds_to_minutes).
+Used by: every options_flow mixin and handler.py; stage_fields.py and zone_pages/setpoints_occupancy.py (minutes_to_seconds, seconds_to_minutes).
 """
 # pyright: reportMissingImports=false
 from __future__ import annotations
@@ -14,6 +14,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry, OptionsFlow, OptionsFlowWithReload
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_CONFLICTS,
@@ -40,6 +41,8 @@ from ..const import (
     DOMAIN,
     SECONDS_PER_MINUTE,
 )
+from .page_const import CONF_LAST_SAVE, LAST_SAVE_AT, LAST_SAVE_STRUCTURAL
+from .structural import is_structural
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -239,6 +242,12 @@ class OptionsFlowBase(OptionsFlowWithReload):
             merged_ui_config = {**fresh_ui_config, **copy.deepcopy(ui_config)}
         else:
             merged_ui_config = replace_changed_subtrees(fresh_ui_config, snapshot, ui_config)
+
+        # Mark the save so the reload it triggers knows whether to skip the takeover (§3).
+        merged_ui_config[CONF_LAST_SAVE] = {
+            LAST_SAVE_STRUCTURAL: is_structural(fresh_ui_config, merged_ui_config),
+            LAST_SAVE_AT: dt_util.utcnow().isoformat(),
+        }
 
         # Build new options with merged UI config
         new_options = fresh_options

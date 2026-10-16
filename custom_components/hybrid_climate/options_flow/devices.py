@@ -1,6 +1,9 @@
-"""Purpose: Edit device capabilities, idle behavior, compressor timing and cooling in integration options.
+"""Purpose: Edit device capabilities, idle behavior, compressor timing and coil dry-out in integration options;
+the device's cooling regulation is shown read-only, naming the zones whose Regulation page sets it (v0.17.0 §1).
 
-Key dependencies: Home Assistant selectors, cached entity HVAC modes, config_parsers.resolve_cool_regulation.
+Key dependencies: Home Assistant selectors, cached entity HVAC modes, config_parsers.resolve_cool_regulation,
+device_cooling.py (dry-out fields, stored settings), device_list.py (the list entries), regulation_devices.py
+(zones cooling with a device).
 Used by: Hybrid Climate options flow handler.
 """
 from __future__ import annotations
@@ -34,9 +37,6 @@ from ..const import (
     CONF_UI_VERSION,
     DEFAULT_IDLE_SETBACK,
     DEFAULT_COOL_OVERDRIVE,
-    DEVICE_LIST_COOLING,
-    DEVICE_LIST_IDLE_OFF,
-    DEVICE_LIST_IDLE_SETBACK,
     IDLE_ACTION_OFF,
     IDLE_ACTION_SETBACK,
 )
@@ -44,37 +44,16 @@ from ..config_parsers import resolve_cool_regulation
 from .base import OptionsFlowBase
 from .capability_defaults import device_form_capabilities, submitted_capabilities
 from .device_cooling import (
-    cooling_form_fields, cooling_settings_from_input, cooling_settings_from_stored,
-    cooling_settings_from_yaml, merge_cooling_settings,
+    cooling_settings_from_yaml, dry_out_fields, dry_out_from_input, dry_out_from_stored, merge_cooling_settings,
+    regulation_settings_from_stored,
 )
+from .device_list import CAP_COOL, CAP_HEAT, device_list_entries
+from .page_const import DEVICE_COOLING_LINE, DEVICE_COOLING_UNUSED, LIST_JOIN
+from .regulation_devices import all_zones, zones_cooling_with
 
 
 # Device action constants
 DEVICE_ACTION_BACK = "back"
-
-# Capability constants
-CAP_HEAT = "heat"
-CAP_COOL = "cool"
-
-
-def device_list_label(name: str, capabilities: list[str], conf: dict[str, Any]) -> str:
-    """Return a device list label: name, capabilities, idle action and effective cooling mode."""
-    # Capabilities read "heat", "cool" or "heat+cool" in that order.
-    caps = "+".join(cap for cap in (CAP_HEAT, CAP_COOL) if cap in capabilities)
-    if conf.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF) == IDLE_ACTION_SETBACK:
-        idle = DEVICE_LIST_IDLE_SETBACK.format(
-            setback=float(conf.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK)))
-    else:
-        idle = DEVICE_LIST_IDLE_OFF
-    parts = [caps, idle]
-    # Heat-only devices have no cooling regulation to show.
-    if CAP_COOL in capabilities:
-        mode = resolve_cool_regulation(
-            conf.get(CONF_COOL_REGULATION),
-            float(conf.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE)),
-        )
-        parts.append(DEVICE_LIST_COOLING.format(mode=mode))
-    return f"{name} ({', '.join(parts)})"
 
 
 class DeviceFlowMixin(OptionsFlowBase):
@@ -96,70 +75,9 @@ class DeviceFlowMixin(OptionsFlowBase):
                 self._device_edit_id = device_id
                 return await self.async_step_device_edit()
 
-        yaml_devices = self._get_yaml_config().get(CONF_DEVICES, {})
-        ui_devices = self._get_ui_config().get("devices", {})
-        
-        # Also collect devices from UI zones (auto-generated)
-        ui_zones = self._get_ui_config().get("zones", {})
-        ui_zone_entity_ids: set[str] = set()
-        for zone_conf in ui_zones.values():
-            for stage in zone_conf.get("heat_stages", []) + zone_conf.get("cool_stages", []):
-                for dev in stage.get("devices", []):
-                    if isinstance(dev, dict):
-                        entity_id = dev.get("entity_id", "")
-                        if entity_id:
-                            ui_zone_entity_ids.add(entity_id)
-                    elif isinstance(dev, str):
-                        ui_zone_entity_ids.add(dev)
-
-        # Build device list for display
-        device_options = [{"value": DEVICE_ACTION_BACK, "label": "← Back to Menu"}]
-        seen_entity_ids: set[str] = set()
-
-        # First add YAML devices
-        for device_id in yaml_devices:
-            device_conf = yaml_devices[device_id]
-            entity_id = device_conf.get(CONF_ENTITY_ID, device_id)
-            seen_entity_ids.add(entity_id)
-            
-            # Check UI devices first, then YAML (the same values the edit page loads)
-            if entity_id in ui_devices:
-                summary_conf = ui_devices[entity_id]
-            else:
-                idle_conf = device_conf.get(CONF_IDLE, {})
-                summary_conf = {
-                    **device_conf,
-                    CONF_IDLE_ACTION: idle_conf.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF),
-                    CONF_IDLE_SETBACK: idle_conf.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK),
-                }
-            capabilities = device_form_capabilities(
-                self.hass, entity_id, ui_devices.get(entity_id),
-                device_conf.get(CONF_CAPABILITIES, [CAP_HEAT]),
-            )
-
-            device_options.append({
-                "value": f"edit_{entity_id}",  # Use entity_id for consistency
-                "label": device_list_label(device_id, capabilities, summary_conf),
-            })
-
-        # Then add UI-only devices (from ui_devices or zones, not in YAML)
-        all_ui_entity_ids = set(ui_devices.keys()) | ui_zone_entity_ids
-        for entity_id in sorted(all_ui_entity_ids - seen_entity_ids):
-            dev_conf = ui_devices.get(entity_id, {})
-            capabilities = device_form_capabilities(
-                self.hass, entity_id, ui_devices.get(entity_id), [CAP_HEAT],
-            )
-
-            # Display name from entity_id (climate.xxx -> xxx)
-            display_name = entity_id.replace("climate.", "")
-            device_options.append({
-                "value": f"edit_{entity_id}",
-                "label": device_list_label(display_name, capabilities, dev_conf),
-            })
-
-        device_names = list(yaml_devices.keys()) + [
-            eid.replace("climate.", "") for eid in (all_ui_entity_ids - seen_entity_ids)
-        ]
+        device_options, device_names = device_list_entries(
+            self.hass, self._get_yaml_config().get(CONF_DEVICES, {}), self._get_ui_config())
+        device_options.insert(0, {"value": DEVICE_ACTION_BACK, "label": "← Back to Menu"})
 
         return self.async_show_form(
             step_id="devices",
@@ -204,28 +122,19 @@ class DeviceFlowMixin(OptionsFlowBase):
                 return await self.async_step_devices()
             
             capabilities = submitted_capabilities(user_input)
-            # Extract idle config
-            action = user_input.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF)
-            setback = user_input.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK)
-
-            # A hidden cooling block was not submitted: write the stored values back.
-            if show_cooling:
-                cooling = {
-                    CONF_COOL_OVERDRIVE: float(user_input.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE)),
-                    **cooling_settings_from_input(user_input, current.get(CONF_COOL_REGULATION)),
-                }
-            else:
-                cooling = cooling_settings_from_stored(current)
-            cool_overdrive = cooling.pop(CONF_COOL_OVERDRIVE)
-
-            # Save device config
+            # Cooling regulation is set on the zone Regulation page: keep the stored keys as they are.
+            # A hidden dry-out block was not submitted: write the stored values back.
+            regulation = regulation_settings_from_stored(current)
+            dry_out = dry_out_from_input(user_input) if show_cooling else dry_out_from_stored(current)
             return self._save_device_config(
-                device_id, capabilities, action, setback,
+                device_id, capabilities,
+                user_input.get(CONF_IDLE_ACTION, IDLE_ACTION_OFF),
+                user_input.get(CONF_IDLE_SETBACK, DEFAULT_IDLE_SETBACK),
                 compressor_group=user_input.get("compressor_group", "").strip(),
                 min_compressor_runtime=int(user_input.get("min_compressor_runtime", 0)),
                 min_compressor_off_time=int(user_input.get("min_compressor_off_time", 0)),
-                cool_overdrive=cool_overdrive,
-                **cooling,
+                cool_overdrive=regulation.pop(CONF_COOL_OVERDRIVE),
+                **regulation, **dry_out,
             )
 
         return self.async_show_form(
@@ -290,13 +199,28 @@ class DeviceFlowMixin(OptionsFlowBase):
                     min=0, max=3600, step=30, unit_of_measurement="s",
                     mode=NumberSelectorMode.BOX,
                 )),
-                **(cooling_form_fields(current) if show_cooling else {}),
+                **(dry_out_fields(current) if show_cooling else {}),
             }),
             errors=errors,
             description_placeholders={
                 "device_id": device_id,
+                "cooling_regulation": self._cooling_regulation_line(device_id, current, show_cooling),
             },
         )
+
+    def _cooling_regulation_line(self, device_id: str, current: dict[str, Any], show_cooling: bool) -> str:
+        """Return the read-only cooling regulation line: the effective mode and the zones whose page sets it."""
+        yaml_config = self._get_yaml_config()
+        zones = all_zones(self._get_ui_config(), yaml_config)
+        names = [name for _zone_id, name in
+                 zones_cooling_with(zones, device_id, yaml_config.get(CONF_DEVICES) or {})]
+        if not names and not show_cooling:
+            return ""
+        mode = resolve_cool_regulation(
+            current.get(CONF_COOL_REGULATION), float(current.get(CONF_COOL_OVERDRIVE, DEFAULT_COOL_OVERDRIVE)))
+        if not names:
+            return DEVICE_COOLING_UNUSED.format(mode=mode)
+        return DEVICE_COOLING_LINE.format(mode=mode, zones=LIST_JOIN.join(names))
 
     def _load_device_config(self, device_id: str) -> dict[str, Any]:
         """Load existing device config (capabilities + idle)."""

@@ -1,4 +1,4 @@
-"""Purpose: Global settings options step (master name, outdoor sensors, occupancy, TOU sensor, outdoor limits).
+"""Purpose: Global settings options step (master name, outdoor sensors, occupancy, TOU sensor, outage grace, outdoor limits last).
 
 Key dependencies: const.py, options_flow/base.py.
 Used by: options_flow/handler.py (GlobalSettingsMixin).
@@ -128,8 +128,28 @@ class GlobalSettingsMixin(OptionsFlowBase):
                         description={"suggested_value": tou_rate_sensor_default},
                     ): EntitySelector(EntitySelectorConfig(domain="sensor")),
                     vol.Required(
+                        CONF_DEVICE_UNAVAILABLE_GRACE,
+                        default=current[CONF_DEVICE_UNAVAILABLE_GRACE],
+                    ): NumberSelector(NumberSelectorConfig(
+                        min=MIN_DEVICE_UNAVAILABLE_GRACE, max=MAX_DEVICE_UNAVAILABLE_GRACE,
+                        step=1, unit_of_measurement="s", mode=NumberSelectorMode.BOX,
+                    )),
+                    # Outdoor limits last (v0.17.0 §1): heat above, cool below, idle heat during lockout.
+                    vol.Required(
                         CONF_NEVER_HEAT_ABOVE,
                         default=current[CONF_NEVER_HEAT_ABOVE],
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=30,
+                            max=100,
+                            step=1,
+                            unit_of_measurement="°F",
+                            mode=NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_NEVER_COOL_BELOW,
+                        default=current[CONF_NEVER_COOL_BELOW],
                     ): NumberSelector(
                         NumberSelectorConfig(
                             min=30,
@@ -147,25 +167,6 @@ class GlobalSettingsMixin(OptionsFlowBase):
                         step=LOCKOUT_HEAT_FLOOR_STEP, unit_of_measurement="°F",
                         mode=NumberSelectorMode.SLIDER,
                     )),
-                    vol.Required(
-                        CONF_DEVICE_UNAVAILABLE_GRACE,
-                        default=current[CONF_DEVICE_UNAVAILABLE_GRACE],
-                    ): NumberSelector(NumberSelectorConfig(
-                        min=MIN_DEVICE_UNAVAILABLE_GRACE, max=MAX_DEVICE_UNAVAILABLE_GRACE,
-                        step=1, unit_of_measurement="s", mode=NumberSelectorMode.BOX,
-                    )),
-                    vol.Required(
-                        CONF_NEVER_COOL_BELOW,
-                        default=current[CONF_NEVER_COOL_BELOW],
-                    ): NumberSelector(
-                        NumberSelectorConfig(
-                            min=30,
-                            max=100,
-                            step=1,
-                            unit_of_measurement="°F",
-                            mode=NumberSelectorMode.SLIDER,
-                        )
-                    ),
                 }
             ),
             errors=errors,

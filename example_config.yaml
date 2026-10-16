@@ -63,7 +63,7 @@ devices:
     entity_id: climate.basement_family_heatpump
     capabilities: [heat, cool]
     cool_overdrive: 0  # °F below zone cool target while cooling; 0 disables
-    cool_regulation: off  # off | overdrive | compensation | pi; pi sends offset 0 until v0.17.0; omit to infer from cool_overdrive
+    cool_regulation: off  # off | overdrive | compensation | pi; pi pushes below the cool target by the zone cooling PI; omit to infer from cool_overdrive
     cool_compensation_max: 3  # °F; compensation sends target + (unit - room), clamped to this either way
     # cool_compensation_sensor: sensor.basement_family_hp_temp  # optional sensor.*, must report °F (no conversion); default is the unit's current_temperature
     cool_regulation_threshold: 0.5  # °F the compensation offset must move before a re-send
@@ -134,6 +134,13 @@ zones:
       - stage: 1
         devices: [basement_family_hp]
         threshold: 1.0
+    # cool_regulation:  # Optional zone cooling PI, used by devices whose cool_regulation is pi; omit for defaults
+    #   kp: 1.0  # proportional gain
+    #   ki: 0.01  # integral gain
+    #   offset_max: 5  # °F, maximum cooling push (0-10)
+    #   stabilization_threshold: 0.1  # °F, error below this counts as stable
+    #   accumulated_error_threshold: 240  # error-minutes, anti-windup cap
+    #   integral_decay_halflife: 120  # minutes of idle integral decay (0 = none)
     settings:
       hysteresis: 0.5
       min_runtime: 300  # 5 minutes minimum before stage can decrease

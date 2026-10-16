@@ -14,6 +14,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from ..const import DATA_ACTIVE_REVISION, DOMAIN, REGULATION_PI
+from ..cool_pi_const import (
+    ATTR_COOL_ACCUMULATED_ERROR, ATTR_COOL_REGULATED_SETPOINT, ATTR_COOL_REGULATION_OFFSET,
+)
 from ..capability_check import active_stage_unusable, find_capability_mismatches
 from ..diagnostics import _sensor_snapshot, async_get_config_entry_diagnostics
 from ..outage_hold import outage_hold_payload
@@ -54,6 +57,9 @@ async def async_get_status(
             regulation_offset=state.regulation_offset,
             accumulated_error=state.accumulated_error,
             regulated_setpoint=state.regulated_setpoint,
+            **{ATTR_COOL_REGULATION_OFFSET: state.cool_regulation_offset,
+               ATTR_COOL_ACCUMULATED_ERROR: state.cool_accumulated_error,
+               ATTR_COOL_REGULATED_SETPOINT: state.cool_regulated_setpoint},
             reasons=zone_reasons(view, state, zone, no_usable),
             stage_devices_unusable=unusable,
             controls=zone_controls(hass, entry, ident, zone),

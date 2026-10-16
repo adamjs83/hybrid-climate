@@ -2,7 +2,7 @@
 
 Key dependencies: const.py (time escalation minute range, page stage defaults), options_flow/base.py
 (minute conversions), options_flow/zone_merge.py (stage_conditions, retained_stages).
-Used by: options_flow/zone_steps.py (async_step_zone_heat_stages, async_step_zone_cool_stages).
+Used by: options_flow/zone_pages/stage_page.py (the Heating and Cooling stages pages).
 """
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ def submitted_stages(
     """
     if not enabled:
         return []
-    # allow_command is managed on the zone_settings step; keep each device's current flag.
+    # allow_command is managed on the Behaviour page; keep each device's current flag.
     allow = {
         d.get("entity_id", ""): d.get("allow_command", False)
         for s in current for d in s.get("devices", []) if isinstance(d, dict)

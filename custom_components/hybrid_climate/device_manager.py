@@ -53,8 +53,6 @@ class DeviceManager:
         self.accepted_zone_requests: dict[str, set[str]] = {}
         self._collecting = False
         self._forced_off_devices: set[str] = set()
-        # Devices already warned that cooling PI is inert; resets with a reload.
-        self.cool_pi_warned: set[str] = set()
         # Devices already warned that coil dry-out lacks fan_only; resets with a reload.
         self._fan_only_warned: set[str] = set()
         # Secondary index: entity_id → Device for O(1) fallback lookups

@@ -45,6 +45,7 @@ from .const import (
     DEFAULT_TOU_PRE_CONDITION_MINUTES,
     DEFAULT_TOU_RELAXATION_AMOUNT,
 )
+from .cool_pi_const import CONF_ZONE_COOL_REGULATION
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -449,11 +450,9 @@ def convert_yaml_zone_to_ui(
             ]
         ui_zone["regulation"] = reg
 
-    if zone_conf.get("opportunistic"):
-        ui_zone["opportunistic"] = zone_conf["opportunistic"]
-
-    if zone_conf.get("tou"):
-        ui_zone["tou"] = zone_conf["tou"]
+    for key in ("opportunistic", "tou", CONF_ZONE_COOL_REGULATION):
+        if zone_conf.get(key):
+            ui_zone[key] = zone_conf[key]
 
     return ui_zone
 
@@ -569,9 +568,10 @@ def convert_ui_zone_to_yaml(
             ]
         zone["regulation"] = reg
 
-    # Copy opportunistic config if present
-    if ui_zone.get("opportunistic"):
-        zone["opportunistic"] = ui_zone["opportunistic"]
+    # Copy plain blocks unchanged: opportunistic and the zone cooling PI block
+    for key in ("opportunistic", CONF_ZONE_COOL_REGULATION):
+        if ui_zone.get(key):
+            zone[key] = ui_zone[key]
 
     # TOU zone config
     ui_tou = ui_zone.get("tou")

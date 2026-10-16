@@ -5,7 +5,7 @@ options flow UI and the stored config format, and deleting zones.
 Saving lives in zone_save.py; the canonical stage form and merge baseline in zone_merge.py.
 
 Key dependencies: Options flow storage; zone_merge.py.
-Used by: Zone wizard steps.
+Used by: the zone pages (zone_pages/*, via _load_zone_for_edit), zones.py, zone_save.py.
 """
 from __future__ import annotations
 
@@ -60,51 +60,6 @@ class ZoneHelpersMixin:
             elif isinstance(d, str) and d:
                 result.append(d)
         return result
-
-    def _get_all_stage_device_ids(self) -> list[str]:
-        """Get the union of all device entity_ids across heat and cool stages.
-
-        Used for the allow_command selector on the zone settings step.
-        Returns deduplicated list preserving first-seen order.
-        """
-        wip = self._zone_wip or {}
-        seen: set[str] = set()
-        result: list[str] = []
-        for stage_key in ("heat_stages", "cool_stages"):
-            for stage in wip.get(stage_key, []):
-                for eid in self._extract_entity_ids(stage.get("devices", [])):
-                    if eid not in seen:
-                        seen.add(eid)
-                        result.append(eid)
-        return result
-
-    def _get_existing_allow_command_ids(self) -> list[str]:
-        """Get entity_ids that currently have allow_command=True across all stages.
-
-        Used to pre-populate the allow_command selector default.
-        """
-        wip = self._zone_wip or {}
-        result: set[str] = set()
-        for stage_key in ("heat_stages", "cool_stages"):
-            for stage in wip.get(stage_key, []):
-                for d in stage.get("devices", []):
-                    if isinstance(d, dict) and d.get("allow_command", False):
-                        entity_id = d.get("entity_id", "")
-                        if entity_id:
-                            result.add(entity_id)
-        return list(result)
-
-    def _propagate_allow_command(self, allow_cmd_entities: set[str]) -> None:
-        """Propagate allow_command selection to every device instance across all stages.
-
-        One toggle per device applies consistently across all stage occurrences.
-        """
-        wip = self._zone_wip or {}
-        for stage_key in ("heat_stages", "cool_stages"):
-            for stage in wip.get(stage_key, []):
-                for dev in stage.get("devices", []):
-                    if isinstance(dev, dict):
-                        dev["allow_command"] = dev.get("entity_id", "") in allow_cmd_entities
 
     def _load_zone_for_edit(self, zone_id: str) -> dict[str, Any]:
         """Load existing zone config for editing.

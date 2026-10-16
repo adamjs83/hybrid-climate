@@ -2,8 +2,8 @@
 
 The signed offset (°F) is added to the resolved zone cool target of an owned
 cooling command: off 0, overdrive -cool_overdrive, compensation unit - room
-(clamped), pi inert (0) in this release. Compensation and pi pass a per-device
-limiter that mirrors regulation_limits for heating.
+(clamped), pi the owner zone's cooling PI offset (cool_pi.py). Compensation and
+pi pass a per-device limiter that mirrors regulation_limits for heating.
 
 Key dependencies: Device and ZoneState runtime fields in models.py, const.py modes.
 Used by: device_arbitration.dispatch_requests (dispatch and bookkeeping) and
@@ -83,7 +83,10 @@ def resolve_cool_offset(device: Device, zone_state: ZoneState | None, now: datet
         # Plus sign: the unit stops when its own sensor reads what it reads
         # while the room sits at target; never push harder than the maximum.
         return max(-limit, min(limit, unit - room))
-    # Off, and pi until the cooling PI release, send the zone target unchanged.
+    if mode == COOL_REGULATION_PI:
+        # The zone's cooling PI step (cool_pi.py) already holds -push <= 0.
+        return zone_state.cool_regulation_offset if zone_state is not None else 0.0
+    # Off sends the zone target unchanged.
     return 0.0
 
 
@@ -151,12 +154,3 @@ def cool_dispatch_target(
         offset = limit_cool_offset(device, offset, target, now)
     return target + offset, offset
 
-
-def warn_pi_inert(device: Device, warned: set[str]) -> None:
-    """Warn once per device (per manager) that cooling PI is not active yet."""
-    if device.cool_regulation == COOL_REGULATION_PI and device.device_id not in warned:
-        warned.add(device.device_id)
-        _LOGGER.warning(
-            "Device %s: cool_regulation pi sends offset 0; cooling PI arrives in a later release",
-            device.device_id,
-        )

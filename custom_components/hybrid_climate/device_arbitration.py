@@ -15,9 +15,9 @@ from .cool_regulation import (
     cool_dispatch_target,
     record_cool_dispatch,
     select_owner_state,
-    warn_pi_inert,
 )
 from .models import DeviceMutexRule, HvacAction, ZoneState
+from .regulation_cycle import restore_cool_pi_on_failure
 
 if TYPE_CHECKING:
     from .coordinator import HybridClimateCoordinator
@@ -148,6 +148,7 @@ def reconcile_dispatch(
             state.last_sent_regulated_setpoint = before.last_sent_regulated_setpoint
             state.last_regulated_send_time = before.last_regulated_send_time
             state.last_regulated_heat_target = before.last_regulated_heat_target
+        restore_cool_pi_on_failure(coordinator, zone_id, state, before, requested, accepted, results)
 
         if not accepted:
             # Preserve prior control state on failed release/refresh; a new
@@ -210,7 +211,6 @@ async def dispatch_requests(
             continue
         dispatch_target, offset = target, 0.0
         if owned_cool:
-            warn_pi_inert(device, manager.cool_pi_warned)
             owner_state = select_owner_state(zone_states, requests, target, owners)
             dispatch_target, offset = cool_dispatch_target(device, owner_state, target, dt_util.utcnow())
         before_send = manager.idle_basis.sent_serial

@@ -1,7 +1,7 @@
 """Purpose: Heat source group options steps (list, add and edit).
 
 Key dependencies: const.py, options_flow/base.py.
-Used by: options_flow/handler.py (HeatSourceFlowMixin).
+Used by: options_flow/handler.py (HeatSourceFlowMixin), reached from shared_equipment.py; delete goes through zone_pages/delete_confirm.py.
 """
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ class HeatSourceFlowMixin(OptionsFlowBase):
         if user_input is not None:
             action = user_input.get("action")
             if action == HEAT_SOURCE_ACTION_BACK:
-                return await self.async_step_menu()
+                return await self.async_step_shared_equipment()
             elif action == HEAT_SOURCE_ACTION_ADD:
                 self._heat_source_edit_id = None
                 return await self.async_step_heat_source_edit()
@@ -55,7 +55,7 @@ class HeatSourceFlowMixin(OptionsFlowBase):
                 return await self.async_step_heat_source_edit()
             elif action and action.startswith("delete_"):
                 source_id = action[7:]
-                return self._delete_heat_source(source_id)
+                return await self._confirm_source_delete(source_id)
 
         yaml_sources = self._get_yaml_config().get(CONF_HEAT_SOURCES, {})
         ui_sources = self._get_ui_config().get(CONF_HEAT_SOURCES, {})
@@ -65,7 +65,7 @@ class HeatSourceFlowMixin(OptionsFlowBase):
 
         # Build source list for display
         source_options = [
-            {"value": HEAT_SOURCE_ACTION_BACK, "label": "← Back to Menu"},
+            {"value": HEAT_SOURCE_ACTION_BACK, "label": "← Back to Shared equipment"},
             {"value": HEAT_SOURCE_ACTION_ADD, "label": "+ Add Heat Source Group"},
         ]
 

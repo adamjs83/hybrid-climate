@@ -6,7 +6,8 @@ stage keys and conditions, and PI gains/advanced keys survive; the result is wri
 New zones are built from the pages. The page-owned key sets live in const.py (PAGE_* constants).
 
 Key dependencies: const.py; zone_merge.py; capability_defaults.add_stage_capabilities; OptionsFlowBase storage.
-Used by: options_flow/zones.py (ZoneFlowMixin), options_flow/zone_steps.py (async_step_zone_tou).
+Used by: options_flow/zones.py (ZoneFlowMixin), zone_pages/cooling_stages.py (add-zone save),
+zone_pages/stage_page.py (_stages_for_save).
 """
 from __future__ import annotations
 
@@ -71,6 +72,26 @@ class ZoneSaveMixin:
         if not zone_id:
             return self.async_abort(reason="no_zone_id")
 
+        stored_config = dict(self._get_ui_config())
+        zones = stored_config.get(CONF_ZONES, {})
+        if not isinstance(zones, dict):
+            zones = {}
+        zone_config = self._zone_config_from_wip(wip, zone_id, editing=bool(self._zone_edit_id))
+
+        # Update UI config
+        stored_config[CONF_UI_VERSION] = 1
+        zones[zone_id] = zone_config
+        stored_config[CONF_ZONES] = zones
+        add_stage_capabilities(self.hass, stored_config, zone_config)
+
+        # Clear WIP state
+        self._zone_wip = None
+        self._zone_edit_id = None
+
+        return self._save_ui_config(stored_config)
+
+    def _zone_config_from_wip(self, wip: dict[str, Any], zone_id: str, *, editing: bool) -> dict[str, Any]:
+        """Build the stored zone dict from wizard state; an edit merges stages and PI into its baseline."""
         # Start with original setpoints if editing, otherwise use defaults
         original_setpoints = wip.get("_original_setpoints", {})
         setpoints = dict(original_setpoints) if original_setpoints else {"default": 72}
@@ -150,12 +171,8 @@ class ZoneSaveMixin:
         if tou_config.get("enabled", False):
             zone_config[CONF_TOU] = tou_config
 
-        stored_config = dict(self._get_ui_config())
-        zones = stored_config.get(CONF_ZONES, {})
-        if not isinstance(zones, dict):
-            zones = {}
         # An edit merges into the canonical baseline of the zone (UI or YAML); a new zone does not.
-        baseline = self._edit_baseline(wip, zone_id) if self._zone_edit_id else None
+        baseline = self._edit_baseline(wip, zone_id) if editing else None
         for stage_key in STAGE_LISTS:
             zone_config[stage_key] = self._stages_for_save(wip, stage_key, baseline)
 
@@ -171,18 +188,7 @@ class ZoneSaveMixin:
             # Stored gains and advanced keys are kept; a new block is seeded with default gains.
             zone_config["regulation"] = merge_regulation(
                 baseline.get("regulation") if baseline else None, page_regulation)
-
-        # Update UI config
-        stored_config[CONF_UI_VERSION] = 1
-        zones[zone_id] = zone_config
-        stored_config[CONF_ZONES] = zones
-        add_stage_capabilities(self.hass, stored_config, zone_config)
-
-        # Clear WIP state
-        self._zone_wip = None
-        self._zone_edit_id = None
-
-        return self._save_ui_config(stored_config)
+        return zone_config
 
     def _edit_baseline(self, wip: dict[str, Any], zone_id: str) -> dict[str, Any]:
         """Return the edited zone's merge baseline (built at load; rebuilt from storage if absent)."""

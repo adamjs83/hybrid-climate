@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
+from dataclasses import asdict
 from typing import Any
 
 from ..const import (
@@ -18,6 +19,7 @@ from ..const import (
     CONF_OCCUPANCY_ENTITY, CONF_SETPOINTS,
     OUTDOOR_LOCKOUT_HYSTERESIS,
 )
+from ..cool_pi_const import CONF_ZONE_COOL_REGULATION
 from ..models import HybridClimateConfig, ZoneConfig
 from .const import (
     MALFORMED_STAGE_STORAGE_WARNING, OUTDOOR_THRESHOLDS_FIELD, READ_ONLY_DESCRIPTIONS,
@@ -162,7 +164,7 @@ def readonly_device(
 def readonly_zone(
     model: HybridClimateConfig, options: Mapping[str, Any], zone_id: str,
 ) -> dict[str, Any]:
-    """Describe a zone's active regulation type, device IDs, and sensor weights."""
+    """Describe a zone's active heating and cooling regulation, sensor weights and limits."""
     zone = model.zones[zone_id]
     regulation = zone.regulation
     value = None if regulation is None else {
@@ -185,6 +187,12 @@ def readonly_zone(
     never_heat_above, never_cool_below = _effective_zone_limits(model, zone)
     return {
         CONF_REGULATION: _entry(value, source, "object", CONF_REGULATION),
+        # Always present: a zone with no stored block runs on the cooling defaults.
+        CONF_ZONE_COOL_REGULATION: _entry(
+            asdict(zone.cool_regulation),
+            SOURCE_UI_CONFIG if CONF_ZONE_COOL_REGULATION in stored else SOURCE_DEFAULT,
+            "object", CONF_ZONE_COOL_REGULATION,
+        ),
         f"{CONF_SETPOINTS}.{CONF_OCCUPANCY_ENTITY}": _entry(
             zone.setpoints.occupancy_entity,
             SOURCE_UI_CONFIG if CONF_OCCUPANCY_ENTITY in stored.get(CONF_SETPOINTS, {}) else SOURCE_DEFAULT,

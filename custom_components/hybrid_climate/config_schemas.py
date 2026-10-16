@@ -159,35 +159,16 @@ from .const import (
     DEFAULT_TOU_RELAXATION_AMOUNT,
     DEFAULT_STABILIZATION_THRESHOLD,
     MAX_SMOOTHING_SAMPLES,
-    MAX_REGULATION_MIN_PERIOD,
-    MAX_REGULATION_THRESHOLD,
-    MIN_REGULATION_MIN_PERIOD,
-    MIN_REGULATION_THRESHOLD,
     MIN_SMOOTHING_SAMPLES,
     REGULATION_DIRECT,
     REGULATION_PI,
 )
-from .config_validators import _cool_regulation_mode, _idle_action, _strict_bool
+from .config_validators import _cool_regulation_mode, _idle_action, _regulation_min_period, _regulation_threshold, _strict_bool
+from .cool_pi_const import CONF_ZONE_COOL_REGULATION
+from .cool_regulation_config import COOL_REGULATION_SCHEMA
 
 
 # Validation schemas
-def _regulation_threshold(value: Any) -> float:
-    """Accept a finite numeric threshold but never a boolean."""
-    if isinstance(value, bool):
-        raise vol.Invalid("regulation_threshold must be a number")
-    threshold = vol.Coerce(float)(value)
-    if not isfinite(threshold):
-        raise vol.Invalid("regulation_threshold must be finite")
-    return vol.Range(min=MIN_REGULATION_THRESHOLD, max=MAX_REGULATION_THRESHOLD)(threshold)
-
-
-def _regulation_min_period(value: Any) -> int:
-    """Accept only whole minute counts, excluding booleans."""
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise vol.Invalid("regulation_min_period must be an integer")
-    return vol.Range(min=MIN_REGULATION_MIN_PERIOD, max=MAX_REGULATION_MIN_PERIOD)(value)
-
-
 STAGE_CONDITION_SCHEMA = vol.Schema({
     vol.Optional(CONF_OUTDOOR_TEMP_MIN): vol.Coerce(float),
     vol.Optional(CONF_OUTDOOR_TEMP_MAX): vol.Coerce(float),
@@ -359,6 +340,7 @@ ZONE_SCHEMA = vol.Schema({
     vol.Optional(CONF_REGULATION): REGULATION_SCHEMA,
     vol.Optional(CONF_OPPORTUNISTIC): OPPORTUNISTIC_SCHEMA,
     vol.Optional(CONF_TOU): TOU_ZONE_SCHEMA,
+    vol.Optional(CONF_ZONE_COOL_REGULATION): COOL_REGULATION_SCHEMA,
 })
 
 def _cool_overdrive(value: Any) -> float:
