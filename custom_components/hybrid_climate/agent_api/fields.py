@@ -18,6 +18,7 @@ from ..const import (
     MAX_COOL_REGULATION_THRESHOLD, MIN_COOL_COMPENSATION_MAX, MIN_COOL_DRY_OUT_MINUTES,
     MIN_COOL_REGULATION_MIN_PERIOD, MIN_COOL_REGULATION_THRESHOLD,
 )
+from ..cool_pi_const import CONF_COOL_MAX_TOTAL_PUSH, CONF_COOL_PI_COMPENSATION, MAX_COOL_MAX_TOTAL_PUSH, MIN_COOL_MAX_TOTAL_PUSH
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,8 @@ FIELD_ROWS = (
     Field("devices", CONF_COOL_REGULATION_MIN_PERIOD, "int", MIN_COOL_REGULATION_MIN_PERIOD, MAX_COOL_REGULATION_MIN_PERIOD, "min", "Minimum interval between cooling offset resends"),
     Field("devices", CONF_COOL_DRY_OUT, "bool", description="Run the fan to dry the coil after cooling"),
     Field("devices", CONF_COOL_DRY_OUT_MINUTES, "int", MIN_COOL_DRY_OUT_MINUTES, MAX_COOL_DRY_OUT_MINUTES, "min", "Coil dry-out fan duration"),
+    Field("devices", CONF_COOL_PI_COMPENSATION, "bool", description="Cooling PI also adds the unit-minus-room reading difference"),
+    Field("devices", CONF_COOL_MAX_TOTAL_PUSH, "float", MIN_COOL_MAX_TOTAL_PUSH, MAX_COOL_MAX_TOTAL_PUSH, "°F", "Cooling PI with compensation: largest total push below the zone cool target"),
 )
 FIELDS = {(row.scope, row.key): row for row in FIELD_ROWS}
 OUTDOOR_VALUE_FIELDS = {

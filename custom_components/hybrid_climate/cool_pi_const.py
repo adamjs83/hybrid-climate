@@ -2,7 +2,7 @@
 
 Key dependencies: None.
 Used by: cool_regulation_config.py, cool_pi.py, config_schemas.py, config_parsers.py, config_converter.py,
-agent_api (status, config_readonly), dashboard_api.py,
+models.py, agent_api (fields, status, config_readonly), dashboard_api.py,
 number_definitions.py, number_lookup.py, number_entities.py.
 """
 from __future__ import annotations
@@ -39,3 +39,13 @@ COOL_PI_LOG_LABEL = "%s cooling"
 ATTR_COOL_REGULATION_OFFSET = "cool_regulation_offset"
 ATTR_COOL_ACCUMULATED_ERROR = "cool_accumulated_error"
 ATTR_COOL_REGULATED_SETPOINT = "cool_regulated_setpoint"
+
+# Per-device "Cooling PI with compensation" keys (v0.17.3): PI also adds the unit-minus-room difference.
+CONF_COOL_PI_COMPENSATION = "cool_pi_compensation"
+DEFAULT_COOL_PI_COMPENSATION = False
+CONF_COOL_MAX_TOTAL_PUSH = "cool_max_total_push"
+DEFAULT_COOL_MAX_TOTAL_PUSH = 8.0  # °F, largest total push below the zone cool target
+MIN_COOL_MAX_TOTAL_PUSH = 0.0
+MAX_COOL_MAX_TOTAL_PUSH = 15.0
+COOL_MAX_TOTAL_PUSH_STEP = 0.5
+COOL_COMPENSATION_SETTLE_MINUTES = 3  # minutes after a run starts before the unit reading is used

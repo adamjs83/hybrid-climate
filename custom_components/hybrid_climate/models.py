@@ -15,6 +15,7 @@ from .const import (
     DEFAULT_COOL_REGULATION_MIN_PERIOD, DEFAULT_COOL_REGULATION_THRESHOLD,
     DEFAULT_COOL_OVERDRIVE, DEFAULT_DEVICE_UNAVAILABLE_GRACE, DEFAULT_LOCKOUT_HEAT_FLOOR, DEFAULT_OCCUPANCY_OFF_DELAY, DEFAULT_REGULATION_MIN_PERIOD, DEFAULT_REGULATION_THRESHOLD, DEFAULT_SENSOR_WEIGHT, EXTERNAL_CHANGE_TOLERANCE_F,
 )
+from .cool_pi_const import DEFAULT_COOL_MAX_TOTAL_PUSH, DEFAULT_COOL_PI_COMPENSATION
 from .cool_regulation_config import CoolRegulationConfig
 from .tou_models import TouGlobalConfig, ZoneTouConfig, ZoneTouModeConfig  # noqa: F401 — re-exported
 
@@ -156,6 +157,8 @@ class Device:
     cool_regulation_min_period: int = DEFAULT_COOL_REGULATION_MIN_PERIOD  # minutes
     cool_dry_out: bool = DEFAULT_COOL_DRY_OUT
     cool_dry_out_minutes: int = DEFAULT_COOL_DRY_OUT_MINUTES
+    cool_pi_compensation: bool = DEFAULT_COOL_PI_COMPENSATION
+    cool_max_total_push: float = DEFAULT_COOL_MAX_TOTAL_PUSH
 
     # Runtime state
     current_mode: str | None = None  # heat, cool, off
@@ -169,6 +172,10 @@ class Device:
     last_cool_offset_target: float | None = None
     cool_regulation_fallback: bool = False
     dry_out_until: datetime | None = None
+    cool_run_started_at: datetime | None = None
+    cool_settle_pending: bool = False
+    cool_compensation_settling: bool = False
+    cool_compensation_part: float = 0.0
 
     # Command state machine (for allow_command devices)
     command_state: DeviceCommandState = DeviceCommandState.LISTENING

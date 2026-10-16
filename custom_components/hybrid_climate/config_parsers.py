@@ -126,7 +126,10 @@ from .const import (
     DEFAULT_TOU_RELAXATION_AMOUNT,
     REGULATION_PI,
 )
-from .cool_pi_const import CONF_ZONE_COOL_REGULATION
+from .cool_pi_const import (
+    CONF_COOL_MAX_TOTAL_PUSH, CONF_COOL_PI_COMPENSATION, CONF_ZONE_COOL_REGULATION, DEFAULT_COOL_MAX_TOTAL_PUSH,
+    DEFAULT_COOL_PI_COMPENSATION,
+)
 from .cool_regulation_config import parse_cool_regulation
 from .models import (
     AggregationMethod,
@@ -230,6 +233,8 @@ def parse_device(device_id: str, data: dict[str, Any]) -> Device:
         cool_regulation_min_period=data.get(CONF_COOL_REGULATION_MIN_PERIOD, DEFAULT_COOL_REGULATION_MIN_PERIOD),
         cool_dry_out=data.get(CONF_COOL_DRY_OUT, DEFAULT_COOL_DRY_OUT),
         cool_dry_out_minutes=data.get(CONF_COOL_DRY_OUT_MINUTES, DEFAULT_COOL_DRY_OUT_MINUTES),
+        cool_pi_compensation=data.get(CONF_COOL_PI_COMPENSATION, DEFAULT_COOL_PI_COMPENSATION),
+        cool_max_total_push=data.get(CONF_COOL_MAX_TOTAL_PUSH, DEFAULT_COOL_MAX_TOTAL_PUSH),
     )
 
 

@@ -2,7 +2,8 @@
 (mode, correction, sensor, change limits; v0.17.0 §2), the coil dry-out fields the device page keeps, their
 load/coerce helpers, and the device-entry writer the Regulation page saves through.
 
-Key dependencies: Home Assistant selectors, const.py, config_parsers.resolve_cool_regulation.
+Key dependencies: Home Assistant selectors, const.py, cool_pi_const.py (v0.17.3 unit-correction keys),
+config_parsers.resolve_cool_regulation.
 Used by: options_flow/devices.py (dry-out fields, load and save of device config);
 options_flow/zone_pages/regulation_cooling.py (regulation fields, write_cooling_settings).
 """
@@ -64,6 +65,15 @@ from ..const import (
     MIN_COOL_REGULATION_MIN_PERIOD,
     MIN_COOL_REGULATION_THRESHOLD,
 )
+from ..cool_pi_const import (
+    CONF_COOL_MAX_TOTAL_PUSH,
+    CONF_COOL_PI_COMPENSATION,
+    COOL_MAX_TOTAL_PUSH_STEP,
+    DEFAULT_COOL_MAX_TOTAL_PUSH,
+    DEFAULT_COOL_PI_COMPENSATION,
+    MAX_COOL_MAX_TOTAL_PUSH,
+    MIN_COOL_MAX_TOTAL_PUSH,
+)
 
 # Stored defaults. None (mode) and "" (sensor) are dropped by the converter, so
 # an unset mode keeps the load-time migration and a blank sensor means "use the
@@ -71,6 +81,8 @@ from ..const import (
 COOLING_DEFAULTS: dict[str, Any] = {
     CONF_COOL_REGULATION: None,
     CONF_COOL_COMPENSATION_MAX: DEFAULT_COOL_COMPENSATION_MAX,
+    CONF_COOL_PI_COMPENSATION: DEFAULT_COOL_PI_COMPENSATION,
+    CONF_COOL_MAX_TOTAL_PUSH: DEFAULT_COOL_MAX_TOTAL_PUSH,
     CONF_COOL_COMPENSATION_SENSOR: "",
     CONF_COOL_REGULATION_THRESHOLD: DEFAULT_COOL_REGULATION_THRESHOLD,
     CONF_COOL_REGULATION_MIN_PERIOD: DEFAULT_COOL_REGULATION_MIN_PERIOD,
@@ -80,8 +92,9 @@ COOLING_DEFAULTS: dict[str, Any] = {
 
 # The page keys of one device's cooling regulation block, in form order (the Regulation page writes only these).
 COOLING_REGULATION_KEYS = (
-    CONF_COOL_REGULATION, CONF_COOL_OVERDRIVE, CONF_COOL_COMPENSATION_MAX, CONF_COOL_COMPENSATION_SENSOR,
-    CONF_COOL_REGULATION_THRESHOLD, CONF_COOL_REGULATION_MIN_PERIOD,
+    CONF_COOL_REGULATION, CONF_COOL_OVERDRIVE, CONF_COOL_COMPENSATION_MAX, CONF_COOL_PI_COMPENSATION,
+    CONF_COOL_MAX_TOTAL_PUSH, CONF_COOL_COMPENSATION_SENSOR, CONF_COOL_REGULATION_THRESHOLD,
+    CONF_COOL_REGULATION_MIN_PERIOD,
 )
 DRY_OUT_KEYS = (CONF_COOL_DRY_OUT, CONF_COOL_DRY_OUT_MINUTES)
 UI_VERSION = 1
@@ -136,6 +149,8 @@ def regulation_settings_from_input(user_input: Mapping[str, Any], defaults: Mapp
         CONF_COOL_REGULATION: value(CONF_COOL_REGULATION),
         CONF_COOL_OVERDRIVE: float(value(CONF_COOL_OVERDRIVE)),
         CONF_COOL_COMPENSATION_MAX: float(value(CONF_COOL_COMPENSATION_MAX)),
+        CONF_COOL_PI_COMPENSATION: bool(value(CONF_COOL_PI_COMPENSATION)),
+        CONF_COOL_MAX_TOTAL_PUSH: float(value(CONF_COOL_MAX_TOTAL_PUSH)),
         # A cleared sensor is not submitted: "" means the unit's own current_temperature.
         CONF_COOL_COMPENSATION_SENSOR: user_input.get(CONF_COOL_COMPENSATION_SENSOR) or "",
         CONF_COOL_REGULATION_THRESHOLD: float(value(CONF_COOL_REGULATION_THRESHOLD)),
@@ -164,7 +179,7 @@ def _number_box(minimum: float, maximum: float, step: float, unit: str) -> Numbe
 
 
 def cooling_regulation_fields(current: Mapping[str, Any]) -> dict[Any, Any]:
-    """Build one device's cooling regulation block: mode, correction, sensor, change limits."""
+    """Build one device's cooling regulation block: mode, correction, unit correction, sensor, change limits."""
     values = regulation_form_values(current)
     # suggested_value (not default) so a cleared sensor stays cleared and "" is
     # never validated as an entity ID.
@@ -176,6 +191,9 @@ def cooling_regulation_fields(current: Mapping[str, Any]) -> dict[Any, Any]:
             _number_box(MIN_COOL_OVERDRIVE, MAX_COOL_OVERDRIVE, COOL_OVERDRIVE_STEP, "°F"),
         vol.Required(CONF_COOL_COMPENSATION_MAX, default=values[CONF_COOL_COMPENSATION_MAX]): _number_box(
             MIN_COOL_COMPENSATION_MAX, MAX_COOL_COMPENSATION_MAX, COOL_COMPENSATION_MAX_STEP, "°F"),
+        vol.Required(CONF_COOL_PI_COMPENSATION, default=values[CONF_COOL_PI_COMPENSATION]): BooleanSelector(),
+        vol.Required(CONF_COOL_MAX_TOTAL_PUSH, default=values[CONF_COOL_MAX_TOTAL_PUSH]): _number_box(
+            MIN_COOL_MAX_TOTAL_PUSH, MAX_COOL_MAX_TOTAL_PUSH, COOL_MAX_TOTAL_PUSH_STEP, "°F"),
         vol.Optional(CONF_COOL_COMPENSATION_SENSOR, description={"suggested_value": sensor}): EntitySelector(
             EntitySelectorConfig(domain=COOL_COMPENSATION_SENSOR_DOMAIN)),
         vol.Required(CONF_COOL_REGULATION_THRESHOLD, default=values[CONF_COOL_REGULATION_THRESHOLD]): _number_box(

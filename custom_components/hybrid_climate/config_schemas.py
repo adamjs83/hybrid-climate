@@ -164,7 +164,7 @@ from .const import (
     REGULATION_PI,
 )
 from .config_validators import _cool_regulation_mode, _idle_action, _regulation_min_period, _regulation_threshold, _strict_bool
-from .cool_pi_const import CONF_ZONE_COOL_REGULATION
+from .cool_pi_const import CONF_COOL_MAX_TOTAL_PUSH, CONF_COOL_PI_COMPENSATION, CONF_ZONE_COOL_REGULATION, DEFAULT_COOL_MAX_TOTAL_PUSH, DEFAULT_COOL_PI_COMPENSATION, MAX_COOL_MAX_TOTAL_PUSH, MIN_COOL_MAX_TOTAL_PUSH
 from .cool_regulation_config import COOL_REGULATION_SCHEMA
 
 
@@ -407,6 +407,9 @@ DEVICE_SCHEMA = vol.Schema({
     vol.Optional(CONF_COOL_DRY_OUT, default=DEFAULT_COOL_DRY_OUT): _strict_bool,
     vol.Optional(CONF_COOL_DRY_OUT_MINUTES, default=DEFAULT_COOL_DRY_OUT_MINUTES): _bounded_number(
         CONF_COOL_DRY_OUT_MINUTES, MIN_COOL_DRY_OUT_MINUTES, MAX_COOL_DRY_OUT_MINUTES, int),
+    vol.Optional(CONF_COOL_PI_COMPENSATION, default=DEFAULT_COOL_PI_COMPENSATION): _strict_bool,
+    vol.Optional(CONF_COOL_MAX_TOTAL_PUSH, default=DEFAULT_COOL_MAX_TOTAL_PUSH): _bounded_number(
+        CONF_COOL_MAX_TOTAL_PUSH, MIN_COOL_MAX_TOTAL_PUSH, MAX_COOL_MAX_TOTAL_PUSH, float),
     # Note: allow_command moved to stage device config (per-zone, not per-device)
 })
 

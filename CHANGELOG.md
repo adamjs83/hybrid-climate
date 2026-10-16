@@ -3,6 +3,14 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.3] - 2026-10-16
+
+### Added
+- Cooling PI can also correct for the unit's own temperature reading: a new checkbox per cooling device on the zone Regulation page adds (unit reading − room reading) to the Cooling PI target, in either direction, so the push is felt on the unit's own scale. A new "Maximum total push" setting (default 8 °F) limits how far below the zone target it can go.
+
+### Changed
+- "Correct the unit's temperature reading" and the new Cooling PI correction ignore the unit's reading for the first 3 minutes of each cooling run, when many units' own sensors briefly dip, and then apply the correction at once.
+
 ## [0.17.2] - 2026-10-16
 
 ### Changed

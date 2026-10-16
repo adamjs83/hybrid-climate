@@ -2,10 +2,14 @@
 
 The signed offset (°F) is added to the resolved zone cool target of an owned
 cooling command: off 0, overdrive -cool_overdrive, compensation min(0, unit - room)
-(clamped), pi the owner zone's cooling PI offset (cool_pi.py). Compensation and
-pi pass a per-device limiter that mirrors regulation_limits for heating.
+(clamped), pi the owner zone's cooling PI offset (cool_pi.py), and pi with
+cool_pi_compensation max(-cool_max_total_push, PI offset + clamp(unit - room)).
+The unit-minus-room part is 0 for the first minutes of each owned cooling run (the
+settle). Compensation and pi pass a per-device limiter that mirrors
+regulation_limits for heating.
 
-Key dependencies: Device and ZoneState runtime fields in models.py, const.py modes.
+Key dependencies: Device and ZoneState runtime fields in models.py, const.py modes,
+cool_pi_const.py settle length.
 Used by: device_arbitration.dispatch_requests (dispatch and bookkeeping) and
 device_manager.update_device_states (unit reading).
 """
@@ -27,6 +31,7 @@ from .const import (
     HVAC_MODE_COOL,
     REGULATION_THRESHOLD_FLOAT_TOLERANCE,
 )
+from .cool_pi_const import COOL_COMPENSATION_SETTLE_MINUTES
 from .models import Device, ZoneState
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,37 +72,68 @@ def _set_fallback(device: Device, fallback: bool) -> None:
     device.cool_regulation_fallback = fallback
 
 
-def resolve_cool_offset(device: Device, zone_state: ZoneState | None, now: datetime) -> float:
+def uses_sensor_part(device: Device) -> bool:
+    """True when the device's mode adds the unit-minus-room sensor part."""
+    return device.cool_regulation == COOL_REGULATION_COMPENSATION or (
+        device.cool_regulation == COOL_REGULATION_PI and device.cool_pi_compensation)
+
+
+def _sensor_part(device: Device, zone_state: ZoneState | None, low: float, high: float) -> float:
+    """Return clamp(unit - room, low, high), or 0 with the fallback flag when either reading is missing."""
+    unit = device.current_temperature
+    room = zone_state.current_temperature if zone_state is not None else None
+    if unit is None or room is None:
+        _set_fallback(device, True)
+        return 0.0
+    _set_fallback(device, False)
+    return max(low, min(high, unit - room))
+
+
+def resolve_cool_offset(
+    device: Device, zone_state: ZoneState | None, now: datetime, *, settling: bool = False,
+) -> float:
     """Return the raw signed offset for the device's cooling regulation mode (before the limiter)."""
     mode = device.cool_regulation
+    part = 0.0
     if mode == COOL_REGULATION_OVERDRIVE:
-        return -device.cool_overdrive
-    if mode == COOL_REGULATION_COMPENSATION:
-        unit = device.current_temperature
-        room = zone_state.current_temperature if zone_state is not None else None
-        if unit is None or room is None:
-            _set_fallback(device, True)
-            return 0.0
-        _set_fallback(device, False)
-        limit = device.cool_compensation_max
+        raw = -device.cool_overdrive
+    elif mode == COOL_REGULATION_COMPENSATION:
         # Plus sign: the unit stops when its own sensor reads what it reads
         # while the room sits at target; never push harder than the maximum.
         # Push only (v0.17.2 owner ruling, as Versatile Thermostat uses it "to force"):
         # a unit reading above the room already works hard, so the target is never raised.
-        return max(-limit, min(0.0, unit - room))
-    if mode == COOL_REGULATION_PI:
+        # While settling the reading is not used, so the fallback flag is left alone.
+        if not settling:
+            part = _sensor_part(device, zone_state, -device.cool_compensation_max, 0.0)
+        raw = part
+    elif mode == COOL_REGULATION_PI:
         # The zone's cooling PI step (cool_pi.py) already holds -push <= 0.
-        return zone_state.cool_regulation_offset if zone_state is not None else 0.0
-    # Off sends the zone target unchanged.
-    return 0.0
+        push = zone_state.cool_regulation_offset if zone_state is not None else 0.0
+        if device.cool_pi_compensation:
+            # Both ways (spec §1): translate the PI target onto the unit's own scale,
+            # never lowering it by more than the maximum total push.
+            if not settling:
+                limit = device.cool_compensation_max
+                part = _sensor_part(device, zone_state, -limit, limit)
+            raw = max(-device.cool_max_total_push, push + part)
+        else:
+            raw = push
+    else:
+        # Off sends the zone target unchanged.
+        raw = 0.0
+    device.cool_compensation_part = part
+    return raw
 
 
-def limit_cool_offset(device: Device, raw: float, target: float | None, now: datetime) -> float:
-    """Return the last sent offset until the threshold and minimum period both pass."""
+def limit_cool_offset(
+    device: Device, raw: float, target: float | None, now: datetime, *, force: bool = False,
+) -> float:
+    """Return the last sent offset until the threshold and minimum period both pass, unless forced."""
     previous = device.last_sent_cool_offset
     last_time = device.last_cool_offset_time
-    # A first owned send, a changed zone target or a cleared limiter sends at once.
-    if previous is None or last_time is None or target != device.last_cool_offset_target:
+    # A forced send (settle end), a first owned send, a changed zone target or a
+    # cleared limiter sends at once.
+    if force or previous is None or last_time is None or target != device.last_cool_offset_target:
         send = True
     else:
         send = (
@@ -113,10 +149,13 @@ def limit_cool_offset(device: Device, raw: float, target: float | None, now: dat
 
 
 def clear_cool_limiter(device: Device) -> None:
-    """Forget the last sent offset so the next owned cooling command sends immediately."""
+    """Forget the last sent offset and the cooling run so the next owned command sends and settles anew."""
     device.last_sent_cool_offset = None
     device.last_cool_offset_time = None
     device.last_cool_offset_target = None
+    device.cool_run_started_at = None
+    device.cool_settle_pending = False
+    device.cool_compensation_settling = False
 
 
 def record_cool_dispatch(device: Device, owned_cool: bool, offset: float, success: bool) -> None:
@@ -150,9 +189,22 @@ def cool_dispatch_target(
     device: Device, zone_state: ZoneState | None, target: float, now: datetime,
 ) -> tuple[float, float]:
     """Return the physical target and the limited offset for an owned cooling command."""
-    offset = resolve_cool_offset(device, zone_state, now)
+    settling = False
+    force = False
+    if uses_sensor_part(device):
+        if device.cool_run_started_at is None:
+            # A new owned cooling run: ignore the unit reading until it settles (spec §2).
+            device.cool_run_started_at = now
+            device.cool_settle_pending = True
+        settling = now - device.cool_run_started_at < timedelta(minutes=COOL_COMPENSATION_SETTLE_MINUTES)
+        # The first evaluation after the settle sends at once, like a first owned send.
+        force = device.cool_settle_pending and not settling
+        if force:
+            device.cool_settle_pending = False
+    device.cool_compensation_settling = settling
+    offset = resolve_cool_offset(device, zone_state, now, settling=settling)
     # Overdrive and off are constants; only regulated modes pass the limiter.
     if device.cool_regulation in (COOL_REGULATION_COMPENSATION, COOL_REGULATION_PI):
-        offset = limit_cool_offset(device, offset, target, now)
+        offset = limit_cool_offset(device, offset, target, now, force=force)
     return target + offset, offset
 

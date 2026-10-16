@@ -113,6 +113,8 @@ def device_control(
         "cool_regulation": device.cool_regulation,
         "cool_offset": device.cool_offset_sent,
         "cool_regulation_fallback": device.cool_regulation_fallback,
+        "cool_compensation_part": device.cool_compensation_part,
+        "cool_compensation_settling": device.cool_compensation_settling,
         "uncontrolled_active_mode": uncontrolled,
         "detail": UNCONTROLLED_MODE_DETAIL.format(reported_mode=reported_mode)
         if uncontrolled else None,
