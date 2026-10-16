@@ -1,6 +1,7 @@
 """Purpose: Zone-level cooling PI controller (v0.17.0): the push below the cool target for pi devices.
 
-error = room − cool target (positive = needs more cooling), no outdoor term; the push is clamped
+error = room − cool target (positive = needs more cooling), plus an optional outdoor term
+(k_ext × (outdoor − balance_point), off at gain 0, v0.17.4); the total push is clamped
 to [0, offset_max] and stored as the signed device offset −push. The per-device limiter
 (cool_regulation.py) still governs what is sent.
 
@@ -27,6 +28,7 @@ from .cool_pi_const import (
     ATTR_COOL_ACCUMULATED_ERROR,
     ATTR_COOL_REGULATED_SETPOINT,
     ATTR_COOL_REGULATION_OFFSET,
+    COOL_PI_EXT_SIGN,
     COOL_PI_LOG_LABEL,
 )
 from .models import ZoneConfig, ZoneState
@@ -49,9 +51,12 @@ def zone_cool_pi_devices(coordinator: Any, zone_config: ZoneConfig) -> set[str]:
 
 
 def _cool_gains(coordinator: Any, zone_config: ZoneConfig) -> dict[str, float]:
-    """Read kp, ki and offset_max from the zone's cooling numbers, falling back to the zone block."""
+    """Read kp, ki, offset_max, k_ext and balance_point from the zone's cooling numbers, falling back to the zone block."""
     block = zone_config.cool_regulation
-    defaults = {"kp": block.kp, "ki": block.ki, "offset_max": block.offset_max}
+    defaults = {
+        "kp": block.kp, "ki": block.ki, "offset_max": block.offset_max,
+        "k_ext": block.k_ext, "balance_point": block.balance_point,
+    }
     gains = read_zone_numbers(coordinator.hass, zone_config.zone_id, COOL_PI_NUMBER_KEYS, defaults)
     for param, value in gains.items():
         # read_zone_numbers passes nan/inf through (Ruling 5); cooling never uses them.
@@ -66,6 +71,7 @@ def _cool_gains(coordinator: Any, zone_config: ZoneConfig) -> dict[str, float]:
 
 def cool_pi_update(
     coordinator: Any, zone_config: ZoneConfig, zone_state: ZoneState, *, active: bool,
+    outdoor_temp: float | None,
 ) -> None:
     """Run one cooling PI step and write the cooling integral, offset and regulated setpoint."""
     room = zone_state.current_temperature
@@ -81,13 +87,14 @@ def cool_pi_update(
     params = PIParams(
         kp=gains["kp"],
         ki=gains["ki"],
-        k_ext=0.0,  # no outdoor term for cooling
+        k_ext=gains["k_ext"],  # 0 = no outdoor term
         offset_max=gains["offset_max"],
         offset_min=0.0,  # the push never warms the device setpoint
-        balance_point=0.0,
+        balance_point=gains["balance_point"],
         stabilization_threshold=block.stabilization_threshold,
         accumulated_error_threshold=block.accumulated_error_threshold,
         integral_decay_halflife=block.integral_decay_halflife,
+        ext_sign=COOL_PI_EXT_SIGN,
     )
     offset, new_state = pi_step(
         room - target,
@@ -95,7 +102,7 @@ def cool_pi_update(
         params,
         dt_util.utcnow(),
         active=active,
-        outdoor_temp=None,
+        outdoor_temp=outdoor_temp,
         label=COOL_PI_LOG_LABEL % zone_config.zone_id,
     )
     push = max(0.0, min(params.offset_max, offset))

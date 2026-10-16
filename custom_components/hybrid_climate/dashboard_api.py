@@ -20,7 +20,8 @@ from .cool_pi_const import (
     ATTR_COOL_ACCUMULATED_ERROR, ATTR_COOL_REGULATED_SETPOINT, ATTR_COOL_REGULATION_OFFSET,
 )
 from .diagnostics import _zone_snapshot
-from .number_definitions import COOL_PI_NUMBERS, PI_NUMBERS, SETPOINT_NUMBERS
+from .cool_pi_numbers import COOL_PI_NUMBERS
+from .number_definitions import PI_NUMBERS, SETPOINT_NUMBERS
 
 
 DASHBOARD_COMMAND = f"{DOMAIN}/dashboard_info"

@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.4] - 2026-10-16
+
+### Added
+- Cooling PI can now react to the outdoor temperature. Two new numbers per cooling zone, "Cooling PI outdoor gain" (default 0, which keeps today's behavior) and "Cooling PI outdoor balance point" (default 75 °F), add extra cooling push when it is hotter outside than the balance point and take some away when it is colder. The "Cooling PI maximum push" still limits the total. Both can also be set in the zone's `cool_regulation` block (`k_ext`, `balance_point`).
+
 ## [0.17.3] - 2026-10-16
 
 ### Added

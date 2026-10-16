@@ -32,6 +32,19 @@ MAX_COOL_PI_KI = 0.5
 STEP_COOL_PI_KI = 0.001
 STEP_COOL_PI_OFFSET_MAX = 0.5
 
+# Optional outdoor term (v0.17.4): gain 0 = off.
+NUMBER_KEY_COOL_PI_K_EXT = "cool_pi_k_ext"
+NUMBER_KEY_COOL_PI_BALANCE_POINT = "cool_pi_balance_point"
+DEFAULT_COOL_PI_K_EXT = 0.0
+DEFAULT_COOL_PI_BALANCE_POINT = 75.0  # °F, outdoor temperature with no extra push
+MIN_COOL_PI_K_EXT = 0.0
+MAX_COOL_PI_K_EXT = 1.0
+STEP_COOL_PI_K_EXT = 0.05
+MIN_COOL_PI_BALANCE_POINT = 50.0
+MAX_COOL_PI_BALANCE_POINT = 100.0
+STEP_COOL_PI_BALANCE_POINT = 1.0
+COOL_PI_EXT_SIGN = -1.0  # hotter outside means more cooling push
+
 # Log label for the shared PI step ("Zone <label> PI: ..."), so cooling lines are told apart.
 COOL_PI_LOG_LABEL = "%s cooling"
 

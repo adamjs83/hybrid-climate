@@ -85,7 +85,7 @@ def idle_regulation(
             zone_state.regulated_setpoint = raw
     # No cooling equilibrium hold: a held cool mode blocks the Family Room heat pump through the mutex.
     if zone_cool_pi_devices(coordinator, zone_config):
-        cool_pi_update(coordinator, zone_config, zone_state, active=False)
+        cool_pi_update(coordinator, zone_config, zone_state, active=False, outdoor_temp=outdoor_temp)
 
 
 def prepare_regulation(
@@ -145,7 +145,7 @@ def prepare_regulation(
         )
     previous_cool = _cool_fields(zone_state)
     if has_cool_pi:
-        cool_pi_update(coordinator, zone_config, zone_state, active=cooling_regulated)
+        cool_pi_update(coordinator, zone_config, zone_state, active=cooling_regulated, outdoor_temp=outdoor_temp)
     return RegulationSnapshot(
         heating_regulated, previous_integral, previous_pi_time, previous_limit,
         cooling_regulated, previous_cool,
@@ -187,7 +187,7 @@ def rollback_regulation(
     if snapshot.cooling_regulated and not any(_is_cool_pi(coordinator, d) for d in activated):
         # A failed pi cool command must not wind up the cooling integral either.
         _restore_cool_fields(zone_state, snapshot.previous_cool)
-        cool_pi_update(coordinator, zone_config, zone_state, active=False)
+        cool_pi_update(coordinator, zone_config, zone_state, active=False, outdoor_temp=outdoor_temp)
 
 
 def restore_cool_pi_on_failure(

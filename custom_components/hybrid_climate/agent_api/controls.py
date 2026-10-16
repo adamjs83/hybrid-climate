@@ -19,7 +19,8 @@ from ..const import CONF_NUMBER_VALUES, CONF_UI_CONFIG, DOMAIN
 from ..dashboard_api import _number_controls
 from ..models import ZoneConfig
 from ..cool_pi_const import PARAM_TYPE_COOL_PI
-from ..number_definitions import COOL_PI_NUMBERS, PI_NUMBERS, SETPOINT_NUMBERS
+from ..cool_pi_numbers import COOL_PI_NUMBERS
+from ..number_definitions import PI_NUMBERS, SETPOINT_NUMBERS
 from .const import SOURCE_DEFAULT, SOURCE_NUMBER_ENTITY
 
 _LOGGER = logging.getLogger(__name__)

@@ -27,6 +27,8 @@ from .const import (
     DOMAIN,
 )
 from .cool_pi_const import (
+    DEFAULT_COOL_PI_BALANCE_POINT,
+    DEFAULT_COOL_PI_K_EXT,
     DEFAULT_COOL_PI_KI,
     DEFAULT_COOL_PI_KP,
     DEFAULT_COOL_PI_OFFSET_MAX,
@@ -155,6 +157,8 @@ class HybridClimateNumberEntity(NumberEntity):
                 "kp": DEFAULT_COOL_PI_KP,
                 "ki": DEFAULT_COOL_PI_KI,
                 "offset_max": DEFAULT_COOL_PI_OFFSET_MAX,
+                "k_ext": DEFAULT_COOL_PI_K_EXT,
+                "balance_point": DEFAULT_COOL_PI_BALANCE_POINT,
             }
             return cool_defaults[desc.pi_param]
 

@@ -143,6 +143,8 @@ zones:
     #   stabilization_threshold: 0.1  # °F, error below this counts as stable
     #   accumulated_error_threshold: 240  # error-minutes, anti-windup cap
     #   integral_decay_halflife: 120  # minutes of idle integral decay (0 = none)
+    #   k_ext: 0  # outdoor gain (0-1; 0 = off): adds k_ext * (outdoor - balance_point) to the push, capped by offset_max
+    #   balance_point: 75  # °F (50-100), outdoor temperature with no extra push
     settings:
       hysteresis: 0.5
       min_runtime: 300  # 5 minutes minimum before stage can decrease

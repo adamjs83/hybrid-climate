@@ -20,10 +20,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import HybridClimateCoordinator
+from .cool_pi_numbers import COOL_PI_NUMBERS
 from .number_definitions import (  # noqa: F401 — re-exported
     SETPOINT_NUMBERS,
     PI_NUMBERS,
-    COOL_PI_NUMBERS,
     HybridClimateNumberEntityDescription,
 )
 from .number_entities import (  # noqa: F401 — re-exported

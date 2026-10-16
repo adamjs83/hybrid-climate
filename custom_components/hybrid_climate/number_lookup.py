@@ -19,6 +19,8 @@ from .const import (
     DEFAULT_OFFSET_MAX,
 )
 from .cool_pi_const import (
+    NUMBER_KEY_COOL_PI_BALANCE_POINT,
+    NUMBER_KEY_COOL_PI_K_EXT,
     NUMBER_KEY_COOL_PI_KI,
     NUMBER_KEY_COOL_PI_KP,
     NUMBER_KEY_COOL_PI_OFFSET_MAX,
@@ -39,6 +41,8 @@ COOL_PI_NUMBER_KEYS: Mapping[str, str] = {
     "kp": NUMBER_KEY_COOL_PI_KP,
     "ki": NUMBER_KEY_COOL_PI_KI,
     "offset_max": NUMBER_KEY_COOL_PI_OFFSET_MAX,
+    "k_ext": NUMBER_KEY_COOL_PI_K_EXT,
+    "balance_point": NUMBER_KEY_COOL_PI_BALANCE_POINT,
 }
 HEAT_PI_DEFAULTS: Mapping[str, float] = {
     "kp": DEFAULT_KP,

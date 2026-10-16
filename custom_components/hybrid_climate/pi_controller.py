@@ -45,6 +45,7 @@ class PIParams:
     stabilization_threshold: float
     accumulated_error_threshold: float
     integral_decay_halflife: float
+    ext_sign: float = 1.0  # +1 heating (colder outside adds); -1 cooling (hotter outside adds)
 
 
 @dataclass(frozen=True)
@@ -80,10 +81,11 @@ def pi_step(
         dt_minutes = (now - state.last_update).total_seconds() / 60.0
         dt_minutes = max(0.1, min(10.0, dt_minutes))
 
-    # Feedforward term: balance_point is the outdoor temp where no offset is needed
+    # Feedforward term: balance_point is the outdoor temp where no offset is needed;
+    # ext_sign flips the direction for cooling (hotter outside means more push).
     ext_term = 0.0
     if outdoor_temp is not None and params.k_ext > 0:
-        ext_term = params.k_ext * (params.balance_point - outdoor_temp)
+        ext_term = params.k_ext * params.ext_sign * (params.balance_point - outdoor_temp)
 
     # Offset the current integral would give, to detect saturation
     p_term = params.kp * error
