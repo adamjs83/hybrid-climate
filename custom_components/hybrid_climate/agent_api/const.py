@@ -9,7 +9,7 @@ from __future__ import annotations
 INTEGER_KEYS = frozenset({
     "_version", "stage", "min_runtime", "smoothing_samples", "time_escalation",
     "open_delay", "close_delay", "min_compressor_runtime",
-    "min_compressor_off_time", "pre_condition_minutes", "occupancy_off_delay",
+    "min_compressor_off_time", "pre_condition_minutes", "occupancy_off_delay", "occupancy_on_delay",
     "device_unavailable_grace", "cool_regulation_min_period", "cool_dry_out_minutes",
 })
 COMPAT_KEYS = ("never_heat_above", "never_cool_below")

@@ -93,7 +93,8 @@ def get_zone_occupancy(
 ) -> bool | None:
     """Return a zone's known occupancy, or None when its sensor is unavailable."""
     return get_occupancy(coordinator.hass, zone_config,
-                         getattr(coordinator, "_zone_last_observed_occupied", {}))
+                         getattr(coordinator, "_zone_last_observed_occupied", {}),
+                         getattr(coordinator, "_zone_presence_on_since", {}))
 
 
 def _selected_setpoint_name(mode: MasterMode, config: MasterModeConfig,

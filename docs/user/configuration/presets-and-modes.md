@@ -38,6 +38,7 @@ The fields on the page are:
 
 - Enable occupancy override.
 - Occupancy sensor.
+- On delay, in minutes (0 to 120): how long the sensor must stay on before the zone counts as occupied. Short walk-throughs are ignored and do not extend the off delay. The default of 0 applies occupancy at once. A sensor that is already on when Home Assistant starts counts as occupied immediately.
 - Off delay, in minutes (0 to 120): how long the occupied setpoints stay after the sensor last showed the zone occupied.
 - Occupied and unoccupied offsets for heating. Cooling uses the Occupied Cool and Unoccupied Cool numbers instead.
 

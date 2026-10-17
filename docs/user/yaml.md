@@ -111,6 +111,7 @@ zones:
       default: 68
       away: 62
       occupancy_entity: binary_sensor.basement_occupied
+      occupancy_on_delay: 180  # Seconds presence must stay on before the zone is occupied (0-7200; default 0)
       occupancy_off_delay: 90  # Seconds since this integration last saw occupancy (0-7200; default 0)
       occupied: 70
       unoccupied: 65

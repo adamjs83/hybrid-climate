@@ -99,6 +99,7 @@ Codes are listed in the order they are checked; the first match wins.
 | Field | Meaning | Values |
 |---|---|---|
 | `setpoints.occupancy_entity` (read-only) | The zone's occupancy sensor. | Entity id |
+| `setpoints.occupancy_on_delay` (writable) | How long the occupancy sensor must stay on before the zone counts as occupied. A sensor already on at startup counts as occupied at once. | Whole seconds, 0-7200 |
 | `setpoints.occupancy_off_delay` (writable) | Delay, measured from the last time this integration saw the zone occupied. After a restart, an off sensor selects the unoccupied setpoints immediately. | Whole seconds, 0-7200 |
 | `sensors.weights` (read-only) | The effective weight for every configured indoor sensor. Set weights only on the zone's **Basics & sensors** page (or in YAML), not through `set_config`. | Default 1.0 per sensor |
 | `outdoor_thresholds` (read-only) | Same shape as the global one, using this zone's effective limits (zone override or global). | See `get_config.global` |

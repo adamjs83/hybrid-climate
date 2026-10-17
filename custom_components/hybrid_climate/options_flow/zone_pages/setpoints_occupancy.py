@@ -29,6 +29,9 @@ from ...const import (
     CONF_NAME,
     CONF_OCCUPANCY_ENTITY,
     CONF_OCCUPANCY_OFF_DELAY,
+    CONF_OCCUPANCY_ON_DELAY,
+    DEFAULT_OCCUPANCY_ON_DELAY,
+    MAX_OCCUPANCY_ON_DELAY,
     CONF_SETPOINTS,
     DEFAULT_OCCUPANCY_OFF_DELAY,
     DOMAIN,
@@ -61,7 +64,7 @@ from ..page_const import (
 OCCUPANCY_DOMAINS = ["binary_sensor", "input_boolean"]
 # Stored setpoint keys owned by occupancy; disabling it removes them all.
 OCCUPANCY_KEYS = (FIELD_OCCUPANCY_ENABLED, CONF_OCCUPANCY_ENTITY, CONF_OCCUPANCY_OFF_DELAY,
-                  CONF_SETPOINT_OCCUPIED, CONF_SETPOINT_UNOCCUPIED)
+                  CONF_OCCUPANCY_ON_DELAY, CONF_SETPOINT_OCCUPIED, CONF_SETPOINT_UNOCCUPIED)
 
 
 def occupancy_values(user_input: dict[str, Any], loaded: dict[str, Any]) -> dict[str, Any]:
@@ -73,6 +76,8 @@ def occupancy_values(user_input: dict[str, Any], loaded: dict[str, Any]) -> dict
         # The form shows minutes; storage stays in seconds.
         CONF_OCCUPANCY_OFF_DELAY: minutes_to_seconds(
             user_input.get(CONF_OCCUPANCY_OFF_DELAY), DEFAULT_OCCUPANCY_OFF_DELAY),
+        CONF_OCCUPANCY_ON_DELAY: minutes_to_seconds(
+            user_input.get(CONF_OCCUPANCY_ON_DELAY), DEFAULT_OCCUPANCY_ON_DELAY),
         FIELD_OCCUPIED_OFFSET: user_input.get(FIELD_OCCUPIED_OFFSET, loaded.get(FIELD_OCCUPIED_OFFSET)),
         FIELD_UNOCCUPIED_OFFSET: user_input.get(FIELD_UNOCCUPIED_OFFSET, loaded.get(FIELD_UNOCCUPIED_OFFSET)),
     }
@@ -83,6 +88,7 @@ def _occupancy_view(values: dict[str, Any]) -> tuple[Any, ...]:
     if not values.get(FIELD_OCCUPANCY_ENABLED):
         return (False,)
     return (True, values.get(CONF_OCCUPANCY_ENTITY), values.get(CONF_OCCUPANCY_OFF_DELAY),
+            values.get(CONF_OCCUPANCY_ON_DELAY),
             values.get(FIELD_OCCUPIED_OFFSET), values.get(FIELD_UNOCCUPIED_OFFSET))
 
 
@@ -99,6 +105,7 @@ def apply_setpoints(zone: dict[str, Any], values: dict[str, Any], loaded: dict[s
     # Enabled (even before an entity is chosen): the flag and delay are stored.
     setpoints[FIELD_OCCUPANCY_ENABLED] = True
     setpoints[CONF_OCCUPANCY_OFF_DELAY] = values[CONF_OCCUPANCY_OFF_DELAY]
+    setpoints[CONF_OCCUPANCY_ON_DELAY] = values[CONF_OCCUPANCY_ON_DELAY]
     entity = values[CONF_OCCUPANCY_ENTITY]
     if entity:
         # Offsets are relative to the default setpoint (heating; cooling has its own numbers).
@@ -152,6 +159,7 @@ class SetpointsPageMixin(OptionsFlowBase):
     def _setpoints_form(self, zone_id: str, loaded: dict[str, Any]) -> FlowResult:
         """Render the page from the stored zone; the entity picker stays blank when unset."""
         off_delay = seconds_to_minutes(loaded.get(CONF_OCCUPANCY_OFF_DELAY) or DEFAULT_OCCUPANCY_OFF_DELAY)
+        on_delay = seconds_to_minutes(loaded.get(CONF_OCCUPANCY_ON_DELAY) or DEFAULT_OCCUPANCY_ON_DELAY)
         schema: dict[Any, Any] = {
             vol.Required(NAV_FIELD, default=NAV_SAVE): SelectSelector(
                 SelectSelectorConfig(options=PAGE_NAV_OPTIONS, mode=SelectSelectorMode.LIST)
@@ -161,6 +169,15 @@ class SetpointsPageMixin(OptionsFlowBase):
             vol.Optional(
                 CONF_OCCUPANCY_ENTITY, description={"suggested_value": loaded.get(CONF_OCCUPANCY_ENTITY)},
             ): EntitySelector(EntitySelectorConfig(domain=OCCUPANCY_DOMAINS)),
+            vol.Optional(CONF_OCCUPANCY_ON_DELAY, default=on_delay): NumberSelector(
+                NumberSelectorConfig(
+                    min=0,
+                    max=MAX_OCCUPANCY_ON_DELAY / SECONDS_PER_MINUTE,
+                    step=OCCUPANCY_OFF_DELAY_MINUTES_STEP,
+                    unit_of_measurement=MINUTES_UNIT,
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
             vol.Optional(CONF_OCCUPANCY_OFF_DELAY, default=off_delay): NumberSelector(
                 NumberSelectorConfig(
                     min=0,

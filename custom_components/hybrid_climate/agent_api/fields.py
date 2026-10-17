@@ -9,9 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from ..const import (
-    CONF_COOL_OVERDRIVE, CONF_DEVICE_UNAVAILABLE_GRACE, CONF_LOCKOUT_HEAT_FLOOR, CONF_OCCUPANCY_OFF_DELAY,
+    CONF_COOL_OVERDRIVE, CONF_DEVICE_UNAVAILABLE_GRACE, CONF_LOCKOUT_HEAT_FLOOR, CONF_OCCUPANCY_OFF_DELAY, CONF_OCCUPANCY_ON_DELAY,
     MIN_COOL_OVERDRIVE, MAX_COOL_OVERDRIVE, MIN_DEVICE_UNAVAILABLE_GRACE, MAX_DEVICE_UNAVAILABLE_GRACE,
-    MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR, MAX_OCCUPANCY_OFF_DELAY,
+    MIN_LOCKOUT_HEAT_FLOOR, MAX_LOCKOUT_HEAT_FLOOR, MAX_OCCUPANCY_OFF_DELAY, MAX_OCCUPANCY_ON_DELAY,
     CONF_COOL_COMPENSATION_MAX, CONF_COOL_DRY_OUT, CONF_COOL_DRY_OUT_MINUTES, CONF_COOL_REGULATION,
     CONF_COOL_REGULATION_MIN_PERIOD, CONF_COOL_REGULATION_THRESHOLD, COOL_REGULATION_MODES,
     MAX_COOL_COMPENSATION_MAX, MAX_COOL_DRY_OUT_MINUTES, MAX_COOL_REGULATION_MIN_PERIOD,
@@ -43,6 +43,7 @@ FIELD_ROWS = (
     Field("zones", "settings.hysteresis", "float", 0.1, 5, "°F", "Zone hysteresis"),
     Field("zones", "settings.min_runtime", "int", 60, 1800, "s", "Minimum zone runtime"),
     Field("zones", "setpoints." + CONF_OCCUPANCY_OFF_DELAY, "int", 0, MAX_OCCUPANCY_OFF_DELAY, "s", "Delay before zone becomes unoccupied"),
+    Field("zones", "setpoints." + CONF_OCCUPANCY_ON_DELAY, "int", 0, MAX_OCCUPANCY_ON_DELAY, "s", "Presence must stay on this long before the zone becomes occupied"),
     Field("zones", "sensors.aggregation", "enum", description="Combine indoor readings",
           enum=("average", "min", "max", "median", "weighted")),
     Field("zones", "sensors.smoothing_samples", "int", 1, 100, "samples", "Moving-average sample count"),

@@ -66,6 +66,8 @@ from .const import (
     CONF_OCCUPANCY_ENTITY,
     CONF_OCCUPANCY_OFF_DELAY,
     DEFAULT_OCCUPANCY_OFF_DELAY,
+    CONF_OCCUPANCY_ON_DELAY,
+    DEFAULT_OCCUPANCY_ON_DELAY,
     CONF_OCCUPIED,
     CONF_OFFSET_MAX,
     CONF_OPPORTUNISTIC,
@@ -270,6 +272,7 @@ def parse_zone_setpoints(data: dict[str, Any]) -> ZoneSetpoints:
         unoccupied=data.get(CONF_UNOCCUPIED),
         occupancy_entity=data.get(CONF_OCCUPANCY_ENTITY),
         occupancy_off_delay=data.get(CONF_OCCUPANCY_OFF_DELAY, DEFAULT_OCCUPANCY_OFF_DELAY),
+        occupancy_on_delay=data.get(CONF_OCCUPANCY_ON_DELAY, DEFAULT_OCCUPANCY_ON_DELAY),
     )
 
 

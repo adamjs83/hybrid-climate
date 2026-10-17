@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-10-17
+
+### Added
+- **Occupancy on delay** on a zone's Setpoints & occupancy page (minutes, 0 to 120, default 0): presence must stay on for this long before the zone counts as occupied. A short walk-through no longer switches the zone to its occupied temperatures or extends the off delay. A sensor that is already on when Home Assistant starts counts as occupied at once. In YAML and `set_config` the field is `setpoints.occupancy_on_delay` in whole seconds (0 to 7200).
+
 ## [0.18.3] - 2026-10-16
 
 ### Added

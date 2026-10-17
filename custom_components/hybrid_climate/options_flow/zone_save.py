@@ -38,6 +38,8 @@ from ..const import (
     DEFAULT_HYSTERESIS,
     DEFAULT_MIN_RUNTIME,
     DEFAULT_OCCUPANCY_OFF_DELAY,
+    CONF_OCCUPANCY_ON_DELAY,
+    DEFAULT_OCCUPANCY_ON_DELAY,
     DEFAULT_OPEN_DELAY,
     DEFAULT_REGULATION_MIN_PERIOD,
     DEFAULT_REGULATION_THRESHOLD,
@@ -101,6 +103,7 @@ class ZoneSaveMixin:
             # Save that occupancy is enabled (even without entity selected yet)
             setpoints["occupancy_enabled"] = True
             setpoints[CONF_OCCUPANCY_OFF_DELAY] = wip.get(CONF_OCCUPANCY_OFF_DELAY, DEFAULT_OCCUPANCY_OFF_DELAY)
+            setpoints[CONF_OCCUPANCY_ON_DELAY] = wip.get(CONF_OCCUPANCY_ON_DELAY, DEFAULT_OCCUPANCY_ON_DELAY)
             if wip.get(CONF_OCCUPANCY_ENTITY):
                 setpoints[CONF_OCCUPANCY_ENTITY] = wip[CONF_OCCUPANCY_ENTITY]
                 default_temp = setpoints.get("default", 72)
@@ -111,6 +114,7 @@ class ZoneSaveMixin:
             setpoints.pop("occupancy_enabled", None)
             setpoints.pop(CONF_OCCUPANCY_ENTITY, None)
             setpoints.pop(CONF_OCCUPANCY_OFF_DELAY, None)
+            setpoints.pop(CONF_OCCUPANCY_ON_DELAY, None)
             setpoints.pop("occupied", None)
             setpoints.pop("unoccupied", None)
 

@@ -114,12 +114,14 @@
           "nav_action": "Save or cancel",
           "occupancy_enabled": "Enable occupancy override",
           "occupancy_entity": "Occupancy sensor",
+          "occupancy_on_delay": "Occupancy on delay",
           "occupancy_off_delay": "Occupancy off delay",
           "occupied_offset": "Occupied offset",
           "unoccupied_offset": "Unoccupied offset"
         },
         "data_description": {
           "occupancy_entity": "binary_sensor that indicates room occupancy",
+          "occupancy_on_delay": "Minutes presence must stay on before the occupied setpoints apply (0-120). Short walk-throughs are ignored.",
           "occupancy_off_delay": "Minutes to keep occupied setpoints after this integration last saw the zone occupied (0-120)",
           "occupied_offset": "Temperature adjustment when occupied (heating; cooling uses the Occupied/Unoccupied Cool numbers)",
           "unoccupied_offset": "Temperature adjustment when unoccupied (heating; cooling uses the Occupied/Unoccupied Cool numbers)"

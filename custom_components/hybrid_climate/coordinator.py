@@ -101,6 +101,8 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
         self.occupancy_pending: set[str] = set()
         self.occupancy_wait_until: datetime | None = None
         self._zone_last_observed_occupied: dict[str, datetime] = {}
+        # Per zone: when presence turned on (None = off); not persisted (#497).
+        self._zone_presence_on_since: dict[str, datetime | None] = {}
         self._issue_ids: set[str] = set()  # Repairs issues this coordinator raised (repairs.py)
         self.retired = False  # Set by async_unload_entry; a retired coordinator raises no issues
         self._device_unavailable_since: dict[str, datetime] = {}  # First unavailable sighting per stage device
