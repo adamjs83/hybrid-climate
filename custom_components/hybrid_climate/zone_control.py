@@ -259,8 +259,10 @@ async def update_zone(
                 not conflict.can_cool or zone_state.user_mode_override == HvacMode.HEAT
             ))
         ):
+            # Explicit shutdown is a hard off; a direction lockout idles at its floor.
             await _deactivate_zone(
-                coordinator, zone_id, zone_config, zone_state, forced_off=True
+                coordinator, zone_id, zone_config, zone_state, forced_off=True,
+                idle_allowed=not zone_disabled(coordinator, zone_state),
             )
         zone_state.is_available = False
         # repairs.sync_issues raises the sensor_failure Repairs issue from this status.
@@ -372,6 +374,9 @@ async def update_zone(
         temp_diff,
         outdoor_temp,
         conflict_result.get_blocked_devices(needed_mode),
+        # Business rule: master OFF, disable_all and zone OFF are hard offs; the
+        # outdoor lockouts and a user COOL/HEAT override only release by idle action.
+        idle_allowed=not zone_disabled(coordinator, zone_state),
         forced_off=(
             zone_disabled(coordinator, zone_state)
             or (zone_state.last_active_action != HvacAction.COOLING and (
@@ -525,19 +530,24 @@ async def _apply_zone_staging(
     blocked_devices: list[str],
     *,
     forced_off: bool = False,
+    idle_allowed: bool = False,
 ) -> None:
     """Calculate and apply staging for a zone."""
     if restart_delay_active(zone_state) and not zone_state.active_devices:
         # Do not let an idle PI hold reacquire heating during a reversal delay.
         needed_mode = HVAC_MODE_OFF
-        forced_off = True
+        if not (forced_off and idle_allowed):
+            # The reversal delay is a hard off, except while a direction lockout
+            # already idles the device (else it would flip floor to off each cycle).
+            forced_off = True
+            idle_allowed = False
     if needed_mode == HVAC_MODE_OFF:
         # Run PI in idle mode (no integral accumulation) before deactivating
         if not forced_off:
             idle_regulation(coordinator, zone_config, zone_state, outdoor_temp, needed_mode)
         await _deactivate_zone(
             coordinator, zone_id, zone_config, zone_state,
-            forced_off=forced_off,
+            forced_off=forced_off, idle_allowed=idle_allowed,
         )
         return
 
@@ -592,6 +602,8 @@ async def _apply_zone_staging(
                 forced_off or (needed_mode == HVAC_MODE_COOL
                                and zone_state.last_active_action != HvacAction.COOLING)
             ),
+            # The cooling mirror above is not a lockout; only the caller's own forced off may idle.
+            idle_allowed=idle_allowed and forced_off,
         )
         return
 
@@ -820,6 +832,7 @@ async def _deactivate_zone(
     zone_state: ZoneState,
     *,
     forced_off: bool = False,
+    idle_allowed: bool = False,
 ) -> None:
     """Release devices, retaining PI equilibrium only during permitted heating idle."""
     # Explicit shutdown and lockouts must not wait for minimum runtime.
@@ -835,6 +848,7 @@ async def _deactivate_zone(
         ),
         release_regulated=True,
         forced_off=forced_off,
+        idle_allowed=idle_allowed,
     )
 
     # Keep hvac_mode as heat/cool based on zone capabilities, just set action to idle

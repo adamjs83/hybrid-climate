@@ -42,7 +42,7 @@ from .zone_control import (
     apply_opportunistic_heating,
     update_zone,
 )
-from .zone_helpers import update_master_summaries
+from .zone_helpers import get_allow_command_devices_for_zone, update_master_summaries
 from .models import (
     HybridClimateConfig,
     MasterMode,
@@ -76,6 +76,9 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
         
         self.pi_controller = PIController()
         self.device_manager = DeviceManager(hass, config.devices)
+        # external_sync owns the command timeout of allow_command devices (#477).
+        for zone_config in config.zones.values():
+            self.device_manager.sync_managed |= get_allow_command_devices_for_zone(zone_config)
         self.startup_takeover = StartupTakeover()
         self.coil_dry_out = CoilDryOut()
         self.control_restore = ControlRestore(self)

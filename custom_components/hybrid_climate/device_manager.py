@@ -26,6 +26,7 @@ from .const import (
 from .models import Device, DeviceMutexRule, ZoneState
 from .capability_check import warn_runtime_capability_skip
 from .device_arbitration import DeviceRequest, dispatch_requests, resolve_requests
+from .command_ack import settle_commands
 from .compressor_protection import CompressorProtection
 from .cool_regulation import read_unit_temperature
 from .idle_floor import IdleBasisTracker, apply_idle_setback
@@ -49,6 +50,7 @@ class DeviceManager:
         self._pending_commands: dict[str, list[DeviceRequest]] = {}
         self.idle_basis = IdleBasisTracker()
         self.failed_commands: set[str] = set()
+        self.sync_managed: set[str] = set()  # allow_command ids: external_sync times them out
         self._learned_temp_limits: dict[str, dict[str, float]] = {}
         self.accepted_zone_requests: dict[str, set[str]] = {}
         self._collecting = False
@@ -153,6 +155,7 @@ class DeviceManager:
             device.is_available = True
             device.current_mode = state.state
             device.current_target_temp = state.attributes.get(ATTR_TEMPERATURE)
+        settle_commands(self.devices.values(), dt_util.utcnow(), self.failed_commands, self.sync_managed)
         self.compressor_protection.observe()
 
     async def set_device_mode(

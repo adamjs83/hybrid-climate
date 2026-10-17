@@ -43,7 +43,7 @@ For how to call the services, see [Services](services.md).
 | Field | Meaning | Values |
 |---|---|---|
 | `last_command_at` | The last time this device received a service call. Never cleared. Use it to answer "when was this device last commanded". | ISO timestamp, or `null` if none since start |
-| `command_state` | Whether the device matches the last command. | `"listening"` (matches) or `"commanding"` (a command was just sent and is in flight) |
+| `command_state` | Whether the device matches the last command. | `"listening"` or `"commanding"` (a command was sent and is in flight). `commanding` clears when the device reports the commanded mode (and a target within tolerance), or after 60 s. After a timeout the device is `listening` while its reported state may still differ, which is how a manual override is detected. |
 | `command_sent_at` | Time of the most recent send. Cleared only on a command timeout, not when a command is acknowledged. A non-`null` value on a `"listening"` device means "last sent at this time", not "in flight now". | ISO timestamp or `null` |
 | `control.idle_setpoint_basis` | Whether the last idle heat setpoint was capped by the outdoor lockout floor. Set after a matching successful idle heat command. | `"lockout_floor"`, `"setback"` or `null` |
 | `control.reason` | One code for the device's control state. The first match wins (see the next table). | See below |

@@ -50,8 +50,14 @@ async def reconcile_devices(
     hold_equilibrium: bool = False,
     release_regulated: bool = False,
     forced_off: bool = False,
+    idle_allowed: bool = False,
 ) -> None:
-    """Release dropped devices, retaining ownership until idle or shared handoff succeeds."""
+    """Release dropped devices, retaining ownership until idle or shared handoff succeeds.
+
+    forced_off skips equilibrium, dry-out and minimum runtime. With idle_allowed
+    (a direction lockout, not a hard off) the device still gets its configured
+    idle action, sent with the runtime bypass.
+    """
     previously_owned = bool(state.active_devices)
     regulated = set()
     if config.regulation and config.regulation.type == REGULATION_PI:
@@ -109,7 +115,10 @@ async def reconcile_devices(
         )
         if dry_out:
             success = True
-        elif forced_off or target is None or not (device.can_heat() or device.can_cool()):
+        elif (
+            (forced_off and not idle_allowed) or target is None
+            or not (device.can_heat() or device.can_cool())
+        ):
             success = await coordinator.device_manager.turn_off_device(device, force_off=forced_off)
         else:
             success = await coordinator.device_manager.set_device_idle(

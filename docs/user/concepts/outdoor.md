@@ -41,9 +41,12 @@ enough for the device's own thermostat to call for heat. It caps the idle setpoi
 during outdoor lockout**. This can only pull the setpoint down to a deeper setback. It never raises it. The setting,
 its default (55°F) and its bounds (40 to 60°F) are in [Global settings](../configuration/global-settings.md).
 
+The floor applies when the lockout itself releases a device, too: a setback device goes straight to the floor instead of switching off first.
+
 The lockout starting or ending never sends a command by itself. The floor applies the next time a device goes idle, and
-it stays in place until the device's next release, even after the lockout clears. PI-regulated devices ignore it and
-keep holding their idle setpoint.
+it stays in place until the device's next release, even after the lockout clears. PI-regulated devices ignore it
+while the zone idles at its regulated setpoint; when a forced lockout releases them, they go to the floor like any
+setback device.
 
 ## A different outdoor limit for one zone
 

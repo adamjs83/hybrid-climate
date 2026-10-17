@@ -3,6 +3,12 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-10-17
+
+### Fixed
+- When an outdoor lockout stops a device from running in the current direction, the device now goes to its configured idle action instead of straight to off. A device set to a heat setback lands at the lockout floor while the outdoor heat lockout is active, so it no longer gets switched off and then put back to heat a few minutes later by the restore pass. Open doors and windows, Master Off, zone Off, Disable all and the reversal delay still switch equipment off.
+- A device's `command_state` no longer sticks at `commanding` after the equipment has matched the command. Every device is acknowledged, or returned to `listening` after the one-minute command timeout, on each update cycle, including devices that report no target temperature while off. Display only.
+
 ## [0.19.1] - 2026-10-17
 
 ### Fixed
