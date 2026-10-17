@@ -126,14 +126,17 @@ def resolve_hold_target(hass: HomeAssistant, entity_id: str) -> tuple[ConfigEntr
     entry = resolve_entry(hass, registry_entry.config_entry_id)
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     # Match the registered unique id against each zone's own ids; never parse entity_id.
-    for zone_id in coordinator.config.zones:
-        expected = {
-            "climate": f"{DOMAIN}_{entry.entry_id}_{zone_id}",
-            "switch": f"{DOMAIN}_{zone_id}_{HOLD_SWITCH_KEY}",
-        }
-        if expected.get(registry_entry.domain) == registry_entry.unique_id:
-            return entry, zone_id
-    raise APIServiceValidationError(HOLD_TARGET_MESSAGE)
+    zone_ids = coordinator.config.zones
+    if registry_entry.domain == "climate":
+        unique_ids = {f"{DOMAIN}_{entry.entry_id}_{zone_id}": zone_id for zone_id in zone_ids}
+    elif registry_entry.domain == "switch":
+        unique_ids = {f"{DOMAIN}_{zone_id}_{HOLD_SWITCH_KEY}": zone_id for zone_id in zone_ids}
+    else:
+        unique_ids = {}
+    zone_id = unique_ids.get(registry_entry.unique_id)
+    if zone_id is None:
+        raise APIServiceValidationError(HOLD_TARGET_MESSAGE)
+    return entry, zone_id
 
 
 def hold_until(data: Mapping[str, Any]) -> datetime | None:

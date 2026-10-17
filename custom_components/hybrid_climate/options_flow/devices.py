@@ -232,8 +232,11 @@ class DeviceFlowMixin(OptionsFlowBase):
         if device_id in ui_devices:
             return ui_devices[device_id]
 
-        # Fall back to YAML
-        device_conf = yaml_devices.get(device_id, {})
+        # Fall back to YAML. The edit id is an entity id, but YAML devices are keyed by
+        # name, so match on their entity_id field (#490); a plain key match still works.
+        device_conf = yaml_devices.get(device_id) or next(
+            (conf for conf in yaml_devices.values() if conf.get(CONF_ENTITY_ID) == device_id), {},
+        )
         idle_conf = device_conf.get(CONF_IDLE, {})
 
         return {

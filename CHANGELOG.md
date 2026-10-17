@@ -3,6 +3,13 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-10-16
+
+### Fixed
+- Every restart or reload wrote hundreds of "Recomputing zone setpoints" lines in one second, and Home Assistant warned that Hybrid Climate was "logging too frequently". Those lines are now a single debug message.
+- When a card edit changed both the heating and the cooling temperature at once, the "hold started" log line showed the previous cooling value. The hold itself was always correct; the log now also reports the value it keeps.
+- Devices defined only in `configuration.yaml` showed default values on the device options page and in the zone Regulation page's cooling section instead of their YAML settings. Saving that page would have written the defaults.
+
 ## [0.18.0] - 2026-10-16
 
 ### Added

@@ -253,11 +253,13 @@ async def recompute_setpoints_from_numbers(
     when a user adjusts a number slider. It re-runs the setpoint logic
     to pick up the new values.
     """
-    _LOGGER.info("Recomputing zone setpoints from number entities")
     apply_mode_setpoints(coordinator, zone_id, override)
-    # Log resulting setpoints
-    for zone_id, temp in coordinator._zone_target_temps.items():
-        _LOGGER.info("Zone %s target after recompute: %.1f", zone_id, temp)
+    # One DEBUG line per call: startup adds ~55 numbers per zone, so anything per zone at
+    # INFO trips HA's "logging too frequently" limit (#495).
+    _LOGGER.debug(
+        "Recomputed zone setpoints from number entities (zone=%s): heat=%s cool=%s",
+        zone_id, coordinator._zone_target_temps, coordinator._zone_target_temps_cool,
+    )
 
 
 

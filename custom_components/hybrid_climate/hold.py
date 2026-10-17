@@ -107,6 +107,9 @@ def update_held_target(
         zone_state.hold.cool = temperature
     else:
         zone_state.hold.heat = temperature
+    # A range-card edit starts the hold on its first value; log the second so the
+    # "hold started" line is not the last word on what is held (#495).
+    _LOGGER.info("Zone %s: held %s target now %s", zone_id, direction, temperature)
 
 
 def resume_hold_targets(coordinator: HybridClimateCoordinator, zone_id: str) -> bool:
