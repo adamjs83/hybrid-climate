@@ -29,7 +29,7 @@ The five PI gains are the zone's number entities (see [Tune the five live number
 
 ## Tuning
 
-The first five values in this table are the zone's live number entities (see below). The rest come from the zone's YAML regulation block; a zone created in the UI uses the defaults in the table.
+The first five values in this table are the zone's live number entities (see below). The rest are in the **Heating PI: advanced** section of the same Regulation page (it opens collapsed), or in the zone's YAML regulation block.
 
 | Setting | What it does | Start value | Adjust if |
 |---------|--------------|-------------|-----------|

@@ -53,7 +53,7 @@ Heat-only zones show only the Heating section. Cool-only zones show only the coo
 - Minimum heating command change.
 - Minimum time between changes, in minutes.
 
-The PI gains are the zone's five PI number entities. The page description lists them read-only with their current values. For a Direct zone it says "these appear when PI is chosen and saved". Choosing Direct removes the stored PI settings. See [Heating PI](../regulation/heating-pi.md).
+The PI gains are the zone's five PI number entities. The page description lists them read-only with their current values. For a Direct zone it says "these appear when PI is chosen and saved". Choosing Direct removes the stored PI settings. A collapsed **Heating PI: advanced** section holds the error deadband, integral cap, reset and idle-decay settings, and a **Cooling PI: advanced** section does the same for cooling PI. See [Heating PI](../regulation/heating-pi.md).
 
 **Cooling device N** has one section for each device in the zone's cooling stages, up to six. Further devices are listed and kept as saved. The settings are stored on the device. A device that other zones also cool with is marked "Shared with <zones>; the setting applies to both". The description also lists the zone's five Cooling PI numbers with their values.
 

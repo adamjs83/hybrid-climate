@@ -86,9 +86,9 @@ cool target + max(-maximum total push, -push + clamp(unit - room, plus or minus 
 
 The sensor part works in both directions and is 0 for the first 3 minutes of each cooling run. It lands at once when the settling ends. For example, with a target of 76, a push of 1, a unit reading of 75 and a room at 77, the device gets 73.
 
-### Zone settings in YAML
+### Zone settings
 
-The remaining tuning values come from the zone's cooling block and are read-only in `get_config`. Defaults are shown.
+The remaining tuning values are in the **Cooling PI: advanced** section of the zone's Regulation page (it opens collapsed) or in the zone's cooling block in YAML; they are read-only in `get_config`. Defaults are shown.
 
 ```yaml
 zones:

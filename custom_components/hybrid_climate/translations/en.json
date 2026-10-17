@@ -198,7 +198,7 @@
       },
       "zone_regulation": {
         "title": "Zone: {zone_name} - Regulation",
-        "description": "Regulation for **{zone_name}**. Save stores this page only.\n\n{heating_note}{cooling_note}",
+        "description": "Regulation for **{zone_name}**. Save stores this page only.\n\n{heating_note}{cooling_note} The advanced sections apply to PI only and open collapsed.",
         "data": {
           "nav_action": "Save or cancel"
         },
@@ -216,6 +216,23 @@
               "pi_devices": "These receive a calculated equipment temperature, which may differ from the room target. Used only with PI.",
               "regulation_threshold": "Only send a new regulated setpoint when it moves at least this many °F. 0 = every change.",
               "regulation_min_period": "Minimum minutes between regulated setpoint changes. Target changes are sent at once. 0 = no limit."
+            }
+          },
+          "advanced_heating": {
+            "name": "Heating PI: advanced",
+            "data": {
+              "stabilization_threshold": "Error deadband",
+              "accumulated_error_threshold": "Integral cap",
+              "integral_reset_threshold": "Setpoint change that trims the integral",
+              "integral_reset_factor": "Integral kept after a trim",
+              "integral_decay_halflife": "Idle decay half-life"
+            },
+            "data_description": {
+              "stabilization_threshold": "Room error in °F below which the integral stops accumulating.",
+              "accumulated_error_threshold": "Largest accumulated error (error × minutes) the integral can reach.",
+              "integral_reset_threshold": "A target change of at least this many °F scales the integral down.",
+              "integral_reset_factor": "Fraction of the integral kept when a target change trims it (0.3 keeps 30%).",
+              "integral_decay_halflife": "Minutes for the integral to fall to half while the zone is idle. 0 = no decay."
             }
           },
           "cool_device_1": {
@@ -354,6 +371,19 @@
               "cool_compensation_sensor": "Choose the temperature the unit uses internally, reported in °F (used as-is, no conversion); leave empty to use the climate entity's current temperature. The room sensor is chosen in the zone.",
               "cool_regulation_threshold": "A new correction is sent only when it differs from the last one sent by at least this many °F, and the minimum time below has passed. A changed cool target is sent at once.",
               "cool_regulation_min_period": "Minutes to wait after sending a corrected setpoint before sending another one. A changed cool target is sent at once."
+            }
+          },
+          "advanced_cooling": {
+            "name": "Cooling PI: advanced",
+            "data": {
+              "stabilization_threshold": "Error deadband",
+              "accumulated_error_threshold": "Integral cap",
+              "integral_decay_halflife": "Idle decay half-life"
+            },
+            "data_description": {
+              "stabilization_threshold": "Room error in °F below which the cooling integral stops accumulating.",
+              "accumulated_error_threshold": "Largest accumulated error (error × minutes) the cooling integral can reach.",
+              "integral_decay_halflife": "Minutes for the cooling integral to fall to half while the zone is idle. 0 = no decay."
             }
           }
         }

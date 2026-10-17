@@ -28,6 +28,12 @@ When the room reaches the target, the zone stops heating and then handles each d
 When an outdoor heat lockout is active, an idle device may be set back further than usual. See
 [Outdoor temperature](outdoor.md).
 
+## Startup targets
+
+Targets are seeded once, after every entity has restored and before the first command, so a restart never commands
+the default temperatures. A zone whose occupancy sensor has no state yet uses the occupancy it last published; with
+nothing to fall back to it waits up to two minutes for the sensor, then controls on its saved Home temperatures.
+
 ## Startup restore
 
 Home Assistant does not remember which zone owned a device across a restart or an integration reload (a configuration

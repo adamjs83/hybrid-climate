@@ -3,6 +3,15 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.3] - 2026-10-16
+
+### Added
+- The zone Regulation page has two collapsed sections, **Heating PI: advanced** (error deadband, integral cap, the setpoint change that trims the integral, the share kept after a trim, idle decay half-life) and **Cooling PI: advanced** (deadband, cap, half-life). Until now these could only be set in YAML, so a zone created in the UI was stuck with the defaults.
+
+### Fixed
+- After a restart, a zone whose occupancy sensor had not reported yet, and whose previous state carried nothing to fall back to, sent its default temperatures for one cycle (seen once on the Basement right after updating to 0.18.0). The zone now waits up to two minutes for the sensor before its first command, then applies the saved temperatures.
+- The master climate's `version` attribute reported a fixed 0.7.0; it now reports the installed version.
+
 ## [0.18.2] - 2026-10-16
 
 ### Changed

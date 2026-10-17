@@ -27,6 +27,7 @@ from .control_restore import ControlRestore, post_cycle
 from .device_manager import DeviceManager
 from .external_sync import check_external_device_changes
 from .hold import expire_holds
+from .startup_seed import resolve_pending_occupancy
 from .device_arbitration import queue_mutex_releases, queue_retained_demand, reconcile_dispatch
 from .hvac_action_tracking import stamp_hvac_action_transitions
 from .manual_override import ManualOverrideTracker
@@ -96,6 +97,9 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
         self._zone_restored_occupancy: dict[str, bool] = {}
         # False until startup_seed.seed_targets runs; no control cycle runs before that.
         self.targets_seeded = False
+        # Zones whose occupancy the seed could not read; resolve_pending_occupancy clears them (#496).
+        self.occupancy_pending: set[str] = set()
+        self.occupancy_wait_until: datetime | None = None
         self._zone_last_observed_occupied: dict[str, datetime] = {}
         self._issue_ids: set[str] = set()  # Repairs issues this coordinator raised (repairs.py)
         self.retired = False  # Set by async_unload_entry; a retired coordinator raises no issues
@@ -139,6 +143,8 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
             # A refresh that races setup must not control, arm the takeover or dispatch (#491).
             if not self.targets_seeded:
                 _LOGGER.debug("Startup seed pending; skipping control cycle")
+                return {"master_state": self.master_state, "zone_states": self.zone_states}
+            if not resolve_pending_occupancy(self, dt_util.utcnow()):
                 return {"master_state": self.master_state, "zone_states": self.zone_states}
 
             # Detect each physical edit before collecting this cycle's demand.

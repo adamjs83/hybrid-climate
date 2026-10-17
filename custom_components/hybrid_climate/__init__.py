@@ -15,6 +15,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.loader import async_get_integration
 
 from .agent_api import async_register_services
 from .agent_api.revision import ledger, stored_revision
@@ -27,6 +28,7 @@ from .const import (
     CONF_UI_CONFIG,
     DATA_ACTIVE_REVISION,
     DATA_PREPARED_OPTIONS,
+    DATA_VERSION,
     DOMAIN,
 )
 from .coordinator import HybridClimateCoordinator
@@ -128,6 +130,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         len(config.zones), len(config.devices),
     )
     warn_load_mismatches(config, entry.entry_id)
+
+    # The master entity reports the manifest version; read it once per setup (#500).
+    hass.data[DOMAIN][DATA_VERSION] = str((await async_get_integration(hass, DOMAIN)).version)
 
     # Activate the prepared config only after platforms and first refresh succeed.
     coordinator = HybridClimateCoordinator(hass, config, entry)

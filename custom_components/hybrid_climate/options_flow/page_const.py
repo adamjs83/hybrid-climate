@@ -108,6 +108,8 @@ FIELD_PI_DEVICES = "pi_devices"
 REGULATION_DIRECT_LABEL = "Direct (send the zone target)"
 REGULATION_PI_LABEL = "PI (adjust the thermostat setpoint from the room error)"
 SECTION_HEATING = "heating"
+SECTION_ADVANCED_HEATING = "advanced_heating"
+SECTION_ADVANCED_COOLING = "advanced_cooling"
 SECTION_COOL_DEVICE = "cool_device_{index}"
 MAX_REGULATION_COOL_DEVICES = 6  # devices beyond it keep their stored settings untouched
 # Description notes (placeholders heating_note, cooling_note); "" when the zone has no such section.

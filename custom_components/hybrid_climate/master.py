@@ -25,6 +25,7 @@ from .const import (
     ATTR_MASTER_MODE,
     ATTR_OUTDOOR_TEMPERATURE,
     ATTR_VERSION,
+    DATA_VERSION,
     ATTR_ZONES_COOLING,
     ATTR_ZONES_HEATING,
     ATTR_ZONES_IDLE,
@@ -34,7 +35,6 @@ from .const import (
     MODE_HOME,
     MODE_SLEEP,
     MODE_VACATION,
-    VERSION,
 )
 from .coordinator import HybridClimateCoordinator
 from .models import MasterMode
@@ -181,7 +181,7 @@ class MasterClimateEntity(ClimateEntity, RestoreEntity):
         master_state = self.coordinator.get_master_state()
 
         return {
-            ATTR_VERSION: VERSION,
+            ATTR_VERSION: self._hass.data.get(DOMAIN, {}).get(DATA_VERSION),
             ATTR_MASTER_MODE: master_state.mode.value,
             ATTR_OUTDOOR_TEMPERATURE: master_state.outdoor_temperature,
             ATTR_ZONES_HEATING: master_state.zones_heating,

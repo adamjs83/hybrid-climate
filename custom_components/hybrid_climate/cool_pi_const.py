@@ -18,6 +18,16 @@ MAX_COOL_PI_OFFSET_MAX = 10.0
 DEFAULT_COOL_PI_STABILIZATION = 0.1  # °F, error below this counts as stable
 DEFAULT_COOL_PI_ERROR_CAP = 240.0  # error-minutes, anti-windup cap
 DEFAULT_COOL_PI_HALFLIFE = 120.0  # minutes of idle integral decay
+# Advanced cooling PI form bounds (Regulation page, advanced_cooling section).
+MIN_COOL_PI_STABILIZATION = 0.0
+MAX_COOL_PI_STABILIZATION = 5.0
+STEP_COOL_PI_STABILIZATION = 0.1
+MIN_COOL_PI_ERROR_CAP = 0.0
+MAX_COOL_PI_ERROR_CAP = 2000.0
+STEP_COOL_PI_ERROR_CAP = 10.0
+MIN_COOL_PI_HALFLIFE = 0.0
+MAX_COOL_PI_HALFLIFE = 1440.0
+STEP_COOL_PI_HALFLIFE = 10.0
 
 # Cooling PI gain number entities (unique id hybrid_climate_<zone_id>_<key>).
 PARAM_TYPE_COOL_PI = "cool_pi"

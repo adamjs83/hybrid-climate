@@ -5,7 +5,6 @@ Used by: Hybrid Climate runtime and configuration modules.
 """
 
 DOMAIN = "hybrid_climate"
-VERSION = "0.7.0"  # UI config as source of truth, YAML import on first boot
 
 # Master modes
 MODE_HOME = "home"
@@ -96,6 +95,7 @@ LOCKOUT_HEAT_FLOOR_STEP = 0.5
 HEAT_COOL_REVERSAL_SECONDS = 300  # Minimum time off before restarting or reversing
 MIN_HEAT_COOL_GAP = 1.0  # Room-temperature travel required before reversing crossed targets
 SENSOR_RESTORE_GRACE_PERIOD_SECONDS = 300  # 5 min grace for restored temps after restart
+SEED_OCCUPANCY_WAIT_SECONDS = 120  # after the startup seed, wait this long for a zone's occupancy sensor before controlling on default targets (#491)
 SENSOR_STATUS_FAILED = "failed"  # sensor_status value when sensors offline past grace period
 DEFAULT_SMOOTHING_SAMPLES = 1  # no smoothing by default (1 = use raw value)
 MIN_SMOOTHING_SAMPLES = 1
@@ -286,6 +286,22 @@ DEFAULT_ACCUMULATED_ERROR_THRESHOLD = 240.0
 DEFAULT_INTEGRAL_RESET_THRESHOLD = 2.5  # °F change triggers partial reset
 DEFAULT_INTEGRAL_RESET_FACTOR = 0.3  # Fraction of integral to keep on reset
 DEFAULT_INTEGRAL_DECAY_HALFLIFE = 120.0  # Minutes for idle decay (0 = disabled)
+# Advanced heating PI form bounds (Regulation page, advanced_heating section).
+MIN_STABILIZATION_THRESHOLD = 0.0
+MAX_STABILIZATION_THRESHOLD = 5.0
+STEP_STABILIZATION_THRESHOLD = 0.1
+MIN_ACCUMULATED_ERROR_THRESHOLD = 0.0
+MAX_ACCUMULATED_ERROR_THRESHOLD = 2000.0
+STEP_ACCUMULATED_ERROR_THRESHOLD = 10.0
+MIN_INTEGRAL_RESET_THRESHOLD = 0.0
+MAX_INTEGRAL_RESET_THRESHOLD = 20.0
+STEP_INTEGRAL_RESET_THRESHOLD = 0.5
+MIN_INTEGRAL_RESET_FACTOR = 0.0
+MAX_INTEGRAL_RESET_FACTOR = 1.0
+STEP_INTEGRAL_RESET_FACTOR = 0.05
+MIN_INTEGRAL_DECAY_HALFLIFE = 0.0
+MAX_INTEGRAL_DECAY_HALFLIFE = 1440.0
+STEP_INTEGRAL_DECAY_HALFLIFE = 10.0
 
 # Zone options wizard: stored keys the pages own (v0.16.1). Editing a zone rewrites
 # only these; every other stored stage and regulation key is kept as saved.
@@ -379,6 +395,7 @@ ATTR_ZONES_IDLE = "zones_idle"
 ATTR_ACTIVE_CONFLICTS = "active_conflicts"
 ATTR_MASTER_MODE = "master_mode"
 ATTR_VERSION = "version"
+DATA_VERSION = "version"  # hass.data[DOMAIN] key: the manifest version, read at setup (#500)
 
 # Occupancy sensor truthy states
 OCCUPANCY_ON_STATES = ("on", "home", "true", "1")

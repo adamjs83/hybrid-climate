@@ -45,6 +45,8 @@ If you clear the sensor while the override is enabled, the integration removes t
 
 Occupancy only applies while the house is in Home. Away, Sleep and Vacation use their own saved temperatures.
 
+After a restart, a zone whose occupancy sensor has not reported yet keeps the occupancy it last published. If there is nothing to fall back to, the zone waits up to two minutes for the sensor before its first command rather than using its Home temperatures.
+
 ## Time-of-use
 
 A zone's **Time-of-use** page sets, for each direction, whether it is enabled, the pre-condition minutes and the relaxation amount. A note at the top tells you when no TOU rate sensor is set under [Global settings](global-settings.md). The adjustments have no effect until you set one.
