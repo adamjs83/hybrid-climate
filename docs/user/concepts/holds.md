@@ -33,7 +33,7 @@ While a zone is held, it ignores:
 - Edits to the saved-temperature numbers.
 - Options saves, integration reloads and Home Assistant restarts.
 
-Time-of-use price adjustments pause until the hold ends.
+Time-of-use price adjustments pause until the hold ends. A hold switched on during an adjustment keeps the adjusted temperatures you see on the card, not the saved ones underneath.
 
 ## What ends a hold
 

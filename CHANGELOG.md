@@ -3,6 +3,12 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.1] - 2026-10-17
+
+### Fixed
+- Switching a hold on while a time-of-use adjustment is active now keeps the adjusted temperatures shown on the card instead of jumping to the saved ones.
+- A mode-change restore timer that fires after the integration is unloaded no longer requests a pass.
+
 ## [0.19.0] - 2026-10-17
 
 ### Added

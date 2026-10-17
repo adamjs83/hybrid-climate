@@ -64,7 +64,9 @@ class ControlRestore:
             self._cancel_timer = None
 
     def _is_current(self) -> bool:
-        """Return False once this entry's coordinator has been replaced (A8)."""
+        """Return False once this coordinator is retired or replaced as the entry's runtime (A8)."""
+        if getattr(self._coordinator, "retired", False):
+            return False
         entry = self._coordinator.entry
         if entry is None:
             return True

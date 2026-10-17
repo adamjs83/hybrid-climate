@@ -21,7 +21,7 @@ from homeassistant.util import dt as dt_util
 
 from . import setpoint_manager
 from .const import HVAC_MODE_COOL, HVAC_MODE_HEAT
-from .models import HoldState
+from .models import HoldState, ZoneState
 
 if TYPE_CHECKING:
     from .coordinator import HybridClimateCoordinator
@@ -82,12 +82,16 @@ def start_hold(
             _LOGGER.info("Zone %s: hold now ends %s", zone_id, until.isoformat())
             _notify(coordinator)
         return zone_state.hold
+    # Capture what the card shows (the TOU-adjusted operating target mid-adjustment),
+    # not the saved base target, so switching a hold on never moves the number.
+    heat = zone_state.target_temperature
+    cool = zone_state.target_temperature_cool
     zone_state.hold = HoldState(
         since=dt_util.utcnow(), until=until,
-        heat=coordinator._zone_target_temps.get(zone_id),
-        cool=coordinator._zone_target_temps_cool.get(zone_id),
+        heat=heat if heat is not None else coordinator._zone_target_temps.get(zone_id),
+        cool=cool if cool is not None else coordinator._zone_target_temps_cool.get(zone_id),
     )
-    zone_state.target_source = TARGET_SOURCE_HOLD
+    _pin_targets(coordinator, zone_id, zone_state, zone_state.hold)
     _LOGGER.info("Zone %s: hold started (heat=%s cool=%s until=%s)", zone_id,
                  zone_state.hold.heat, zone_state.hold.cool, until)
     _notify(coordinator)
@@ -168,16 +172,21 @@ def end_holds_for_vacation(coordinator: HybridClimateCoordinator) -> None:
         resume_hold_targets(coordinator, zone_id)
 
 
+def _pin_targets(
+    coordinator: HybridClimateCoordinator, zone_id: str, zone_state: ZoneState, hold: HoldState,
+) -> None:
+    """Set a zone's operating and stored targets from its hold and mark the source."""
+    if hold.heat is not None:
+        coordinator._zone_target_temps[zone_id] = hold.heat
+        zone_state.target_temperature = hold.heat
+    if hold.cool is not None:
+        coordinator._zone_target_temps_cool[zone_id] = hold.cool
+        zone_state.target_temperature_cool = hold.cool
+    zone_state.target_source = TARGET_SOURCE_HOLD
+
+
 def apply_held_targets(coordinator: HybridClimateCoordinator) -> None:
     """Set each held zone's targets from its hold (the seed; apply_mode_setpoints skips them)."""
     for zone_id, zone_state in coordinator.zone_states.items():
-        hold = zone_state.hold
-        if hold is None:
-            continue
-        if hold.heat is not None:
-            coordinator._zone_target_temps[zone_id] = hold.heat
-            zone_state.target_temperature = hold.heat
-        if hold.cool is not None:
-            coordinator._zone_target_temps_cool[zone_id] = hold.cool
-            zone_state.target_temperature_cool = hold.cool
-        zone_state.target_source = TARGET_SOURCE_HOLD
+        if zone_state.hold is not None:
+            _pin_targets(coordinator, zone_id, zone_state, zone_state.hold)
