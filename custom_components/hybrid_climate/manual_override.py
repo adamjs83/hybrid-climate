@@ -33,18 +33,15 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components import logbook
-from homeassistant.components.climate.const import ATTR_TARGET_TEMP_STEP
-from homeassistant.const import UnitOfTemperature
 from homeassistant.util import dt as dt_util
 
 from .const import (
     COMMAND_TIMEOUT_SECONDS,
-    DEFAULT_TARGET_TEMP_STEP_C,
-    DEFAULT_TARGET_TEMP_STEP_F,
     DOMAIN,
     MANUAL_OVERRIDE_LOG_MESSAGE_FORMAT,
     MANUAL_OVERRIDE_TOLERANCE_F,
 )
+from .target_step import resolve_step
 from .zone_helpers import get_allow_command_devices_for_zone
 
 if TYPE_CHECKING:
@@ -190,22 +187,10 @@ def _allow_command_device_ids(coordinator: HybridClimateCoordinator) -> set[str]
     return devices
 
 
-def _default_target_temp_step(coordinator: HybridClimateCoordinator) -> float:
-    """HA's own default climate step for the configured unit system (review
-    round 1 item 1): a real Nest entity reports no target_temp_step at all,
-    but still only moves in whole-degree Fahrenheit increments."""
-    unit = coordinator.hass.config.units.temperature_unit
-    return DEFAULT_TARGET_TEMP_STEP_C if unit == UnitOfTemperature.CELSIUS else DEFAULT_TARGET_TEMP_STEP_F
-
-
 def _tolerance(coordinator: HybridClimateCoordinator, device: Device) -> float:
     """max(MANUAL_OVERRIDE_TOLERANCE_F, target_temp_step / 2) (A7, widened in v0.17.1 for Nest
     rounding); target_temp_step comes from the device's live attributes, or HA's per-unit default."""
-    state = coordinator.hass.states.get(device.entity_id)
-    step = state.attributes.get(ATTR_TARGET_TEMP_STEP) if state else None
-    if step is None:
-        step = _default_target_temp_step(coordinator)
-    return max(MANUAL_OVERRIDE_TOLERANCE_F, step / 2)
+    return max(MANUAL_OVERRIDE_TOLERANCE_F, resolve_step(coordinator.hass, device) / 2)
 
 
 def _format_command(mode: str | None, target: float | None) -> str:

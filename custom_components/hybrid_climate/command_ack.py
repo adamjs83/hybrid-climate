@@ -1,7 +1,7 @@
 """Purpose: Acknowledge or time out device commands on every update cycle.
 
-Key dependencies: models.Device, const.py (COMMAND_TIMEOUT_SECONDS,
-EXTERNAL_CHANGE_TOLERANCE_F).
+Key dependencies: models.Device, const.py (COMMAND_TIMEOUT_SECONDS, EXTERNAL_CHANGE_TOLERANCE_F),
+target_step.target_tolerance.
 Used by: device_manager.DeviceManager.update_device_states.
 """
 from __future__ import annotations
@@ -12,20 +12,21 @@ from datetime import datetime
 
 from .const import COMMAND_TIMEOUT_SECONDS, EXTERNAL_CHANGE_TOLERANCE_F, HVAC_MODE_OFF
 from .models import Device, DeviceCommandState
+from .target_step import is_finite_number, target_tolerance
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _target_matches(device: Device) -> bool:
+def _target_matches(device: Device, tolerance: float) -> bool:
     """Return whether the reported target satisfies the commanded one."""
     # OFF or a mode-only command has no target to compare; some units report
     # no temperature attribute once off.
     if device.desired_mode == HVAC_MODE_OFF or device.desired_temp is None:
         return True
     reported = device.current_target_temp
-    if isinstance(reported, bool) or not isinstance(reported, (int, float)):
+    if not is_finite_number(reported):
         return False
-    return abs(reported - device.desired_temp) <= EXTERNAL_CHANGE_TOLERANCE_F
+    return abs(reported - device.desired_temp) <= tolerance
 
 
 def settle_commands(
@@ -49,7 +50,10 @@ def settle_commands(
             continue
         if device.device_id in skip:
             continue
-        if device.current_mode == device.desired_mode and _target_matches(device):
+        # external_sync judges sync-managed devices at the fixed tolerance, so they ack there too.
+        tolerance = (EXTERNAL_CHANGE_TOLERANCE_F if device.device_id in sync_managed
+                     else target_tolerance(device.target_temp_step))
+        if device.current_mode == device.desired_mode and _target_matches(device, tolerance):
             device.command_acknowledged()
             _LOGGER.debug(
                 "Device %s acknowledged command (mode=%s) -> LISTENING",

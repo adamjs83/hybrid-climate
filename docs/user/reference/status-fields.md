@@ -54,7 +54,7 @@ For how to call the services, see [Services](services.md).
 | `control.cool_compensation_part` | The unit-minus-room °F used in the last computed offset. | Number; 0 when unused or settling |
 | `control.cool_compensation_settling` | True during the first 3 minutes of a cooling run that uses the unit reading. | `true` or `false` |
 | `control.missing_capabilities` | Every stage that references this device in a direction it lacks. | `[{"zone", "stage", "capability"}]`; empty otherwise |
-| `desired_target_temperature` | The target actually commanded, after the cooling offset and device clamping. | Number |
+| `desired_target_temperature` | The target actually commanded, after the cooling offset, device clamping and rounding to the device's target step. | Number |
 
 ### control.reason codes
 

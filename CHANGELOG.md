@@ -3,6 +3,12 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.1] - 2026-10-17
+
+### Fixed
+- Equipment no longer receives the same setpoint every update cycle. The target is now rounded to the device's own step before it is sent (whole degrees on most thermostats), and it is sent again only when the device's reported target has clearly moved away from it. Before, a regulated setpoint such as 73.2 was re-sent every two minutes to a thermostat that reported 73.
+- A device's command is acknowledged within half of its step, so a thermostat that rounds the sent value no longer sits in `commanding` until the timeout.
+
 ## [0.20.0] - 2026-10-17
 
 ### Fixed

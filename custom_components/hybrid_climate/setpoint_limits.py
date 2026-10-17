@@ -7,17 +7,16 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.components.climate.const import ATTR_TARGET_TEMP_STEP
-from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
+from homeassistant.const import ATTR_TEMPERATURE
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 
 from .const import (
-    DEFAULT_TARGET_TEMP_STEP_C, DEFAULT_TARGET_TEMP_STEP_F,
     OUT_OF_RANGE_ERROR_FRAGMENT, OUT_OF_RANGE_TRANSLATION_KEY,
     SERVICE_CLIMATE, SERVICE_SET_TEMPERATURE,
 )
 from .models import Device
+from .target_step import quantize_target, resolve_step
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +42,19 @@ def clamp_target(
     return target
 
 
+def plan_target(
+    hass: HomeAssistant, device: Device, mode: str, target: float | None,
+    learned: dict[str, dict[str, float]],
+) -> tuple[float | None, float | None, float]:
+    """Return (raw clamped target, step-rounded clamped target, step) for a dispatch."""
+    step = resolve_step(hass, device)
+    if target is None:
+        return None, None, step
+    raw = clamp_target(hass, device, target, learned)
+    # Clamp, quantize, clamp: a step may overshoot a limit that is not on the step grid.
+    return raw, clamp_target(hass, device, quantize_target(raw, step, mode), learned), step
+
+
 async def send_temperature(
     hass: HomeAssistant, device: Device, target: float,
     learned: dict[str, dict[str, float]],
@@ -63,12 +75,7 @@ async def send_temperature(
                 or (getattr(error, "translation_key", None) != OUT_OF_RANGE_TRANSLATION_KEY
                     and OUT_OF_RANGE_ERROR_FRAGMENT not in str(error).lower())):
             raise
-        step = attributes.get(ATTR_TARGET_TEMP_STEP)
-        if step is None:
-            unit = hass.config.units.temperature_unit
-            step = DEFAULT_TARGET_TEMP_STEP_C if unit == UnitOfTemperature.CELSIUS else DEFAULT_TARGET_TEMP_STEP_F
-        if not isinstance(step, (int, float)) or step <= 0:
-            raise
+        step = resolve_step(hass, device)
         retry = target - step if boundary == "max_temp" else target + step
         payload[ATTR_TEMPERATURE] = retry
         await hass.services.async_call(SERVICE_CLIMATE, SERVICE_SET_TEMPERATURE, payload, blocking=True)

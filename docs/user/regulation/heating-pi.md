@@ -104,7 +104,7 @@ Error is the zone target minus the room temperature. Take a zone target of 70°F
 - P term: 1.0 x 2 = +2°F, the immediate response to the error.
 - I term: 0.01 x 60 = +0.6°F, built up over about 30 minutes of error.
 - Outdoor term: 0.15 x (65 - 30) = +5.25°F. It is cold outside, so the controller pushes harder.
-- Regulated setpoint: 70 + 2 + 0.6 + 5.25 = 77.85°F, sent to the thermostat, which may round it to its own step.
+- Regulated setpoint: 70 + 2 + 0.6 + 5.25 = 77.85°F, rounded to the thermostat's own step (for example whole degrees) and then sent. It is sent again only when the thermostat's reported target is clearly away from it, so a setpoint the thermostat has rounded is not re-sent every cycle.
 
 | Term | Purpose | Effect |
 |------|---------|--------|

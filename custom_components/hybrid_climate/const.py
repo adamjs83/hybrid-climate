@@ -476,6 +476,11 @@ ATTR_MANUAL_OVERRIDE = "manual_override"
 # target_temp_step (e.g. a real Nest entity, which reports whole degrees).
 DEFAULT_TARGET_TEMP_STEP_F = 1.0
 DEFAULT_TARGET_TEMP_STEP_C = 0.5
+# A reported target within this fraction of a step of the raw target is the device's own
+# rounding, not a change to send again (0.2-step hysteresis band around the half-step).
+TARGET_RESEND_FRACTION = 0.6
+TARGET_TIE_EPSILON = 1e-9
+TARGET_ROUND_DIGITS = 9  # strips float noise from step multiples
 OUT_OF_RANGE_ERROR_FRAGMENT = "accepted range"
 OUT_OF_RANGE_TRANSLATION_KEY = "temp_out_of_range"
 

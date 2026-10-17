@@ -30,7 +30,8 @@ from .command_ack import settle_commands
 from .compressor_protection import CompressorProtection
 from .cool_regulation import read_unit_temperature
 from .idle_floor import IdleBasisTracker, apply_idle_setback
-from .setpoint_limits import clamp_target, send_temperature
+from .setpoint_limits import plan_target, send_temperature
+from .target_step import accepted_target, needs_resend, resolve_step
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -155,6 +156,7 @@ class DeviceManager:
             device.is_available = True
             device.current_mode = state.state
             device.current_target_temp = state.attributes.get(ATTR_TEMPERATURE)
+            device.target_temp_step = resolve_step(self.hass, device)
         settle_commands(self.devices.values(), dt_util.utcnow(), self.failed_commands, self.sync_managed)
         self.compressor_protection.observe()
 
@@ -245,8 +247,8 @@ class DeviceManager:
                           self.compressor_protection.blocked_reasons[device.device_id])
             return False
         try:
-            if target_temp is not None:
-                target_temp = clamp_target(self.hass, device, target_temp, self._learned_temp_limits)
+            raw, target_temp, step = plan_target(
+                self.hass, device, mode, target_temp, self._learned_temp_limits)
             if (device.device_id not in self.failed_commands
                     and device.is_commanding() and device.desired_mode == mode
                     and device.desired_temp == target_temp
@@ -256,11 +258,10 @@ class DeviceManager:
                 return True
             mode_changed = device.current_mode != mode
             temp_changed = target_temp is not None and (
-                mode_changed or device.current_target_temp != target_temp
-            )
+                mode_changed or needs_resend(device.current_target_temp, raw, step))
             if not mode_changed and not temp_changed:
                 device.desired_mode = mode
-                device.desired_temp = target_temp
+                device.desired_temp = accepted_target(device.current_target_temp, target_temp)
                 device.command_acknowledged()
                 self.failed_commands.discard(device.device_id)
                 self.compressor_protection.command_succeeded(device, mode)
@@ -270,10 +271,9 @@ class DeviceManager:
                     SERVICE_CLIMATE, SERVICE_SET_HVAC_MODE,
                     {"entity_id": device.entity_id, "hvac_mode": mode}, blocking=True,
                 )
-                # Observability only: a mode call can succeed and a following
-                # temperature call can still raise, in which case start_command()
-                # below is never reached. Stamp here too so last_command_at
-                # reflects every service call that actually went out.
+                # Observability only: a mode call can succeed and a following temperature
+                # call can still raise (start_command() below never runs). Stamp here too
+                # so last_command_at reflects every service call that went out.
                 device.last_command_at = dt_util.utcnow()
                 self.idle_basis.sent(device)
             if temp_changed:

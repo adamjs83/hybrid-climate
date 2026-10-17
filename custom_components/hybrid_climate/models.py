@@ -163,6 +163,7 @@ class Device:
     # Runtime state
     current_mode: str | None = None  # heat, cool, off
     current_target_temp: float | None = None
+    target_temp_step: float | None = None  # resolved each cycle (target_step.resolve_step)
     is_available: bool = True
     # Cooling regulation runtime state (not config; never parsed)
     current_temperature: float | None = None  # unit's own reading

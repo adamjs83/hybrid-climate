@@ -1,7 +1,8 @@
 """Purpose: Select idle heat floors, the takeover pass's cross-zone idle
 target (idle_target), and track dispatched setback basis.
 
-Key dependencies: Loaded config, conflict resolver latch, and device manager.
+Key dependencies: Loaded config, conflict resolver latch, device manager and
+target_step (rounding tolerance).
 Used by: Regular release, startup takeover, and device dispatch.
 """
 from __future__ import annotations
@@ -14,6 +15,7 @@ from .const import (
     HVAC_MODE_COOL, HVAC_MODE_HEAT, IDLE_SETPOINT_BASIS_LOCKOUT_FLOOR,
     IDLE_SETPOINT_BASIS_SETBACK,
 )
+from .target_step import target_tolerance
 
 if TYPE_CHECKING:
     from .conflict_resolver import ConflictResolver
@@ -66,6 +68,12 @@ def heat_idle_setpoint(target: float, setback: float, floor: float | None) -> tu
     return normal, IDLE_SETPOINT_BASIS_SETBACK
 
 
+def _rounded_to(device: Device, target: float) -> bool:
+    """Return whether the commanded temperature is the raw target within step rounding."""
+    desired = device.desired_temp
+    return desired is not None and abs(desired - target) <= target_tolerance(device.target_temp_step)
+
+
 class IdleBasisTracker:
     """Attach an idle heat basis only to a matching physical send."""
 
@@ -93,7 +101,7 @@ class IdleBasisTracker:
         if collecting:
             self.pending[device.device_id] = (target, basis)
         elif (self.sent_serial != before_send and device.desired_mode == HVAC_MODE_HEAT
-              and device.desired_temp == target):
+              and _rounded_to(device, target)):
             device.idle_setpoint_basis = basis
 
     def attach_dispatched(
@@ -105,7 +113,7 @@ class IdleBasisTracker:
         if (success and idle is not None and not owners and mode == HVAC_MODE_HEAT
                 and target == idle[0] and (mode, target, None) in requests
                 and self.sent_serial != before_send
-                and device.desired_mode == mode and device.desired_temp == target):
+                and device.desired_mode == mode and _rounded_to(device, target)):
             device.idle_setpoint_basis = idle[1]
 
 
