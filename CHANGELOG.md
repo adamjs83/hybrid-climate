@@ -3,6 +3,12 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.2] - 2026-10-16
+
+### Changed
+- Documentation only; no behaviour change. The README is now a short landing page (what the integration does, what you get, requirements, installation, a quick start, key ideas, a documentation index and troubleshooting), and the full documentation lives in the `docs/user/` folder: a quick start for your first zone, one page per configuration screen, how staging, holds, wall thermostats, idle setback and outdoor limits work, heating PI and cooling regulation guides, the entity list, the dashboard card, YAML import, the services and status-field references, and troubleshooting by symptom.
+- Corrections to the old README: the hysteresis example and diagram, the staging example (equipment starts only when the error reaches the stage 1 threshold), the wall-thermostat hand-change tolerance (0.1 °F, not 3 °F) and timeout behaviour (a timeout never changes the zone target), and the 1 °F release margin on the outdoor limits.
+
 ## [0.18.1] - 2026-10-16
 
 ### Fixed
