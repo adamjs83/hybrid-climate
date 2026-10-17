@@ -19,6 +19,7 @@ from ..cool_pi_const import (
 )
 from ..capability_check import active_stage_unusable, find_capability_mismatches
 from ..diagnostics import _sensor_snapshot, async_get_config_entry_diagnostics
+from ..hold import hold_payload
 from ..outage_hold import outage_hold_payload
 from .controls import zone_controls
 from .device_control import device_control
@@ -67,6 +68,8 @@ async def async_get_status(
             tou=zone_tou(hass, coordinator.tou_manager, config.tou_global.rate_sensor, zone),
             stage_since=state.stage_start_time.isoformat() if state.stage_start_time else None,
             hvac_action_since=state.hvac_action_since.isoformat() if state.hvac_action_since else None,
+            hold=hold_payload(state.hold),
+            target_source=state.target_source,
         )
         view["sensors"] = {
             entity_id: sensor_values(sensor_view, state, entity_id)

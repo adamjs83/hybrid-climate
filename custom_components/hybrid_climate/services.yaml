@@ -43,6 +43,38 @@ restore_control:
       description: Optional configured zone ID; restores only that zone's devices.
       selector:
         text:
+set_hold:
+  name: Set hold
+  description: >-
+    Start or end one zone's hold. A hold keeps the zone at its current temperatures until
+    it is turned off or, when until or duration is given, until that time; ending it resumes
+    the saved temperatures. Administrator required; request a response.
+  fields:
+    entity_id:
+      description: The zone's climate entity or its Hold switch.
+      required: true
+      selector:
+        entity:
+          integration: hybrid_climate
+          domain:
+            - climate
+            - switch
+    hold:
+      description: True starts (or retimes) the hold; false ends it and resumes saved temperatures.
+      required: true
+      selector:
+        boolean:
+    until:
+      description: Optional end time for the hold; only with hold true, not with duration.
+      selector:
+        datetime:
+    duration:
+      description: Optional hold length in minutes; only with hold true, not with until.
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: min
 set_config:
   name: Set configuration
   description: Validate tuning changes; dry run by default. Apply saves and reloads once.

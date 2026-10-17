@@ -14,6 +14,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 from .coil_dry_out import CoilDryOut
 from .conflict_resolver import ConflictResolver
 from .const import (
@@ -25,11 +26,13 @@ from . import setpoint_manager
 from .control_restore import ControlRestore, post_cycle
 from .device_manager import DeviceManager
 from .external_sync import check_external_device_changes
+from .hold import expire_holds
 from .device_arbitration import queue_mutex_releases, queue_retained_demand, reconcile_dispatch
 from .hvac_action_tracking import stamp_hvac_action_transitions
 from .manual_override import ManualOverrideTracker
 from .occupancy import check_master_occupancy, check_zone_occupancy
 from .pi_controller import PIController
+from .repairs import sync_issues
 from .startup_takeover import StartupTakeover
 from .tou_manager import TouManager
 from .sensor_manager import init_sensor_sample_buffers
@@ -89,8 +92,14 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
         self._zone_target_temps: dict[str, float] = {}  # Heat setpoints
         self._zone_target_temps_cool: dict[str, float] = {}  # Cool setpoints
         self._zone_occupancy: dict[str, bool | None] = {}
+        # Occupancy the zone climates restored; the startup seed uses it while a sensor is unreadable.
+        self._zone_restored_occupancy: dict[str, bool] = {}
+        # False until startup_seed.seed_targets runs; no control cycle runs before that.
+        self.targets_seeded = False
         self._zone_last_observed_occupied: dict[str, datetime] = {}
-        self._sensor_fail_notified: set[str] = set()  # Zones with active sensor failure notifications
+        self._issue_ids: set[str] = set()  # Repairs issues this coordinator raised (repairs.py)
+        self.retired = False  # Set by async_unload_entry; a retired coordinator raises no issues
+        self._device_unavailable_since: dict[str, datetime] = {}  # First unavailable sighting per stage device
         self._sensor_restore_start_times: dict[str, datetime] = {}  # Grace period tracking
 
         # Initialize zone states
@@ -127,11 +136,17 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
         try:
             # 1. Update device states
             await self.device_manager.update_device_states()
+            # A refresh that races setup must not control, arm the takeover or dispatch (#491).
+            if not self.targets_seeded:
+                _LOGGER.debug("Startup seed pending; skipping control cycle")
+                return {"master_state": self.master_state, "zone_states": self.zone_states}
 
             # Detect each physical edit before collecting this cycle's demand.
             await check_external_device_changes(self)
             previous_states = deepcopy(self.zone_states)
             self.device_manager.begin_cycle()
+            # Timed holds that are due resume their saved temperatures this cycle.
+            expire_holds(self, dt_util.utcnow())
 
             # 4. Check master occupancy entity for auto home/away switching
             self._check_master_occupancy()
@@ -178,6 +193,8 @@ class HybridClimateCoordinator(DataUpdateCoordinator):
             stamp_hvac_action_transitions(self.zone_states, previous_states)
 
             post_cycle(self, command_results)
+            # Repairs issues follow this cycle's state, after overrides are evaluated.
+            sync_issues(self)
 
             # 9. Update master state summaries
             update_master_summaries(self.master_state, self.zone_states, self.conflict_resolver, self.master_state.outdoor_temperature, self.config)

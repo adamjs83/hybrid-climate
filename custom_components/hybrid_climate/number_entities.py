@@ -187,11 +187,6 @@ class HybridClimateNumberEntity(NumberEntity):
         if self._attr_native_value is not None:
             await self._update_coordinator(self._attr_native_value)
 
-    @property
-    def name(self) -> str:
-        """Return the parameter name; HA prefixes the zone device name."""
-        return self.entity_description.name
-
     async def async_set_native_value(self, value: float) -> None:
         """Set the value, persist it, and update coordinator."""
         old_value = self._attr_native_value

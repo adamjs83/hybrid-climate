@@ -52,6 +52,13 @@ function hcTemp(value, unit) {
 function hcLabel(value) {
   return hcText(value).replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
+function hcHoldLabel(attributes) {
+  if (!attributes) return null;
+  if (attributes.preset_mode !== "hold") return "Off";
+  const until = attributes.hold_until ? new Date(attributes.hold_until) : null;
+  return until && !Number.isNaN(until.getTime())
+    ? `Until ${until.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "On";
+}
 function hcOrdered(zones, order) {
   const rank = new Map((Array.isArray(order) ? order : []).map((id, index) => [id, index]));
   return [...zones].sort((a, b) => {
@@ -113,7 +120,7 @@ class HybridClimateCard extends HTMLElement {
       this._error = undefined;
       this._structureKey = JSON.stringify((data.entries || []).map((entry) => ({
         entry_id: entry.entry_id, master: entry.master,
-        zones: entry.zones?.map(({ id, name, entity_id, order, controls, devices, outdoor_reset }) => ({ id, name, entity_id, order, controls, devices, outdoor_reset })),
+        zones: entry.zones?.map(({ id, name, entity_id, hold_entity, order, controls, devices, outdoor_reset }) => ({ id, name, entity_id, hold_entity, order, controls, devices, outdoor_reset })),
       })));
       if (this._structureKey !== oldStructure) this._render();
       else {
@@ -169,6 +176,8 @@ class HybridClimateCard extends HTMLElement {
       .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
       select { padding:6px; border:1px solid var(--divider-color); border-radius:6px; background:var(--card-background-color); color:var(--primary-text-color); }
       .fallback { margin-top:6px; }
+      .resume { margin-top:10px; }
+      .resume[hidden] { display:none; }
       .thermostat-row { --ha-card-box-shadow:none; --ha-card-background:transparent; }
       @media (max-width:600px) { .root { grid-template-columns:1fr; gap:12px; } .zone,.master { padding:14px; } }
     `;
@@ -283,6 +292,12 @@ class HybridClimateCard extends HTMLElement {
     this._metric(grid, "Action", () => hcLabel(this._zoneState(zone)?.attributes?.hvac_action || zone.status?.action));
     this._metric(grid, "Stage", () => hcLabel(this._zoneState(zone)?.attributes?.current_stage || zone.status?.stage));
     this._metric(grid, "Active devices", () => (zone.status?.active_devices || []).join(", ") || "None");
+    this._metric(grid, "Hold", () => hcHoldLabel(this._zoneState(zone)?.attributes));
+    if (!zone.hold_entity) return;
+    const resume = hcEl("button", "resume", "Resume saved temperatures"); resume.type = "button";
+    resume.addEventListener("click", () => this._hass.callService("switch", "turn_off", { entity_id: zone.hold_entity }));
+    parent.append(resume);
+    this._refs.push(() => { resume.hidden = this._zoneState(zone)?.attributes?.preset_mode !== "hold"; });
   }
   _targets(parent, zone) {
     const grid = hcEl("div", "metrics targets-metrics"); parent.append(grid);

@@ -63,6 +63,11 @@ def set_master_mode(coordinator: HybridClimateCoordinator, mode: MasterMode) -> 
     coordinator.master_state.mode = mode
     _LOGGER.info("Master mode set to: %s", mode.value)
 
+    # Vacation ends every hold through the resume path (spec v0.18.0 decision 7); other modes keep them.
+    if mode == MasterMode.VACATION:
+        from .hold import end_holds_for_vacation  # deferred: hold.py imports this module
+        end_holds_for_vacation(coordinator)
+
     # Recalculate all zone targets from YAML for the new mode
     apply_mode_setpoints(coordinator)
 
@@ -109,6 +114,14 @@ def _selected_setpoint_name(mode: MasterMode, config: MasterModeConfig,
     return "default"
 
 
+def _zone_occupied(coordinator: HybridClimateCoordinator, zone_id: str) -> bool | None:
+    """Return live occupancy, falling back to the last value the coordinator stored."""
+    occupied = get_zone_occupancy(coordinator, coordinator.config.zones[zone_id])
+    if occupied is None:
+        occupied = coordinator._zone_occupancy.get(zone_id)
+    return occupied
+
+
 def get_effective_setpoints(
     coordinator: HybridClimateCoordinator, zone_id: str,
     override: tuple[str, float] | None = None,
@@ -117,9 +130,7 @@ def get_effective_setpoints(
     """Derive operating heat and cool targets from preset, occupancy, and numbers."""
     zone = coordinator.config.zones[zone_id]
     mode_config = get_current_mode_config(coordinator)
-    occupied = get_zone_occupancy(coordinator, zone)
-    if occupied is None:
-        occupied = coordinator._zone_occupancy.get(zone_id)
+    occupied = _zone_occupied(coordinator, zone_id)
     name = _selected_setpoint_name(coordinator.master_state.mode, mode_config, occupied)
     used_keys: set[str] = set()
 
@@ -186,10 +197,14 @@ def apply_mode_setpoints(
     1. Number entities (number.hybrid_climate_{zone}_{mode}_{heat|cool}_temp)
     2. YAML configuration
 
-    This is called on startup and when master mode changes.
+    This is called on startup and when master mode changes. A held zone is skipped
+    (hold.py); `end_hold` clears the hold before calling this to resume.
     """
     zones = (zone_id,) if zone_id is not None else coordinator.config.zones
     for zone_id in zones:
+        state = coordinator.zone_states.get(zone_id)
+        if state is not None and state.hold is not None:
+            continue
         dependencies: dict[str, set[str]] = {}
         heat_setpoint, cool_setpoint = get_effective_setpoints(
             coordinator, zone_id, override, dependencies
@@ -212,6 +227,12 @@ def apply_mode_setpoints(
             zone_state = coordinator.zone_states.get(zone_id)
             if zone_state:
                 zone_state.target_temperature_cool = cool_setpoint
+
+        if state is not None and (update_heat or update_cool):
+            state.target_source = _selected_setpoint_name(
+                coordinator.master_state.mode, get_current_mode_config(coordinator),
+                _zone_occupied(coordinator, zone_id),
+            )
 
         _LOGGER.debug(
             "Zone %s: mode %s heat=%.1f cool=%s",
@@ -332,6 +353,9 @@ async def set_zone_target_temp(coordinator: HybridClimateCoordinator, zone_id: s
     coordinator._zone_target_temps[zone_id] = temperature
     if zone_state:
         zone_state.target_temperature = temperature
+    # A card edit starts a hold, or updates the held value (spec v0.18.0 §1).
+    from .hold import update_held_target  # deferred: hold.py imports this module
+    update_held_target(coordinator, zone_id, HVAC_MODE_HEAT, temperature)
 
     _LOGGER.info("Zone %s target temp set to: %s", zone_id, temperature)
 
@@ -370,6 +394,8 @@ async def set_zone_target_temp_cool(coordinator: HybridClimateCoordinator, zone_
     coordinator._zone_target_temps_cool[zone_id] = temperature
     if zone_state:
         zone_state.target_temperature_cool = temperature
+    from .hold import update_held_target  # deferred: hold.py imports this module
+    update_held_target(coordinator, zone_id, HVAC_MODE_COOL, temperature)
 
     _LOGGER.info("Zone %s cool target temp set to: %s", zone_id, temperature)
 

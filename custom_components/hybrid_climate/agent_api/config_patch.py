@@ -15,6 +15,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 
+from .. import repairs
 from ..const import DOMAIN
 from ..options_flow.page_const import CONF_LAST_SAVE
 from .audit import audit_saved
@@ -121,5 +122,10 @@ async def async_set_config(
                             else PENDING_SETUP_RECOVERY_MESSAGE)
                 result["errors"].append(issue(None, ERROR_RELOAD_FAILED, recovery))
                 result["recovery"] = recovery
+            # The issue must exist even when the failed reload left no coordinator to raise it.
+            if result["pending"] and current_entry is not None:
+                repairs.raise_pending_apply(hass, entry.entry_id)
+            else:
+                repairs.clear_pending_apply(hass, entry.entry_id)
             result["warnings"].extend(audit_saved(hass, latest, call, data, result))
         return result

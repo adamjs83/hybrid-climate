@@ -3,6 +3,26 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-10-16
+
+### Added
+- **Holds.** A temperature set on a zone's card is now a visible hold: a new `switch.<zone>_hold` entity (and a `hold` preset on the zone climate) stays on until you release it, and the zone keeps that temperature through Home/Away/Sleep/Boost changes, occupancy changes, saved-temperature edits, options saves, reloads and restarts. Turning the switch off (or choosing the `none` preset) resumes the saved temperatures. Entering Vacation ends every hold. The zone climate shows `hold_until` and `target_source`.
+- `hybrid_climate.set_hold` service for timed holds (`until` or `duration` in minutes) and for scripted start/end.
+- The dashboard card's Status row shows the hold and a "Resume saved temperatures" button.
+- Repairs issues (Settings → System → Repairs) for a zone whose sensors failed, a stage device unavailable past the outage grace, a thermostat under manual override, a stage with no usable device, and an Agent API apply whose saved settings are not active. Each clears itself when the condition ends.
+- `get_status` reports each zone's `hold` and `target_source`.
+
+### Changed
+- Entity names and categories (entity ids are unchanged): numbers are now "Heating target: Home / Away / Sleep / Vacation", "Cooling target: Home / Away / Occupied / Unoccupied / Sleep / Vacation" and "Heating PI …", all in the Configuration category; "Heating regulated setpoint" and "Time-of-use state" are Diagnostic. The dashboard card is unaffected.
+- A hand change on a wall thermostat that follows hand changes releases a hold (the wall value becomes the target, as before) but never creates one.
+- The persistent notifications for sensor failure and for every Agent API apply are replaced by Repairs issues; the apply log line is now informational.
+- The nav field on every zone options page has a proper label.
+
+### Fixed
+- The first control cycle after a restart or reload could command the default temperatures for about a minute before the saved ones (seen as Basement 75/65 instead of 76/68). Targets are now seeded once, after all entities have restored, before the first command.
+- A held zone now keeps its held temperatures during time-of-use peak and pre-conditioning periods; price adjustments resume when the hold ends.
+- A zone whose occupancy sensor was removed in the options no longer keeps its old occupied/unoccupied state (and target) after a reload.
+
 ## [0.17.4] - 2026-10-16
 
 ### Added

@@ -1,6 +1,7 @@
 """Purpose: Zone climate entity; its friendly name is the zone device name.
 
-Key dependencies: coordinator.py, models.py, const.py, cool_pi.py (cooling PI attributes/restore).
+Key dependencies: coordinator.py, models.py, const.py, cool_pi.py (cooling PI attributes/restore),
+zone_hold_attrs.py (hold preset and attributes, restored `occupied`), hold.py (preset values).
 Used by: climate.py (platform setup creates one per zone).
 """
 from __future__ import annotations
@@ -47,7 +48,11 @@ from .const import (
 from .cool_pi import cool_pi_attributes, restore_cool_pi_state
 from .coordinator import HybridClimateCoordinator
 from .models import HvacAction as ModelHvacAction, HvacMode as ModelHvacMode, ZoneConfig
+from .hold import HOLD_PRESET, PRESET_NONE_VALUE
 from .regulation_limits import reset_regulation_limits
+from .zone_hold_attrs import (
+    async_set_zone_preset, restore_zone_attributes, zone_hold_attributes, zone_preset_mode,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,6 +61,9 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
     """Climate entity for a single zone in Hybrid Climate."""
 
     _attr_has_entity_name = True
+    # Translates the preset states only; `_attr_name = None` keeps the device name.
+    _attr_translation_key = "zone"
+    _attr_preset_modes = [PRESET_NONE_VALUE, HOLD_PRESET]
     _unrecorded_attributes = frozenset({ATTR_TIME_IN_STAGE, ATTR_SENSOR_VALUES, ATTR_SENSOR_SMOOTHED_VALUES})
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.COOL, HVACMode.OFF, HVACMode.AUTO]
 
@@ -96,6 +104,8 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
             self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
         else:
             self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+        self._range_mode = has_heat and has_cool
+        self._attr_supported_features |= ClimateEntityFeature.PRESET_MODE
 
         self._attr_target_temperature_step = 0.5
         self._attr_precision = 0.1  # Show temperature with 1 decimal place
@@ -147,6 +157,7 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
             # NOTE: We intentionally do NOT restore target temperature as a manual override.
             # The zone should use the mode's configured setpoint (home/away/etc).
             # Manual overrides are transient and should be cleared on restart.
+            restore_zone_attributes(self.coordinator, self.zone_id, last_state.attributes)
 
             # Restore PI accumulated error (critical for smooth PI behavior)
             if last_state.attributes.get(ATTR_ACCUMULATED_ERROR) is not None:
@@ -255,7 +266,7 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
         For dual-setpoint zones, this returns None (use target_temperature_low/high).
         """
         # Only return single target if not in range mode
-        if self._attr_supported_features == ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
+        if self._range_mode:
             return None
         zone_state = self.coordinator.get_zone_state(self.zone_id)
         if zone_state is None:
@@ -270,7 +281,7 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
     @property
     def target_temperature_low(self) -> float | None:
         """Return the low target temperature (heat setpoint) for range mode."""
-        if self._attr_supported_features != ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
+        if not self._range_mode:
             return None
         zone_state = self.coordinator.get_zone_state(self.zone_id)
         if zone_state is None:
@@ -280,7 +291,7 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
     @property
     def target_temperature_high(self) -> float | None:
         """Return the high target temperature (cool setpoint) for range mode."""
-        if self._attr_supported_features != ClimateEntityFeature.TARGET_TEMPERATURE_RANGE:
+        if not self._range_mode:
             return None
         zone_state = self.coordinator.get_zone_state(self.zone_id)
         if zone_state is None:
@@ -351,6 +362,7 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
                 ATTR_REGULATED_SETPOINT: round(zone_state.regulated_setpoint, 1) if zone_state.regulated_setpoint is not None else None,
             })
             attrs.update(cool_pi_attributes(zone_state))
+        attrs.update(zone_hold_attributes(self.coordinator, self.zone_id))
 
         return attrs
 
@@ -416,6 +428,16 @@ class ZoneClimateEntity(ClimateEntity, RestoreEntity):
             # Heat-only or default
             await self.coordinator.set_zone_target_temp(self.zone_id, temperature)
 
+        await self.coordinator.async_request_refresh()
+
+    @property
+    def preset_mode(self) -> str:
+        """Return `hold` while the zone is held, otherwise `none`."""
+        return zone_preset_mode(self.coordinator, self.zone_id)
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        """Start (`hold`) or end (`none`) the zone's hold, then refresh."""
+        await async_set_zone_preset(self.coordinator, self.zone_id, preset_mode)
         await self.coordinator.async_request_refresh()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:

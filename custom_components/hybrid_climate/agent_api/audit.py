@@ -1,6 +1,6 @@
-"""Purpose: Attribute each saved Agent API edit across three audit destinations.
+"""Purpose: Attribute each saved Agent API edit in the logbook and the log.
 
-Key dependencies: HA persistent notifications, logbook, and Python logging.
+Key dependencies: HA logbook and Python logging (a pending apply is a Repairs issue, repairs.py).
 Used by: Agent API configuration save transaction.
 """
 
@@ -10,13 +10,13 @@ import json
 import logging
 from typing import Any
 
-from homeassistant.components import logbook, persistent_notification
+from homeassistant.components import logbook
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 
 from ..const import DOMAIN
 from .const import (
-    AUDIT_LOGBOOK_NAME, AUDIT_NOTIFICATION_TITLE, ERROR_AUDIT_FAILED, REASON_KEY,
+    AUDIT_LOGBOOK_NAME, ERROR_AUDIT_FAILED, REASON_KEY,
 )
 from .patch_validation import issue
 
@@ -38,15 +38,9 @@ def audit_saved(
         "pending": result["pending"], "errors": result["errors"],
     }
     message = json.dumps(record, sort_keys=True, allow_nan=False)
-    notification_message = (
-        f"{message}\n{result['recovery']}" if result["pending"] else message
-    )
-    _LOGGER.warning("Agent API configuration saved: %s", message)
+    _LOGGER.info("Agent API configuration saved: %s", message)
     failures: list[dict[str, Any]] = []
     destinations = (
-        ("persistent_notification", lambda: persistent_notification.async_create(
-            hass, notification_message, title=AUDIT_NOTIFICATION_TITLE,
-            notification_id=f"hybrid_climate_agent_{call.context.id}")),
         ("logbook", lambda: logbook.async_log_entry(
             hass, AUDIT_LOGBOOK_NAME, message, domain=DOMAIN, context=call.context)),
     )

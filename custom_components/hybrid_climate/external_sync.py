@@ -22,6 +22,7 @@ from .const import (
     HVAC_MODE_HEAT,
     HVAC_MODE_OFF,
 )
+from .hold import TARGET_SOURCE_THERMOSTAT, release_hold
 from .models import Device, HvacAction, ZoneState
 from .zone_helpers import get_allow_command_devices_for_zone
 
@@ -43,7 +44,12 @@ def _sync_zone_setpoint_from_device(
     Only syncs when the device is unambiguously in heat or cool mode.
     For ambiguous modes (off, heat_cool, fan_only, transient), skips sync
     because we can't determine which setpoint the user intended to change.
+    An accepted change releases a hold without resuming (spec v0.18.0 decision 9).
     """
+    if current_mode in (HVAC_MODE_COOL, HVAC_MODE_HEAT):
+        release_hold(coordinator, zone_id)
+        if zone_state:
+            zone_state.target_source = TARGET_SOURCE_THERMOSTAT
     if current_mode == HVAC_MODE_COOL:
         # The physical cool target includes the sent regulation offset; recover the user's zone target.
         cool_target = current_temp - cool_offset

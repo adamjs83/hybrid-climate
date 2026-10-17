@@ -93,6 +93,7 @@
         "title": "Zone: {zone_name} - Basics",
         "description": "Name and temperature sensors. With Weighted aggregation, each selected sensor gets a weight field below, labelled by its entity ID (1.0 is normal; higher gives it more influence). Save stores this page only; while adding a zone, Next goes on to the stage pages.",
         "data": {
+          "nav_action": "Action",
           "zone_id": "Zone ID",
           "name": "Display name",
           "sensors": "Temperature sensors",
@@ -110,6 +111,7 @@
         "title": "Zone: {zone_name} - Setpoints & occupancy",
         "description": "This zone's setpoints are number entities; change them on the entity or a dashboard: {setpoint_numbers}. This page sets occupancy; Save stores this page only.",
         "data": {
+          "nav_action": "Save or cancel",
           "occupancy_enabled": "Enable occupancy override",
           "occupancy_entity": "Occupancy sensor",
           "occupancy_off_delay": "Occupancy off delay",
@@ -127,6 +129,7 @@
         "title": "Zone: {zone_name} - Heat Stages",
         "description": "Configure heating stages. Stage 1 activates first; Stage 2 adds devices when Stage 1 can't keep up. Stages 3 and up are kept as saved. Save stores this page only.",
         "data": {
+          "nav_action": "Action",
           "has_heat_stages": "Enable heating for this zone",
           "stage1_devices": "Stage 1 devices",
           "stage1_threshold": "Stage 1 threshold",
@@ -146,6 +149,7 @@
         "title": "Zone: {zone_name} - Cool Stages",
         "description": "Configure cooling stages. Stages 3 and up are kept as saved. Save stores this page only; while adding a zone, Save stores the new zone.",
         "data": {
+          "nav_action": "Action",
           "has_cool_stages": "Enable cooling for this zone",
           "stage1_devices": "Stage 1 devices",
           "stage1_threshold": "Stage 1 threshold",
@@ -163,6 +167,7 @@
         "title": "Zone: {zone_name} - Behaviour",
         "description": "How **{zone_name}** starts and stops, pauses for open doors and windows, shares a running heat source, limits by outdoor temperature, and which wall thermostats it follows. Save stores this page only.",
         "data": {
+          "nav_action": "Save or cancel",
           "hysteresis": "Start/stop temperature buffer",
           "min_runtime": "Minimum runtime",
           "entities": "Door/window contacts",
@@ -194,6 +199,9 @@
       "zone_regulation": {
         "title": "Zone: {zone_name} - Regulation",
         "description": "Regulation for **{zone_name}**. Save stores this page only.\n\n{heating_note}{cooling_note}",
+        "data": {
+          "nav_action": "Save or cancel"
+        },
         "sections": {
           "heating": {
             "name": "Heating",
@@ -354,6 +362,7 @@
         "title": "Zone: {zone_name} - Electricity price adjustments",
         "description": "{tou_note}Configure Time-of-Use rate optimization. When a peak rate period is detected, the system pre-conditions before the peak and relaxes setpoints during the peak to reduce electric device runtime. Save stores this page only.",
         "data": {
+          "nav_action": "Save or cancel",
           "tou_heat_enabled": "Enable TOU for heating",
           "tou_heat_pre_condition_minutes": "Heat pre-condition minutes",
           "tou_heat_relaxation_amount": "Heat relaxation amount",
@@ -501,6 +510,16 @@
   },
   "entity": {
     "climate": {
+      "zone": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "none": "None",
+              "hold": "Hold"
+            }
+          }
+        }
+      },
       "master": {
         "name": "Master",
         "state_attributes": {
@@ -567,6 +586,15 @@
       },
       "outdoor_source": {
         "name": "Outdoor source"
+      },
+      "zone_temperature": {
+        "name": "Temperature"
+      },
+      "heating_regulated_setpoint": {
+        "name": "Heating regulated setpoint"
+      },
+      "tou_state": {
+        "name": "Time-of-use state"
       }
     },
     "binary_sensor": {
@@ -580,6 +608,73 @@
     "button": {
       "restore_control": {
         "name": "Restore control"
+      }
+    },
+    "switch": {
+      "hold": {
+        "name": "Hold"
+      }
+    },
+    "number": {
+      "heat_home": {
+        "name": "Heating target: Home"
+      },
+      "heat_away": {
+        "name": "Heating target: Away"
+      },
+      "heat_sleep": {
+        "name": "Heating target: Sleep"
+      },
+      "heat_vacation": {
+        "name": "Heating target: Vacation"
+      },
+      "cool_home": {
+        "name": "Cooling target: Home"
+      },
+      "cool_away": {
+        "name": "Cooling target: Away"
+      },
+      "cool_occupied": {
+        "name": "Cooling target: Occupied"
+      },
+      "cool_unoccupied": {
+        "name": "Cooling target: Unoccupied"
+      },
+      "cool_sleep": {
+        "name": "Cooling target: Sleep"
+      },
+      "cool_vacation": {
+        "name": "Cooling target: Vacation"
+      },
+      "pi_kp": {
+        "name": "Heating PI proportional gain"
+      },
+      "pi_ki": {
+        "name": "Heating PI integral gain"
+      },
+      "pi_k_ext": {
+        "name": "Heating PI outdoor gain"
+      },
+      "pi_offset_max": {
+        "name": "Heating PI maximum offset"
+      },
+      "pi_balance_point": {
+        "name": "Heating PI outdoor balance point"
+      },
+      "cool_pi_kp": {
+        "name": "Cooling PI proportional gain"
+      },
+      "cool_pi_ki": {
+        "name": "Cooling PI integral gain"
+      },
+      "cool_pi_offset_max": {
+        "name": "Cooling PI maximum push"
+      },
+      "cool_pi_k_ext": {
+        "name": "Cooling PI outdoor gain"
+      },
+      "cool_pi_balance_point": {
+        "name": "Cooling PI outdoor balance point"
       }
     }
   },
@@ -663,6 +758,50 @@
           "description": "Optional configured zone ID; restores only that zone's devices."
         }
       }
+    },
+    "set_hold": {
+      "name": "Set hold",
+      "description": "Start or end one zone's hold. A hold keeps the zone at its current temperatures until it is turned off or, when until or duration is given, until that time; ending it resumes the saved temperatures. Administrator required; request a response.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity",
+          "description": "The zone's climate entity or its Hold switch."
+        },
+        "hold": {
+          "name": "Hold",
+          "description": "True starts (or retimes) the hold; false ends it and resumes saved temperatures."
+        },
+        "until": {
+          "name": "Until",
+          "description": "Optional end time for the hold; only with hold true, not with duration."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Optional hold length in minutes; only with hold true, not with until."
+        }
+      }
+    }
+  },
+  "issues": {
+    "sensor_failure": {
+      "title": "{zone}: temperature sensors not reporting",
+      "description": "The temperature sensors for zone {zone} ({zone_entity}) have stopped reporting, so Hybrid Climate has suspended control of this zone. Its devices stay tracked and shutdown limits still apply.\n\nCheck that the sensors are online, or choose different sensors in {page}. This issue clears on its own when the sensors report again."
+    },
+    "device_unavailable": {
+      "title": "{device_name} is unavailable",
+      "description": "{device_name} ({device}) is used by Hybrid Climate stages and has been unavailable for longer than the device grace period. Zones that use it run on their other devices until it returns.\n\nCheck the device and the integration that provides it. The grace period is set in {page}. This issue clears on its own when the device is available again."
+    },
+    "manual_override": {
+      "title": "{device_name} was changed outside Hybrid Climate",
+      "description": "{device_name} ({device}) no longer matches the mode or temperature Hybrid Climate last sent it; someone or something changed it directly. Hybrid Climate leaves it as set.\n\nTo hand control back, set the device back, or, when no zone is running it, press Restore control on {page}. This issue clears on its own when the device matches Hybrid Climate's command again."
+    },
+    "stage_without_usable_devices": {
+      "title": "{zone}: no usable device in the active stage",
+      "description": "Zone {zone} ({zone_entity}) wants its current stage, but none of that stage's devices can run: each is missing, unavailable, blocked by another zone or lacks the needed heat or cool capability.\n\nCheck those devices, or change the stage in {page}. This issue clears on its own when a device in the stage can run again."
+    },
+    "pending_apply": {
+      "title": "Saved Hybrid Climate settings are not active",
+      "description": "A configuration change saved through the Agent API (hybrid_climate.set_config) did not become active; Home Assistant is still running the previous settings. The saved settings were not rolled back.\n\nOpen {page} and reload the integration; if that is not offered, restart Home Assistant. This issue clears on its own once the saved settings are active."
     }
   }
 }

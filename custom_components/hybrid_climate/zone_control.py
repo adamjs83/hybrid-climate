@@ -23,8 +23,8 @@ from .const import (
     HVAC_MODE_OFF,
     MIN_HEAT_COOL_GAP,
     REGULATION_PI,
-    SENSOR_RESTORE_GRACE_PERIOD_SECONDS,
     SENSOR_STATUS_FAILED,
+    TOU_STATE_NORMAL,
 )
 from .device_release import reconcile_devices, restart_delay_active, zone_disabled
 from .models import (
@@ -221,7 +221,6 @@ async def update_zone(
 ) -> None:
     """Update a single zone's state and control its devices."""
     zone_state = coordinator.zone_states[zone_id]
-
     # Get aggregated indoor temperature
     current_temp = await get_zone_temperature(
         zone_config,
@@ -264,42 +263,16 @@ async def update_zone(
                 coordinator, zone_id, zone_config, zone_state, forced_off=True
             )
         zone_state.is_available = False
+        # repairs.sync_issues raises the sensor_failure Repairs issue from this status.
         zone_state.sensor_status = SENSOR_STATUS_FAILED
-
-        # Edge-triggered notification: only fire once per failure event
-        if zone_id not in coordinator._sensor_fail_notified:
-            coordinator._sensor_fail_notified.add(zone_id)
-            zone_name = zone_config.name or zone_id
-            grace_minutes = SENSOR_RESTORE_GRACE_PERIOD_SECONDS // 60
-            await coordinator.hass.services.async_call(
-                "persistent_notification",
-                "create",
-                {
-                    "title": "Hybrid Climate: Sensor Failure",
-                    "message": (
-                        f"Zone '{zone_name}' has no sensor data for over "
-                        f"{grace_minutes} minutes. "
-                        f"Zone control is suspended. Devices remain tracked and "
-                        f"shutdown restrictions still apply. Check sensor connectivity."
-                    ),
-                    "notification_id": f"hybrid_climate_sensor_fail_{zone_id}",
-                },
-            )
         return
 
     zone_state.is_available = True
 
-    # Sensor recovery: clear failed state and dismiss notification
+    # Sensor recovery: clear failed state (repairs.sync_issues then clears the issue)
     if zone_state.sensor_status == SENSOR_STATUS_FAILED:
         zone_state.sensor_status = None
         _LOGGER.info("Zone %s: sensors recovered, resuming control", zone_id)
-    if zone_id in coordinator._sensor_fail_notified:
-        coordinator._sensor_fail_notified.discard(zone_id)
-        await coordinator.hass.services.async_call(
-            "persistent_notification",
-            "dismiss",
-            {"notification_id": f"hybrid_climate_sensor_fail_{zone_id}"},
-        )
 
     # Get target temperatures (dual-setpoint: heat and cool)
     heat_setpoint = get_zone_target_temp(coordinator, zone_id, zone_config)
@@ -312,7 +285,11 @@ async def update_zone(
     # Apply TOU setpoint adjustments (pre-conditioning or peak relaxation)
     # These adjusted values feed into mode determination, staging, and PI —
     # the rest of the control loop is unaware of TOU.
-    if heat_setpoint is not None:
+    if zone_state.hold is not None:
+        # A hold wins over price adjustments (spec §1).
+        coordinator.tou_manager.record_held(zone_id)
+        zone_state.tou_state = TOU_STATE_NORMAL
+    elif heat_setpoint is not None:
         heat_setpoint, cool_setpoint, tou_state = (
             coordinator.tou_manager.get_adjusted_setpoints(
                 zone_id, zone_config, heat_setpoint, cool_setpoint
@@ -320,7 +297,7 @@ async def update_zone(
         )
         zone_state.tou_state = tou_state
     else:
-        zone_state.tou_state = "normal"
+        zone_state.tou_state = TOU_STATE_NORMAL
 
     # Store effective (TOU-adjusted) setpoints in zone state
     zone_state.target_temperature = heat_setpoint

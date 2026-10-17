@@ -14,6 +14,7 @@ from homeassistant.loader import async_get_integration
 from ..const import DOMAIN
 from .const import (
     SERVICE_GET_CONFIG, SERVICE_GET_STATUS, SERVICE_RESTORE_CONTROL, SERVICE_SET_CONFIG,
+    SERVICE_SET_HOLD,
 )
 from .revision import ledger
 
@@ -21,8 +22,12 @@ from .revision import ledger
 async def async_register_services(hass: HomeAssistant) -> None:
     """Register permanent administrator-only services once per HA process."""
     # Keep revision helpers importable in test environments without voluptuous.
-    from .service_handlers import async_handle_restore_control, async_handle_service
-    from .service_schemas import CONFIG_SCHEMA, RESTORE_SCHEMA, SET_SCHEMA, STATUS_SCHEMA
+    from .service_handlers import (
+        async_handle_restore_control, async_handle_service, async_handle_set_hold,
+    )
+    from .service_schemas import (
+        CONFIG_SCHEMA, RESTORE_SCHEMA, SET_HOLD_SCHEMA, SET_SCHEMA, STATUS_SCHEMA,
+    )
 
     state = ledger(hass)
     if state.get("registered"):
@@ -31,11 +36,13 @@ async def async_register_services(hass: HomeAssistant) -> None:
     state["version"] = integration.version
     handler = partial(async_handle_service, hass)
     restore_handler = partial(async_handle_restore_control, hass)
+    hold_handler = partial(async_handle_set_hold, hass)
     for name, schema, response, service_handler in (
         (SERVICE_GET_STATUS, STATUS_SCHEMA, SupportsResponse.ONLY, handler),
         (SERVICE_GET_CONFIG, CONFIG_SCHEMA, SupportsResponse.ONLY, handler),
         (SERVICE_SET_CONFIG, SET_SCHEMA, SupportsResponse.OPTIONAL, handler),
         (SERVICE_RESTORE_CONTROL, RESTORE_SCHEMA, SupportsResponse.OPTIONAL, restore_handler),
+        (SERVICE_SET_HOLD, SET_HOLD_SCHEMA, SupportsResponse.OPTIONAL, hold_handler),
     ):
         hass.services.async_register(DOMAIN, name, service_handler,
                                      schema=schema, supports_response=response)

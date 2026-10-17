@@ -69,6 +69,10 @@ class TouManager:
         """
         self._last_adjustment[zone_id] = self._neutral_adjustment()
 
+    def record_held(self, zone_id: str) -> None:
+        """Record no adjustment for a held zone; a hold pauses TOU (spec v0.18.0 §1)."""
+        self._record_neutral(zone_id)
+
     def _get_rate_period(self) -> str | None:
         """Read current rate period from the external sensor."""
         rate_sensor_id = self._coordinator.config.tou_global.rate_sensor

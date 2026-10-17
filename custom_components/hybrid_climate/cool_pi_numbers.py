@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from homeassistant.components.number import NumberMode
 from homeassistant.const import UnitOfTemperature
+from homeassistant.helpers.entity import EntityCategory
 
 from .cool_pi_const import (
     MAX_COOL_PI_BALANCE_POINT,
@@ -37,7 +38,8 @@ from .number_definitions import HybridClimateNumberEntityDescription
 COOL_PI_NUMBERS: tuple[HybridClimateNumberEntityDescription, ...] = (
     HybridClimateNumberEntityDescription(
         key=NUMBER_KEY_COOL_PI_KP,
-        name="Cooling PI proportional gain",
+        translation_key="cool_pi_kp",
+        entity_category=EntityCategory.CONFIG,
         icon="mdi:chart-bell-curve",
         native_min_value=MIN_COOL_PI_KP,
         native_max_value=MAX_COOL_PI_KP,
@@ -48,7 +50,8 @@ COOL_PI_NUMBERS: tuple[HybridClimateNumberEntityDescription, ...] = (
     ),
     HybridClimateNumberEntityDescription(
         key=NUMBER_KEY_COOL_PI_KI,
-        name="Cooling PI integral gain",
+        translation_key="cool_pi_ki",
+        entity_category=EntityCategory.CONFIG,
         icon="mdi:sigma",
         native_min_value=MIN_COOL_PI_KI,
         native_max_value=MAX_COOL_PI_KI,
@@ -59,7 +62,8 @@ COOL_PI_NUMBERS: tuple[HybridClimateNumberEntityDescription, ...] = (
     ),
     HybridClimateNumberEntityDescription(
         key=NUMBER_KEY_COOL_PI_OFFSET_MAX,
-        name="Cooling PI maximum push",
+        translation_key="cool_pi_offset_max",
+        entity_category=EntityCategory.CONFIG,
         icon="mdi:snowflake-thermometer",
         native_min_value=MIN_COOL_PI_OFFSET_MAX,
         native_max_value=MAX_COOL_PI_OFFSET_MAX,
@@ -71,7 +75,8 @@ COOL_PI_NUMBERS: tuple[HybridClimateNumberEntityDescription, ...] = (
     ),
     HybridClimateNumberEntityDescription(
         key=NUMBER_KEY_COOL_PI_K_EXT,
-        name="Cooling PI outdoor gain",
+        translation_key="cool_pi_k_ext",
+        entity_category=EntityCategory.CONFIG,
         icon="mdi:weather-sunny",
         native_min_value=MIN_COOL_PI_K_EXT,
         native_max_value=MAX_COOL_PI_K_EXT,
@@ -82,7 +87,8 @@ COOL_PI_NUMBERS: tuple[HybridClimateNumberEntityDescription, ...] = (
     ),
     HybridClimateNumberEntityDescription(
         key=NUMBER_KEY_COOL_PI_BALANCE_POINT,
-        name="Cooling PI outdoor balance point",
+        translation_key="cool_pi_balance_point",
+        entity_category=EntityCategory.CONFIG,
         icon="mdi:scale-balance",
         native_min_value=MIN_COOL_PI_BALANCE_POINT,
         native_max_value=MAX_COOL_PI_BALANCE_POINT,

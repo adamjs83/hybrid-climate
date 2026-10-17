@@ -16,7 +16,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import ATTR_SENSOR_SMOOTHED_VALUES, ATTR_SENSOR_VALUES, DOMAIN
@@ -95,7 +95,7 @@ class ZoneTemperatureSensor(SensorEntity):
         self.zone_name = zone_name
 
         self._attr_unique_id = f"{DOMAIN}_{zone_id}_temperature"
-        self._attr_name = "Temperature"
+        self._attr_translation_key = "zone_temperature"
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -175,7 +175,8 @@ class RegulatedSetpointSensor(SensorEntity):
         self.zone_name = zone_name
 
         self._attr_unique_id = f"{DOMAIN}_{zone_id}_regulated_setpoint"
-        self._attr_name = "Regulated Setpoint"
+        self._attr_translation_key = "heating_regulated_setpoint"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -257,7 +258,8 @@ class TouStateSensor(SensorEntity):
         self.zone_name = zone_name
 
         self._attr_unique_id = f"{DOMAIN}_{zone_id}_tou_state"
-        self._attr_name = "TOU State"
+        self._attr_translation_key = "tou_state"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def device_info(self) -> DeviceInfo:

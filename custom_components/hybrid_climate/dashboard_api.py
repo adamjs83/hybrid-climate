@@ -20,6 +20,7 @@ from .cool_pi_const import (
     ATTR_COOL_ACCUMULATED_ERROR, ATTR_COOL_REGULATED_SETPOINT, ATTR_COOL_REGULATION_OFFSET,
 )
 from .diagnostics import _zone_snapshot
+from .hold import HOLD_KEY
 from .cool_pi_numbers import COOL_PI_NUMBERS
 from .number_definitions import PI_NUMBERS, SETPOINT_NUMBERS
 
@@ -129,6 +130,7 @@ async def async_dashboard_info(hass: HomeAssistant) -> dict[str, Any]:
                 "id": zone_id,
                 "name": zone.name,
                 "entity_id": _entity_id(registry, "climate", f"{DOMAIN}_{entry_id}_{zone_id}"),
+                "hold_entity": _entity_id(registry, "switch", f"{DOMAIN}_{zone_id}_{HOLD_KEY}"),
                 "order": order,
                 "outdoor_reset": {
                     "heat_override_set": bool(override and override.heat_override_set),

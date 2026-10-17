@@ -18,6 +18,17 @@ SERVICE_GET_STATUS = "get_status"
 SERVICE_GET_CONFIG = "get_config"
 SERVICE_SET_CONFIG = "set_config"
 SERVICE_RESTORE_CONTROL = "restore_control"
+SERVICE_SET_HOLD = "set_hold"
+ENTITY_ID_KEY = "entity_id"
+HOLD_KEY = "hold"
+UNTIL_KEY = "until"
+DURATION_KEY = "duration"
+HOLD_DURATION_MIN = 1
+HOLD_DURATION_MAX = 1440
+HOLD_TARGET_MESSAGE = "entity_id must be a Hybrid Climate zone climate or hold switch"
+HOLD_EXCLUSIVE_MESSAGE = "until and duration are mutually exclusive"
+HOLD_TIMING_NEEDS_HOLD_MESSAGE = "until and duration are only allowed with hold: true"
+HOLD_PAST_UNTIL_MESSAGE = "until must be in the future"
 ENTRY_ID_KEY = "entry_id"
 ZONE_ID_KEY = "zone_id"
 INCLUDE_STRUCTURE_KEY = "include_structure"
@@ -100,7 +111,6 @@ PENDING_UNLOAD_RECOVERY_MESSAGE = (
     "Fix the device-release failure, then restart Home Assistant. "
     "Saved options were not rolled back."
 )
-AUDIT_NOTIFICATION_TITLE = "Hybrid Climate configuration change"
 AUDIT_LOGBOOK_NAME = "Hybrid Climate Agent API"
 
 REASON_DETAILS = {

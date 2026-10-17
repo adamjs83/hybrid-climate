@@ -435,6 +435,15 @@ class ZoneConfig:
 
 
 @dataclass
+class HoldState:
+    """An active zone hold: when it began, when it ends (None = untimed) and the held targets."""
+    since: datetime
+    until: datetime | None
+    heat: float | None
+    cool: float | None
+
+
+@dataclass
 class ZoneState:
     """Runtime state for a zone.
 
@@ -489,6 +498,10 @@ class ZoneState:
 
     # TOU state
     tou_state: str = "normal"  # "normal", "pre_conditioning", "peak_relaxed"
+
+    # Hold (v0.18.0, hold.py): None when not held; where the current targets came from.
+    hold: HoldState | None = None
+    target_source: str = "default"
 
     def time_in_current_stage(self) -> int:
         """Get seconds in current stage."""

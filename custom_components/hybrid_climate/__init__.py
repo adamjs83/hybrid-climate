@@ -32,12 +32,15 @@ from .const import (
 from .coordinator import HybridClimateCoordinator
 from .dashboard_api import async_setup_dashboard
 from .device_release import release_removed_config_devices
+from .repairs import clear_all_issues, clear_pending_apply
+from .startup_seed import seed_targets
 from .takeover_skip import should_skip_takeover, skip_startup_pass
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
     Platform.CLIMATE, Platform.NUMBER, Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON,
+    Platform.SWITCH,
 ]
 
 # YAML configuration schema
@@ -149,11 +152,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Forward to climate and number platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    # Entities have restored their state; seed targets before anything is dispatched (#491).
+    seed_targets(coordinator)
+
     # Initial refresh
     await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id][DATA_ACTIVE_REVISION] = prepared_hash
     ledger(hass)["active"][entry.entry_id] = prepared_hash
+    # The saved options are active now; a pending apply from a failed reload is over.
+    clear_pending_apply(hass, entry.entry_id)
     source_options = deepcopy(prepared_options)
     source_options.get(CONF_UI_CONFIG, {}).pop(CONF_NUMBER_VALUES, None)
     hass.data[DOMAIN][entry.entry_id][DATA_PREPARED_OPTIONS] = source_options
@@ -177,9 +185,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             else:
                 if not await release_removed_config_devices(existing["coordinator"], new_config):
                     return False
+        # Retire first so a cycle finishing during the unload cannot raise new issues.
+        existing["coordinator"].retired = True
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
+    if existing and not unload_ok:
+        # The runtime stays: resume normal issue tracking.
+        existing["coordinator"].retired = False
     if unload_ok:
+        if existing:
+            # Drop this entry's Repairs issues with its runtime (pending_apply excepted).
+            clear_all_issues(hass, existing["coordinator"])
         hass.data[DOMAIN].pop(entry.entry_id, None)
         _LOGGER.info("Hybrid Climate integration unloaded")
 
