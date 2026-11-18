@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.2] - 2026-11-17
+
+### Fixed
+- Automations and scripts can now call `hybrid_climate.set_hold`, `hybrid_climate.restore_control` and `hybrid_climate.get_status`. Before, these calls failed with "Unauthorized" because automations run without a user. A call made as a named user still needs an administrator, and `get_config` and `set_config` remain administrator-only.
+
 ## [0.20.1] - 2026-10-17
 
 ### Fixed

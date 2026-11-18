@@ -2,7 +2,7 @@
 
 This page documents the Hybrid Climate services: reading status and configuration, changing tuning values, restoring control and holding a zone. Read it when you write automations, scripts or REST calls. For the fields the read services return, see [Status and config fields](status-fields.md).
 
-All services are for administrators. Use `get_config` to discover your zone IDs, stage positions, device IDs and writable fields. Use only entity ids you discover that way; never build them by hand. `entry_id` is optional only when exactly one Hybrid Climate entry is loaded.
+All services are for administrators. Automations and scripts, which run without a user, can also call `get_status`, `restore_control` and `set_hold`; `get_config` and `set_config` need an administrator. Use `get_config` to discover your zone IDs, stage positions, device IDs and writable fields. Use only entity ids you discover that way; never build them by hand. `entry_id` is optional only when exactly one Hybrid Climate entry is loaded.
 
 ## The services
 
