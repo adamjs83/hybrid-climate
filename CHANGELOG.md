@@ -3,6 +3,11 @@
 All notable user-facing changes to Hybrid Climate are listed here.
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.3] - 2026-11-17
+
+### Changed
+- Automations and scripts can now call every Hybrid Climate service, including `get_config` and `set_config`. A call made as a named user still needs an administrator.
+
 ## [0.20.2] - 2026-11-17
 
 ### Fixed

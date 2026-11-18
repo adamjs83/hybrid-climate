@@ -39,19 +39,17 @@ class APIServiceValidationError(ServiceValidationError, vol.Invalid):
     """Preserve service validation semantics while HA REST maps the error to 400."""
 
 
-async def async_require_admin(
-    hass: HomeAssistant, call: ServiceCall, allow_system: bool = False,
-) -> None:
-    """Reject deleted and non-administrator users; reject system calls unless allowed.
+async def async_require_admin(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Reject deleted and non-administrator users; allow system calls.
 
-    Automations and scripts call services with no user (context.user_id is None).
-    allow_system lets those through, as HA's own admin services do; a call that names
-    a user must still resolve to an administrator.
+    Automations and scripts call services with no user (context.user_id is None);
+    those pass, as with HA's own async_register_admin_service. A call that names a
+    user must still resolve to an administrator.
     """
     user_id = call.context.user_id
-    if user_id is None and allow_system:
+    if user_id is None:
         return
-    user = await hass.auth.async_get_user(user_id) if user_id else None
+    user = await hass.auth.async_get_user(user_id)
     if user is None or not user.is_admin:
         raise Unauthorized()
 
@@ -96,8 +94,7 @@ def check_targets(runtime: Mapping[str, Any], data: Mapping[str, Any]) -> None:
 
 async def async_handle_service(hass: HomeAssistant, call: ServiceCall) -> dict[str, Any]:
     """Authorize and resolve before dispatching one of the three API services."""
-    # get_status is read-only and safe for automations; get_config/set_config stay admin-only.
-    await async_require_admin(hass, call, allow_system=call.service == SERVICE_GET_STATUS)
+    await async_require_admin(hass, call)
     schema = {SERVICE_GET_STATUS: STATUS_SCHEMA, SERVICE_GET_CONFIG: CONFIG_SCHEMA,
               SERVICE_SET_CONFIG: SET_SCHEMA}.get(call.service)
     if schema is None:
@@ -117,8 +114,7 @@ async def async_handle_service(hass: HomeAssistant, call: ServiceCall) -> dict[s
 
 async def async_handle_restore_control(hass: HomeAssistant, call: ServiceCall) -> dict[str, Any]:
     """Authorize, resolve the entry, and run one manual restore pass (spec §2.1)."""
-    # Same effect as the per-zone Restore control button, which needs no admin role.
-    await async_require_admin(hass, call, allow_system=True)
+    await async_require_admin(hass, call)
     try:
         data = RESTORE_SCHEMA(dict(call.data))
     except vol.Invalid as error:
@@ -174,8 +170,7 @@ def hold_until(data: Mapping[str, Any]) -> datetime | None:
 
 async def async_handle_set_hold(hass: HomeAssistant, call: ServiceCall) -> dict[str, Any]:
     """Start, retime or end one zone's hold (spec v0.18.0 §1) and return its hold state."""
-    # A hold is what a card edit or the Hold switch already does; automations may set one.
-    await async_require_admin(hass, call, allow_system=True)
+    await async_require_admin(hass, call)
     try:
         data = SET_HOLD_SCHEMA(dict(call.data))
     except vol.Invalid as error:
